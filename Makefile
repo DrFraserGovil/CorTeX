@@ -13,13 +13,13 @@ all:
 test:
 	@mkdir -p $(BUILD_DIR)
 	@cmake -S . -B $(BUILD_DIR) -DENABLE_TESTS=ON
-	@cmake --build $(BUILD_DIR) --target foamtex_test
-	@./foamtex_test
+	@cmake --build $(BUILD_DIR) --target cortex_test
+	@./cortex_test
 
 # 3. Clean up only the build artifacts
 purge:
 	@rm -rf $(BUILD_DIR)
-	@rm -f foamtex foamtex_test
+	@rm -f cortex cortex_test
 
 clean:
 	@make purge
