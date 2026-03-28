@@ -9,8 +9,10 @@ add_compile_options(-O3 -Wall)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # 2. Find sources first
-file(GLOB_RECURSE ALL_SOURCES "sentinel/src/*.cpp")
+file(GLOB_RECURSE ALL_SOURCES "sentinel/*.cpp")
 list(FILTER ALL_SOURCES EXCLUDE REGEX ".build/.*")
+list(FILTER ALL_SOURCES EXCLUDE REGEX "libs/*")
+list(FILTER ALL_SOURCES EXCLUDE REGEX "src/*")   ## temporary ignore the old src for some destructive changes
 
 # 3. Create the executable target
 add_executable(cortex ${ALL_SOURCES})

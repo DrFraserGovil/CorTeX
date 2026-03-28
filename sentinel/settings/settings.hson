@@ -1,0 +1,95 @@
+Settings : Global
+{
+    Categories
+    {
+        System
+        {
+            Members
+            { 
+                int DispatchDelay
+                {
+                    trigger="delay"
+                    default=10
+                    note="The delay time (in ms) between detecting a filechange and dispatching the calls to the manager."
+                }
+                bool Verbose
+                {
+                    trigger="v"
+                    default=false
+                    note="Inlcudes debugging error messages. Overrides quiet"
+                }
+                bool Quiet
+                {
+                    trigger="q"
+                    default=false
+                    note="Suppresses all outputs except errors."
+                }
+                std::string TerminationFileName
+                {
+                    trigger="terminate"
+                    default="cortex_disable_message"
+                    note="If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted."
+                }
+                
+    
+            }
+            Categories
+            {
+                Headless
+                {
+                    Members
+                    {
+                         bool Active
+                        {
+                            trigger="headless"
+                            default=false
+                            note="If true, runs the system in headless mode"
+                        }
+                        std::string CortexName
+                        {
+                            default="My Project"
+                            trigger = "headless-name"
+                            note = "The default name given to a new cortex instantiation if not provided by the user"
+                        }
+                        std::string AuthorName
+                        {
+                            default="Me"
+                            trigger = "headless-author"
+                            note = "The default author assigned to a new cortex instantiation if not provided by the user"
+                        }
+                    }
+                }
+            }    
+        }
+        Files
+        {
+            Members
+            {
+                std::string TargetDirectory
+                {
+                    default="."
+                    trigger="i"
+                    note="The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory."
+                }
+                std::string OutputDirectory
+                {
+                    default="compiled"
+                    trigger="directory"
+                    note="The name of the output directory which will contain the compiled pdf"
+                }
+                std::vector<std::string> WatchedPatterns
+                {
+                    default={"*.tex","*.dat"}
+                    trigger="watch"
+                    note="The file patterns included in the indexing process"
+                }
+                std::vector<std::string> IgnoredPatterns
+                {
+                    default={"*.git*","*.build*","*/libs*","*.cortex"}
+                    trigger="ignore"
+                    note="Directory name patterns which are not watched for new files"
+                }
+            }
+        }
+    }
+}
