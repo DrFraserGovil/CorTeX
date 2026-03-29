@@ -3,7 +3,7 @@
 #include "JSL/modules/Display/Log.h"
 #include <filesystem>
 #include "../constants.h"
-
+#include <regex>
 
 Interface::Interface(Metadata cache) : MetaCache(cache) 
 {
@@ -12,13 +12,106 @@ Interface::Interface(Metadata cache) : MetaCache(cache)
     {
         ConfigureLocation();
     }
-    InterfaceLoop();
 }
 
-void Interface::InterfaceLoop()
+void Interface::BeginLoop()
 {
-     //do things
+    LOG(INFO) << "Launching interactive mode...";
+    std::string cmd;
+    bool continues = true;
+    while (continues)
+    {
+        std::cout << ">> ";
+        std::getline(std::cin,cmd);
+        continues = ParseCommand(cmd);
+    }
 }
+
+void Interface::ConnectWorker(Worker & w)
+{
+    Handler = &w;
+}
+
+void NicePrint(std::string_view key, std::string_view value)
+{
+    int buffer = 10 - key.size();
+    buffer = std::max(1,buffer);
+    LOG(INFO) << "  " << key << std::string(buffer, ' ') << txt::Blue << value;
+}
+
+bool voicedConcerns = false;
+
+void ShowSettings(std::vector<std::string_view> & cmd)
+{
+    auto orig = JSL::Log::Config.Level;
+    JSL::Log::Config.Level = INFO;
+    if (orig < INFO && !voicedConcerns)
+    {
+        voicedConcerns = true;
+        LOG(WARN) << "Calling a display command whilst in quiet mode. Quietness temporarily disabled.";
+    }
+    if (cmd.size() == 2)
+    {
+        auto out = Settings.GetDescription((std::string)cmd[1]);
+        if (out.size() == 0)
+        {
+            LOG(WARN) << txt::Italics << "No matches found.";
+            return;
+        }
+        if (out.size() > 1)
+        {
+            LOG(INFO) << txt::Italics << out.size() << " matches found";
+        }
+        for (auto & setting : out)
+        {
+            LOG(INFO) << txt::Bold << txt::Green << setting.Name;
+            NicePrint("Key",setting.Key);
+            auto cleantype = std::regex_replace(setting.Type, std::regex("std::"), "");
+            NicePrint("Datatype",cleantype);
+            if (setting.CurrentValue == setting.DefaultValue)
+            {
+                NicePrint("Value",setting.CurrentValue + " (default)");
+            }
+            else
+            {
+                NicePrint("Value",setting.CurrentValue);
+                NicePrint("Default",setting.DefaultValue);
+            }
+            NicePrint("Notes",setting.Description);
+        }
+    }
+    else
+    {
+        LOG(WARN) << "Show command accepts a single argument (" << cmd.size() << " provided)";
+    }
+    JSL::Log::Config.Level = orig;
+}
+
+
+bool Interface::ParseCommand(std::string_view cmd)
+{
+    const auto & equal = JSL::insensitiveEquals;
+    if (equal(cmd,"exit"))
+    {
+        Handler->AddTask(Task::Shutdown());
+        return false;
+    }
+
+    auto array = JSL::split(cmd," ");
+
+    if (equal(array[0],"show"))
+    {
+        ShowSettings(array);
+        return true;
+    }
+
+    
+  
+    
+    LOG(WARN) << "Unrecognised command";
+    return true;
+};
+
 
 
 

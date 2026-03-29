@@ -46,9 +46,9 @@ class SettingsObject_System_Headless
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("Active","headless",(bool)Active,(bool)false,"If true, runs the system in headless mode").Query(parameter,found);
-			JSL::ParameterDescription("CortexName","headless-name",(std::string)CortexName,(std::string)"My Project","The default name given to a new cortex instantiation if not provided by the user").Query(parameter,found);
-			JSL::ParameterDescription("AuthorName","headless-author",(std::string)AuthorName,(std::string)"Me","The default author assigned to a new cortex instantiation if not provided by the user").Query(parameter,found);
+			JSL::ParameterDescription("Active","bool","headless",(bool)Active,(bool)false,"If true, runs the system in headless mode").Query(parameter,found);
+			JSL::ParameterDescription("CortexName","std::string","headless-name",(std::string)CortexName,(std::string)"My Project","The default name given to a new cortex instantiation if not provided by the user").Query(parameter,found);
+			JSL::ParameterDescription("AuthorName","std::string","headless-author",(std::string)AuthorName,(std::string)"Me","The default author assigned to a new cortex instantiation if not provided by the user").Query(parameter,found);
 		}
 };
 class SettingsObject_System
@@ -98,10 +98,10 @@ class SettingsObject_System
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("DispatchDelay","delay",(int)DispatchDelay,(int)10,"The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.").Query(parameter,found);
-			JSL::ParameterDescription("Verbose","v",(bool)Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
-			JSL::ParameterDescription("Quiet","q",(bool)Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
-			JSL::ParameterDescription("TerminationFileName","terminate",(std::string)TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
+			JSL::ParameterDescription("DispatchDelay","int","delay",(int)DispatchDelay,(int)10,"The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.").Query(parameter,found);
+			JSL::ParameterDescription("Verbose","bool","v",(bool)Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
+			JSL::ParameterDescription("Quiet","bool","q",(bool)Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
+			JSL::ParameterDescription("TerminationFileName","std::string","terminate",(std::string)TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
 			Headless.GetDescription(parameter,found);
 		}
 };
@@ -147,10 +147,10 @@ class SettingsObject_Files
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("TargetDirectory","i",(std::string)TargetDirectory,(std::string)".","The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory.").Query(parameter,found);
-			JSL::ParameterDescription("OutputDirectory","directory",(std::string)OutputDirectory,(std::string)"compiled","The name of the output directory which will contain the compiled pdf").Query(parameter,found);
-			JSL::ParameterDescription("WatchedPatterns","watch",(std::vector<std::string>)WatchedPatterns,(std::vector<std::string>){"*.tex","*.dat"},"The file patterns included in the indexing process").Query(parameter,found);
-			JSL::ParameterDescription("IgnoredPatterns","ignore",(std::vector<std::string>)IgnoredPatterns,(std::vector<std::string>){"*.git*","*.build*","*/libs*","*.cortex"},"Directory name patterns which are not watched for new files").Query(parameter,found);
+			JSL::ParameterDescription("TargetDirectory","std::string","i",(std::string)TargetDirectory,(std::string)".","The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory.").Query(parameter,found);
+			JSL::ParameterDescription("OutputDirectory","std::string","directory",(std::string)OutputDirectory,(std::string)"compiled","The name of the output directory which will contain the compiled pdf").Query(parameter,found);
+			JSL::ParameterDescription("WatchedPatterns","std::vector<std::string>","watch",(std::vector<std::string>)WatchedPatterns,(std::vector<std::string>){"*.tex","*.dat"},"The file patterns included in the indexing process").Query(parameter,found);
+			JSL::ParameterDescription("IgnoredPatterns","std::vector<std::string>","ignore",(std::vector<std::string>)IgnoredPatterns,(std::vector<std::string>){"*.git*","*.build*","*/libs*","*.cortex"},"Directory name patterns which are not watched for new files").Query(parameter,found);
 		}
 };
 class SettingsObject
