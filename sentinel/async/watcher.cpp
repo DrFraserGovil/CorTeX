@@ -1,8 +1,9 @@
 #include "watcher.h"
+#include "worker.h"
 
-
-SystemWatcher::SystemWatcher(std::filesystem::path root): Root(root)
+SystemWatcher::SystemWatcher(std::filesystem::path root, Worker & W): Root(root), Manager(W)
  {
+    //initialise the inotify process
     watcherID= inotify_init();
     if (watcherID < 0)
     {
@@ -12,12 +13,11 @@ SystemWatcher::SystemWatcher(std::filesystem::path root): Root(root)
 
     //find directories to watch
     PopulateDirectories("");
-    Active = true;
 }
 
 SystemWatcher::~SystemWatcher()
 {
-    Stop();
+    if (Active)   Stop();
 }
 
 bool is_prefix(const fs::path& parent, const fs::path& child) {
@@ -61,12 +61,10 @@ std::set<fs::path> SystemWatcher::PopulateDirectories(std::filesystem::path targ
     auto tmp = fsdir(root,ec);
     if (!ec)
     {
-        int rootWd = inotify_add_watch(watcherID, root.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
-        watchMap.Insert(rootWd,target);
+        WatchDirectory(target);
         newDirectories.insert(target);
     }
 
-    LOG(DEBUG) << "Beginning scan " << root;
 
     // Scan through directories, adding them to the watchlist.
     for (auto   it = fsdir(root,ec); it != fsdir(); ++it) 
@@ -74,24 +72,19 @@ std::set<fs::path> SystemWatcher::PopulateDirectories(std::filesystem::path targ
         if (ec || !it->is_directory()) continue;
         
         auto p = it->path();
-        auto relp = fs::relative(p,Root);
-        //We can specify directories to ignore - prevents monitoring git/build.
-        bool isIgnored = glob(relp.string(),Settings.Files.IgnoredPatterns);
+        auto rel_path = fs::relative(p,Root);
+
+        bool isIgnored = WatchDirectory(rel_path);
         if (isIgnored)
         {
             it.disable_recursion_pending();
-            LOG(DEBUG) << "Ignoring " << relp << " and all descendents";
             continue;
         }
         else
         {
-            LOG(DEBUG) << "Watching " << relp;
-            int wd = inotify_add_watch(watcherID, p.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
-            watchMap.Insert(wd,relp);
-            newDirectories.insert(relp);
+            newDirectories.insert(rel_path);
         }
     }  
-    LOG(DEBUG) << "population complete";
 
     return newDirectories;
 }
@@ -107,43 +100,50 @@ std::set<fs::path> SystemWatcher::GetWatchedDirs()
 }
 
 
-std::condition_variable & SystemWatcher::Start()
+void SystemWatcher::Start()
 {
-    Stop();
-    lastEventTime = std::chrono::steady_clock::now();
-    Listener = std::thread(&SystemWatcher::ListenLoop,this);
+    if (Active) Stop();
     Active = true;
-    return waitVariable;
+    Listener = std::thread(&SystemWatcher::ListenLoop,this);
 }
 void SystemWatcher::Stop()
 {
+    std::lock_guard<std::mutex> lock(Manager.JobLock);
     // Wake the watchdog up to see that it's hometime
-    {
-        std::lock_guard<std::mutex> lock(bucketMutex);
-        Active = false;
-    }
+
+    Active = false;
+    auto terminate = (*watchMap.begin()).second / Settings.System.TerminationFileName; //ensure the file ends up in a directory that is being watched
+    
+    JSL::writeStringToFile(terminate,"",std::ios::out);
     if (Listener.joinable())
     {
         Listener.join();
     }
+    fs::remove(terminate);
+    Manager.Notify.notify_all();
+    LOG(DEBUG) << "Watcher process terminated";
+    
 }
 
 void SystemWatcher::ListenLoop()
 {
+    LOG(DEBUG) << "Watcher listen loop initialised";
+    Manager.Initialised = true;
+    Manager.Notify.notify_all();
     char buffer[4096];
     while (Active)
     {
         int length = read(watcherID, buffer, sizeof(buffer)); //blocks, so this thread is then quiet!
-        if (length < 0) break;
+        if (length < 0 || !Active) break;
 
         AddToBuffer(buffer, length);
     }
+    
 }
 
 void SystemWatcher::AddToBuffer(char * buffer, int length)
 {
     int i = 0;
-    bool interrupt = false;
     std::set<FileReport> batch;
     while (i < length)
     {
@@ -154,10 +154,9 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
 
             if (report.IsTerminationSequence)
             {
-                LOG(DEBUG) << report.Path.stem() << " detected. Foamtex disabled once current batch complete. File will be deleted.";
                 Active=false;
                 std::filesystem::remove(report.Path);
-                interrupt = true;
+                return;
             }
             else
             {            
@@ -174,40 +173,59 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
         }
         i += sizeof(struct inotify_event) + event->len;
     }
-    if (interrupt || !batch.empty())
+    if (!batch.empty())
     {
-        { ///extra scope makes sure the lock expires before the notify called
-            std::lock_guard<std::mutex> lock(bucketMutex);
-            lastEventTime = std::chrono::steady_clock::now();
-
-            for (auto& report : batch)
+       
+        std::lock_guard<std::mutex> lock(WatcherSync);
+        for (auto& report : batch)
+        {
+            // Check if we already have a report for this path
+            auto [it, inserted] = dirtyFiles.try_emplace(report.Path, report);
+            
+            if (!inserted) 
             {
-                // Check if we already have a report for this path
-                auto [it, inserted] = dirtyFiles.try_emplace(report.Path, report);
-                
-                if (!inserted) 
-                {
-                    // Path already existed! Absorption:
-                    // Merge the new mask into the existing one
-                    it->second.Mask |= report.Mask;
-                }
+                // Path already existed! Absorption:
+                // Merge the new mask into the existing one
+                it->second.Mask |= report.Mask;
             }
+            LOG(INFO) << "Watcher reports change to " << report.Path;
         }
-        waitVariable.notify_one(); // Wake up the watchdog
     }
+    Manager.FileChange();
 }
 
 
-void SystemWatcher::NewWatchedDirectory(std::filesystem::path path)
+bool SystemWatcher::WatchDirectory(std::filesystem::path path)
 {
     if (!glob(path.string(),Settings.Files.IgnoredPatterns))
     {
-        LOG(DEBUG) << "A new directory was created (" << path << "), monitoring ";
-        int wd = inotify_add_watch(watcherID, path.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
-        // watchMap[wd] = path;
-    }   
+        LOG(DEBUG) << "Watching directory " << path;   
+        auto fullpath = Root/path;
+        int wd = inotify_add_watch(watcherID, fullpath.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
+        watchMap.Insert(wd,path);
+        return false;
+    }
+    else
+    {
+        return true;
+    }
 }
 
 void SystemWatcher::DeleteWatchedDirectory(std::filesystem::path path)
 {
+}
+
+
+std::set<FileReport> SystemWatcher::GetTask()
+{
+    std::set<FileReport> out;
+    {
+        std::lock_guard<std::mutex> lock(WatcherSync);
+        for (auto & report : dirtyFiles)
+        {
+            out.insert(report.second);
+        }
+        dirtyFiles.clear();
+    }
+    return out;
 }

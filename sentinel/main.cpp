@@ -3,7 +3,7 @@
 Initialise_JSL_Log()
 #include <iostream>
 
-#include "settings/settings.hpp"
+#include "settings/validate.h"
 #include "interface/initialiser.h"
 #include "interface/interface.h"
 #include "async/watcher.h"
@@ -13,15 +13,19 @@ int main(int argc, char**argv)
 {
     Initialiser Bootstrap(argc,argv);
     Interface Menu(Bootstrap.GetMetadata());
+    ValidateSettings();    
 
-    Worker W;
-    Menu.ConnectWorker(W);
+    Worker Manager;
+    SystemWatcher Watcher(Settings.Files.TargetDirectory,Manager);
     
-    SystemWatcher Watch(Settings.Files.TargetDirectory);
-    Watch.GetWatchedDirs();
+    Menu.ConnectWorker(Manager);
+    Watcher.GetWatchedDirs();
+    
     if (!Settings.System.Headless.Active)
     {
-        auto workthread = std::thread(&Worker::WorkerLoop,&W,std::ref(Watch)); //launch the asynchronous worker
+        auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker (also spawns a second threead internally)
+        
+        // Manager.WaitForInitialisation();
         Menu.BeginLoop();
 
         if (workthread.joinable())

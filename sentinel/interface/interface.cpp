@@ -16,14 +16,16 @@ Interface::Interface(Metadata cache) : MetaCache(cache)
 
 void Interface::BeginLoop()
 {
+    Handler->WaitForInitialisation();
     LOG(INFO) << "Launching interactive mode...";
     std::string cmd;
     bool continues = true;
     while (continues)
     {
-        std::cout << ">> ";
+        std::cout << txt::Blue << ">> " << txt::Cyan;
         std::getline(std::cin,cmd);
-        continues = ParseCommand(cmd);
+        continues = ParseCommand(JSL::trim(cmd));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
 
@@ -36,7 +38,7 @@ void NicePrint(std::string_view key, std::string_view value)
 {
     int buffer = 10 - key.size();
     buffer = std::max(1,buffer);
-    LOG(INFO) << "  " << key << std::string(buffer, ' ') << txt::Blue << value;
+    LOG(INFO) << "  " << txt::Green << key << std::string(buffer, ' ') << txt::White << value;
 }
 
 bool voicedConcerns = false;
@@ -66,7 +68,7 @@ void ShowSettings(std::vector<std::string_view> & cmd)
         {
             LOG(INFO) << txt::Bold << txt::Green << setting.Name;
             NicePrint("Key",setting.Key);
-            auto cleantype = std::regex_replace(setting.Type, std::regex("std::"), "");
+            auto cleantype = std::regex_replace(setting.TypeString, std::regex("std::"), "");
             NicePrint("Datatype",cleantype);
             if (setting.CurrentValue == setting.DefaultValue)
             {
@@ -87,11 +89,12 @@ void ShowSettings(std::vector<std::string_view> & cmd)
     JSL::Log::Config.Level = orig;
 }
 
+const auto & equal = JSL::insensitiveEquals;
 
 bool Interface::ParseCommand(std::string_view cmd)
 {
-    const auto & equal = JSL::insensitiveEquals;
-    if (equal(cmd,"exit"))
+    cmd = JSL::trim(cmd);
+    if (equal(cmd,"exit") ||equal(cmd,"shutdown"))
     {
         Handler->AddTask(Task::Shutdown());
         return false;
@@ -99,21 +102,50 @@ bool Interface::ParseCommand(std::string_view cmd)
 
     auto array = JSL::split(cmd," ");
 
+    bool foundCommand = CommandSearcher(array);
+    if (!foundCommand)
+    {
+        std::swap(array[1],array[0]);
+        foundCommand = CommandSearcher(array);
+    }
+
+    if (!foundCommand)
+    {
+        LOG(WARN) << "Unknown command";
+    }
+    return true;
+}
+
+bool Interface::CommandSearcher(std::vector<std::string_view> & array)
+{
     if (equal(array[0],"show"))
     {
         ShowSettings(array);
         return true;
     }
 
-    
+    if (equal(array[0],"set"))
+    {
+        Handler->AddTask(Task::ParameterChange(array));
+        return true;
+    }
+    if (equal(array[0],"add"))
+    {
+        auto T = Task::ParameterChange(array);
+        T.Type = Instruction::VectorAdd;
+        Handler->AddTask(T);
+        return true;
+    }
+    if (equal(array[0],"remove") || equal(array[0],"rm"))
+    {
+        auto T = Task::ParameterChange(array);
+        T.Type = Instruction::VectorRemove;
+        Handler->AddTask(T);
+        return true;
+    }
   
-    
-    LOG(WARN) << "Unrecognised command";
-    return true;
+    return false;
 };
-
-
-
 
 
 std::string GetAnswer(std::string prompt, std::string defaultAnswer,bool headless)

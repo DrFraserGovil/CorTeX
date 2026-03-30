@@ -14,5 +14,6 @@ class Interface
         bool Headless;
         void ConfigureLocation();
         bool ParseCommand(std::string_view cmd);
+        bool CommandSearcher(std::vector<std::string_view> & data);
         Metadata MetaCache;
 };

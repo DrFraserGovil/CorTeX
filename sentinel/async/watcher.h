@@ -13,39 +13,35 @@
 #include "../constants.h"
 #include "../settings/settings.hpp"
 #include "report.h"
-
+// #include "worker.h"
+class Worker;
 
 class SystemWatcher
 {
     public:
     
-        SystemWatcher(std::filesystem::path root);
+        SystemWatcher(std::filesystem::path root,Worker & W);
         ~SystemWatcher();
-        std::condition_variable & Start();
+        void Start();
         void Stop();
         
         std::set<fs::path> PopulateDirectories(std::filesystem::path root);
         void RemoveWatches(fs::path root);
         std::set<fs::path> GetWatchedDirs();
-        bool Active;
-        std::mutex bucketMutex;
-        std::map<fs::path,FileReport> dirtyFiles;
-        std::chrono::steady_clock::time_point lastEventTime;
+        bool Active=false;
         const fs::path Root;
+        std::set<FileReport> GetTask();    
     private:
-        // WikiNetwork Network;
+        std::map<fs::path,FileReport> dirtyFiles;
+        Worker & Manager;
         int watcherID;
         BiAccessMap<int,fs::path> watchMap;
-        std::condition_variable waitVariable;
 
         void AddToBuffer(char * buffer, int length);
-        
-        void ProcessBuffer(const std::set<std::filesystem::path>  & batch)
-        {
-            LOG(DEBUG) << "Processing batch of size " << batch.size();         
-        }
+
+        std::mutex WatcherSync;
        
-        void NewWatchedDirectory(std::filesystem::path path);
+        bool WatchDirectory(std::filesystem::path path);
         
         void DeleteWatchedDirectory(std::filesystem::path path);
         

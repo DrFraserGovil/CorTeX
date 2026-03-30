@@ -19,8 +19,11 @@ add_executable(cortex ${ALL_SOURCES})
 
 # 4. Define the JSL interface library
 add_library(jsl INTERFACE)
+# target_include_directories(jsl INTERFACE 
+#     ${CMAKE_CURRENT_SOURCE_DIR}/sentinel/libs
+# )
 target_include_directories(jsl INTERFACE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/sentinel/libs
+    ${CMAKE_CURRENT_SOURCE_DIR}/../
 )
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

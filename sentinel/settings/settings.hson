@@ -85,8 +85,14 @@ Settings : Global
                 }
                 std::vector<std::string> IgnoredPatterns
                 {
-                    default={"*.git*","*.build*","*/libs*","*.cortex"}
+                    default={"*.git*","*.build*","*.cortex","*sentinel*"}
                     trigger="ignore"
+                    note="Directory name patterns which are not watched for new files"
+                }
+                std::vector<int> Test
+                {
+                    default={1,2,3,4,5}
+                    trigger="a"
                     note="Directory name patterns which are not watched for new files"
                 }
             }

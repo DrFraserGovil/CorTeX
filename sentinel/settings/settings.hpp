@@ -30,6 +30,12 @@ class SettingsObject_System_Headless
 			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",configFile,configDelimiter).Value();
 			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",configFile,configDelimiter).Value();
 		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			Active = JSL::Parameter<bool>(Active,"headless",linevec).Value();
+			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",linevec).Value();
+			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",linevec).Value();
+		}
 		std::string ToText()
 		{
 			std::ostringstream s;
@@ -46,9 +52,9 @@ class SettingsObject_System_Headless
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("Active","bool","headless",(bool)Active,(bool)false,"If true, runs the system in headless mode").Query(parameter,found);
-			JSL::ParameterDescription("CortexName","std::string","headless-name",(std::string)CortexName,(std::string)"My Project","The default name given to a new cortex instantiation if not provided by the user").Query(parameter,found);
-			JSL::ParameterDescription("AuthorName","std::string","headless-author",(std::string)AuthorName,(std::string)"Me","The default author assigned to a new cortex instantiation if not provided by the user").Query(parameter,found);
+			JSL::ParameterDescription("Active","bool","headless",Active,(bool)false,"If true, runs the system in headless mode").Query(parameter,found);
+			JSL::ParameterDescription("CortexName","std::string","headless-name",CortexName,(std::string)"My Project","The default name given to a new cortex instantiation if not provided by the user").Query(parameter,found);
+			JSL::ParameterDescription("AuthorName","std::string","headless-author",AuthorName,(std::string)"Me","The default author assigned to a new cortex instantiation if not provided by the user").Query(parameter,found);
 		}
 };
 class SettingsObject_System
@@ -78,6 +84,14 @@ class SettingsObject_System
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",configFile,configDelimiter).Value();
 			Headless.Configure(configFile,configDelimiter);
 		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			DispatchDelay = JSL::Parameter<int>(DispatchDelay,"delay",linevec).Value();
+			Verbose = JSL::Parameter<bool>(Verbose,"v",linevec).Value();
+			Quiet = JSL::Parameter<bool>(Quiet,"q",linevec).Value();
+			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",linevec).Value();
+			Headless.ParseLine(linevec);
+		}
 		std::string ToText()
 		{
 			std::ostringstream s;
@@ -98,10 +112,10 @@ class SettingsObject_System
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("DispatchDelay","int","delay",(int)DispatchDelay,(int)10,"The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.").Query(parameter,found);
-			JSL::ParameterDescription("Verbose","bool","v",(bool)Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
-			JSL::ParameterDescription("Quiet","bool","q",(bool)Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
-			JSL::ParameterDescription("TerminationFileName","std::string","terminate",(std::string)TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
+			JSL::ParameterDescription("DispatchDelay","int","delay",DispatchDelay,(int)10,"The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.").Query(parameter,found);
+			JSL::ParameterDescription("Verbose","bool","v",Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
+			JSL::ParameterDescription("Quiet","bool","q",Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
+			JSL::ParameterDescription("TerminationFileName","std::string","terminate",TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
 			Headless.GetDescription(parameter,found);
 		}
 };
@@ -114,13 +128,15 @@ class SettingsObject_Files
 		std::string TargetDirectory = ".";
 		std::string OutputDirectory = "compiled";
 		std::vector<std::string> WatchedPatterns = {"*.tex","*.dat"};
-		std::vector<std::string> IgnoredPatterns = {"*.git*","*.build*","*/libs*","*.cortex"};
+		std::vector<std::string> IgnoredPatterns = {"*.git*","*.build*","*.cortex","*sentinel*"};
+		std::vector<int> Test = {1,2,3,4,5};
 		void Parse(int argc, char** argv)
 		{
 			TargetDirectory = JSL::Parameter<std::string>(TargetDirectory,"i",argc,argv).Value();
 			OutputDirectory = JSL::Parameter<std::string>(OutputDirectory,"directory",argc,argv).Value();
 			WatchedPatterns = JSL::Parameter<std::vector<std::string>>(WatchedPatterns,"watch",argc,argv).Value();
 			IgnoredPatterns = JSL::Parameter<std::vector<std::string>>(IgnoredPatterns,"ignore",argc,argv).Value();
+			Test = JSL::Parameter<std::vector<int>>(Test,"a",argc,argv).Value();
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
@@ -128,6 +144,15 @@ class SettingsObject_Files
 			OutputDirectory = JSL::Parameter<std::string>(OutputDirectory,"directory",configFile,configDelimiter).Value();
 			WatchedPatterns = JSL::Parameter<std::vector<std::string>>(WatchedPatterns,"watch",configFile,configDelimiter).Value();
 			IgnoredPatterns = JSL::Parameter<std::vector<std::string>>(IgnoredPatterns,"ignore",configFile,configDelimiter).Value();
+			Test = JSL::Parameter<std::vector<int>>(Test,"a",configFile,configDelimiter).Value();
+		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			TargetDirectory = JSL::Parameter<std::string>(TargetDirectory,"i",linevec).Value();
+			OutputDirectory = JSL::Parameter<std::string>(OutputDirectory,"directory",linevec).Value();
+			WatchedPatterns = JSL::Parameter<std::vector<std::string>>(WatchedPatterns,"watch",linevec).Value();
+			IgnoredPatterns = JSL::Parameter<std::vector<std::string>>(IgnoredPatterns,"ignore",linevec).Value();
+			Test = JSL::Parameter<std::vector<int>>(Test,"a",linevec).Value();
 		}
 		std::string ToText()
 		{
@@ -136,6 +161,7 @@ class SettingsObject_Files
 			s << "directory " << JSL::MakeString(OutputDirectory) << "\n";
 			s << "watch " << JSL::MakeString(WatchedPatterns) << "\n";
 			s << "ignore " << JSL::MakeString(IgnoredPatterns) << "\n";
+			s << "a " << JSL::MakeString(Test) << "\n";
 			return s.str();
 		}
 		void Help(JSL::HelpMessages & help)
@@ -143,14 +169,16 @@ class SettingsObject_Files
 			help.AddMessage("SettingsObject_Files","i",".","TargetDirectory","The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory.");
 			help.AddMessage("SettingsObject_Files","directory","compiled","OutputDirectory","The name of the output directory which will contain the compiled pdf");
 			help.AddMessage("SettingsObject_Files","watch",(std::vector<std::string>){"*.tex","*.dat"},"WatchedPatterns","The file patterns included in the indexing process");
-			help.AddMessage("SettingsObject_Files","ignore",(std::vector<std::string>){"*.git*","*.build*","*/libs*","*.cortex"},"IgnoredPatterns","Directory name patterns which are not watched for new files");
+			help.AddMessage("SettingsObject_Files","ignore",(std::vector<std::string>){"*.git*","*.build*","*.cortex","*sentinel*"},"IgnoredPatterns","Directory name patterns which are not watched for new files");
+			help.AddMessage("SettingsObject_Files","a",(std::vector<int>){1,2,3,4,5},"Test","Directory name patterns which are not watched for new files");
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
-			JSL::ParameterDescription("TargetDirectory","std::string","i",(std::string)TargetDirectory,(std::string)".","The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory.").Query(parameter,found);
-			JSL::ParameterDescription("OutputDirectory","std::string","directory",(std::string)OutputDirectory,(std::string)"compiled","The name of the output directory which will contain the compiled pdf").Query(parameter,found);
-			JSL::ParameterDescription("WatchedPatterns","std::vector<std::string>","watch",(std::vector<std::string>)WatchedPatterns,(std::vector<std::string>){"*.tex","*.dat"},"The file patterns included in the indexing process").Query(parameter,found);
-			JSL::ParameterDescription("IgnoredPatterns","std::vector<std::string>","ignore",(std::vector<std::string>)IgnoredPatterns,(std::vector<std::string>){"*.git*","*.build*","*/libs*","*.cortex"},"Directory name patterns which are not watched for new files").Query(parameter,found);
+			JSL::ParameterDescription("TargetDirectory","std::string","i",TargetDirectory,(std::string)".","The target directory to launch the cortex process in. If no argument is provided, activates in the current working directory.").Query(parameter,found);
+			JSL::ParameterDescription("OutputDirectory","std::string","directory",OutputDirectory,(std::string)"compiled","The name of the output directory which will contain the compiled pdf").Query(parameter,found);
+			JSL::ParameterDescription("WatchedPatterns","std::vector<std::string>","watch",WatchedPatterns,(std::vector<std::string>){"*.tex","*.dat"},"The file patterns included in the indexing process").Query(parameter,found);
+			JSL::ParameterDescription("IgnoredPatterns","std::vector<std::string>","ignore",IgnoredPatterns,(std::vector<std::string>){"*.git*","*.build*","*.cortex","*sentinel*"},"Directory name patterns which are not watched for new files").Query(parameter,found);
+			JSL::ParameterDescription("Test","std::vector<int>","a",Test,(std::vector<int>){1,2,3,4,5},"Directory name patterns which are not watched for new files").Query(parameter,found);
 		}
 };
 class SettingsObject
@@ -183,6 +211,11 @@ class SettingsObject
 		{
 			System.Configure(configFile,configDelimiter);
 			Files.Configure(configFile,configDelimiter);
+		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			System.ParseLine(linevec);
+			Files.ParseLine(linevec);
 		}
 		std::string ToText()
 		{

@@ -57,9 +57,11 @@ void Initialiser::LoadSettings()
     fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
     if (fs::exists(settings))
     {
+        LOG(DEBUG) << "Loading settings from file " << settings;
         auto system = Settings.System;
         Settings.Configure(settings," ");
         Settings.System = system; //system settings are per-instance and shouldn't be cached!
+        LOG(DEBUG) << Settings.Files.OutputDirectory;
     }
     else
     {
