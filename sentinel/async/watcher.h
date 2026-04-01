@@ -1,52 +1,53 @@
 #pragma once
-#include <map>
+// #include <map>
 #include <set>
 #include <mutex>
-#include <chrono>
-#include <condition_variable>
-#include <thread>
+// #include <chrono>
+// #include <condition_variable>
+// #include <thread>
 #include <sys/inotify.h>
 #include "JSL/modules/Display/Log.h"
-#include "utils.h"
-#include "bidrectional_map.h"
+// #include "utils.h"
+// #include "bidrectional_map.h"
 
-#include "../constants.h"
+// #include "../constants.h"
 #include "../settings/settings.hpp"
 #include "report.h"
-// #include "worker.h"
+// #include 
+#include "worker.h"
+#include "../files/directory.h"
 class Worker;
 
 class SystemWatcher
 {
     public:
     
-        SystemWatcher(std::filesystem::path root,Worker & W);
+        SystemWatcher(DirectoryPtr root,Worker & W);
         ~SystemWatcher();
+
+
         void Start();
         void Stop();
         
-        std::set<fs::path> PopulateDirectories(std::filesystem::path root);
-        void RemoveWatches(fs::path root);
-        std::set<fs::path> GetWatchedDirs();
+        // // std::set<fs::path> PopulateDirectories(std::filesystem::path root);
+        // void RemoveWatches(fs::path root);
         bool Active=false;
-        const fs::path Root;
         std::set<FileReport> GetTask();    
+        void AddWatches(DirectoryPtr head);
+        friend class Directory;
     private:
-        std::map<fs::path,FileReport> dirtyFiles;
-        Worker & Manager;
+        std::thread AsyncThread;
+        DirectoryPtr  Root;
+        Worker & Executor;
         int watcherID;
-        BiAccessMap<int,fs::path> watchMap;
+        std::map<int,std::weak_ptr<Directory>> WatchMap;
+        std::map<fs::path,FileReport> dirtyFiles;
+        std::mutex WatcherSync;
 
         void AddToBuffer(char * buffer, int length);
+        // bool WatchDirectory(std::filesystem::path path);
+        // void DeleteWatchedDirectory(std::filesystem::path path);
+        void AsyncLoop();
 
-        std::mutex WatcherSync;
-       
-        bool WatchDirectory(std::filesystem::path path);
-        
-        void DeleteWatchedDirectory(std::filesystem::path path);
-        
-        std::thread Listener;
-
-        void ListenLoop();
         
 };

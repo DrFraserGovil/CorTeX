@@ -97,5 +97,23 @@ Settings : Global
                 }
             }
         }
+        Document
+        {
+            Members
+            {
+                size_t Width
+                {
+                    default=10
+                    trigger="width"
+                    note="The width of each standalone document (measured in cm)"
+                }
+                size_t FontSize
+                {
+                    default=10
+                    trigger="text-size"
+                    note="The font size (in pt) of the body text of the documents"
+                }                
+            }   
+        }
     }
 }

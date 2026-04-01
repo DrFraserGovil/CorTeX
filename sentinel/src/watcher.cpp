@@ -112,7 +112,7 @@ std::condition_variable & SystemWatcher::Start()
 {
     Stop();
     lastEventTime = std::chrono::steady_clock::now();
-    Listener = std::thread(&SystemWatcher::ListenLoop,this);
+    AsyncThread = std::thread(&SystemWatcher::ListenLoop,this);
     Active = true;
     return waitVariable;
 }
@@ -123,9 +123,9 @@ void SystemWatcher::Stop()
         std::lock_guard<std::mutex> lock(bucketMutex);
         Active = false;
     }
-    if (Listener.joinable())
+    if (AsyncThread.joinable())
     {
-        Listener.join();
+        AsyncThread.join();
     }
 }
 

@@ -61,7 +61,6 @@ void Initialiser::LoadSettings()
         auto system = Settings.System;
         Settings.Configure(settings," ");
         Settings.System = system; //system settings are per-instance and shouldn't be cached!
-        LOG(DEBUG) << Settings.Files.OutputDirectory;
     }
     else
     {

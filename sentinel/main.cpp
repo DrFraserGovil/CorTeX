@@ -8,6 +8,7 @@ Initialise_JSL_Log()
 #include "interface/interface.h"
 #include "async/watcher.h"
 #include "async/worker.h"
+#include "files/directory.h"
 
 int main(int argc, char**argv)
 {
@@ -16,16 +17,14 @@ int main(int argc, char**argv)
     ValidateSettings();    
 
     Worker Manager;
-    SystemWatcher Watcher(Settings.Files.TargetDirectory,Manager);
-    
+    auto Root = Directory::GetRoot();
+    SystemWatcher Watcher(Root,Manager);
     Menu.ConnectWorker(Manager);
-    Watcher.GetWatchedDirs();
     
     if (!Settings.System.Headless.Active)
     {
         auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker (also spawns a second threead internally)
         
-        // Manager.WaitForInitialisation();
         Menu.BeginLoop();
 
         if (workthread.joinable())
@@ -33,12 +32,12 @@ int main(int argc, char**argv)
             workthread.join();
         }
     }
-    LOG(INFO) << "CorTeX Shutdown complete";
-    // auto Foam = FoamTexArchive();
-   
-    // auto q = SystemWatcher(".");
+    else
+    {
+        LOG(ERROR) << "Headless mode not yet implemented";
+    //    auto Root = Directory::GetRoot();
+    }
 
-    // LOG(INFO) << "Foamtex Sentinel Activating...";
-    // q.Listen();
-    // LOG(INFO) << "Foamtex exiting";
+    Root->Unwatch();
+    LOG(INFO) << "CorTeX Shutdown complete";
 }

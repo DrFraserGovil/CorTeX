@@ -181,6 +181,47 @@ class SettingsObject_Files
 			JSL::ParameterDescription("Test","std::vector<int>","a",Test,(std::vector<int>){1,2,3,4,5},"Directory name patterns which are not watched for new files").Query(parameter,found);
 		}
 };
+class SettingsObject_Document
+{
+	public:
+		SettingsObject_Document(){}
+		SettingsObject_Document(int argc,char** argv){Parse(argc,argv);}
+
+		size_t Width = 10;
+		size_t FontSize = 10;
+		void Parse(int argc, char** argv)
+		{
+			Width = JSL::Parameter<size_t>(Width,"width",argc,argv).Value();
+			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",argc,argv).Value();
+		}
+		void Configure(const std::string & configFile, std::string configDelimiter)
+		{
+			Width = JSL::Parameter<size_t>(Width,"width",configFile,configDelimiter).Value();
+			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",configFile,configDelimiter).Value();
+		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			Width = JSL::Parameter<size_t>(Width,"width",linevec).Value();
+			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",linevec).Value();
+		}
+		std::string ToText()
+		{
+			std::ostringstream s;
+			s << "width " << JSL::MakeString(Width) << "\n";
+			s << "text-size " << JSL::MakeString(FontSize) << "\n";
+			return s.str();
+		}
+		void Help(JSL::HelpMessages & help)
+		{
+			help.AddMessage("SettingsObject_Document","width",10,"Width","The width of each standalone document (measured in cm)");
+			help.AddMessage("SettingsObject_Document","text-size",10,"FontSize","The font size (in pt) of the body text of the documents");
+		}
+		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
+		{
+			JSL::ParameterDescription("Width","size_t","width",Width,(size_t)10,"The width of each standalone document (measured in cm)").Query(parameter,found);
+			JSL::ParameterDescription("FontSize","size_t","text-size",FontSize,(size_t)10,"The font size (in pt) of the body text of the documents").Query(parameter,found);
+		}
+};
 class SettingsObject
 {
 	public:
@@ -189,6 +230,7 @@ class SettingsObject
 
 		SettingsObject_System System;
 		SettingsObject_Files Files;
+		SettingsObject_Document Document;
 		void Parse(int argc, char** argv)
 		{
 			//Special handling to trigger configuration or help
@@ -206,28 +248,33 @@ class SettingsObject
 			}
 			System.Parse(argc,argv);
 			Files.Parse(argc,argv);
+			Document.Parse(argc,argv);
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
 			System.Configure(configFile,configDelimiter);
 			Files.Configure(configFile,configDelimiter);
+			Document.Configure(configFile,configDelimiter);
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
 			System.ParseLine(linevec);
 			Files.ParseLine(linevec);
+			Document.ParseLine(linevec);
 		}
 		std::string ToText()
 		{
 			std::ostringstream s;
 			s << System.ToText();
 			s << Files.ToText();
+			s << Document.ToText();
 			return s.str();
 		}
 		void Help(JSL::HelpMessages & help)
 		{
 			System.Help(help);
 			Files.Help(help);
+			Document.Help(help);
 		}
 		std::vector<JSL::ParameterDescription>  GetDescription(std::string parameter)
 		{
@@ -243,6 +290,7 @@ class SettingsObject
 			
 			System.GetDescription(parameter,found);
 			Files.GetDescription(parameter,found);
+			Document.GetDescription(parameter,found);
 			return found;
 		}
 		void SaveConfig(std::string file)

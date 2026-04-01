@@ -37,7 +37,7 @@ void Worker::WaitForInitialisation()
     }
 }
 
-void Worker::FileChange()
+void Worker::FileChange() //function called by the watcher thread (async with the WorkerLoop)
 {
     { 
         std::lock_guard<std::mutex> lock(JobLock);
@@ -46,7 +46,7 @@ void Worker::FileChange()
         {
             return;
         }
-        Jobs.push(Task::FileChange());
+        Jobs.push(Task::FileChange()); //pushes the task to the WorkerLoop thread to run the Process File change
         iNotifyCooldown = true;
         CooldownStart = std::chrono::steady_clock::now();
         Notify.notify_one();
@@ -77,6 +77,10 @@ void Worker::ProcessFileChange()
     for (auto file : files)
     {
         LOG(INFO) << "Processing change to " << file.Path;
+    }
+    {
+        std::lock_guard<std::mutex> lock(JobLock);
+        iNotifyCooldown = false;
     }
 }
 
@@ -208,7 +212,7 @@ void ProcessVector(std::vector<std::string> & data)
     
         if (!hasSucceeded)
         {
-            LOG(WARN) << "Could not append " << parser << " to " << description.Name << ", it is not one of the ";
+            LOG(WARN) << "Vector actions are not supported for objects of type '" << description.TypeString << "'";
         }
 
         ValidateSettings();

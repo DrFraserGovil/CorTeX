@@ -59,7 +59,7 @@ class SystemWatcher
         
         void DeleteWatchedDirectory(std::filesystem::path path);
         
-        std::thread Listener;
+        std::thread AsyncThread;
 
         void ListenLoop();
         
