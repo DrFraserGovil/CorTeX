@@ -88,6 +88,8 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
         LOG(WARN) << "Please specify a parameter to modifiy";
         return out;
     }
+
+   
     auto counts = Settings.GetDescription(data[0]);
     if (counts.size() == 0)
     {
@@ -102,6 +104,13 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
             LOG(WARN) << "  " << count.Name << " (key: " << count.Key << ")";
         }
         LOG(WARN) << "Please use a unique identifier";
+        return out;
+    }
+
+    const std::vector<std::string> forbiddenValues = {"i","headless","h","config","config-delimiter"};
+    if (std::find(forbiddenValues.begin(), forbiddenValues.end(),counts[0].Key)!=forbiddenValues.end())
+    {
+        LOG(WARN) << "Cannot mutate parameter '" << counts[0].Name << "' (-" <<counts[0].Key << ") at runtime. \nThis value can only be modified by the CLI";
         return out;
     }
 

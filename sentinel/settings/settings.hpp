@@ -231,6 +231,14 @@ class SettingsObject
 		}
 		std::vector<JSL::ParameterDescription>  GetDescription(std::string parameter)
 		{
+			auto firstLetter = parameter.find_first_not_of('-');
+			if (firstLetter != std::string::npos){
+				parameter.erase(0, firstLetter);
+			}
+			else
+			{
+				parameter.clear();
+			}
 			std::vector<JSL::ParameterDescription> found;
 			
 			System.GetDescription(parameter,found);
