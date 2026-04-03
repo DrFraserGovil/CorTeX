@@ -16,7 +16,7 @@ void Worker::WorkerLoop(SystemWatcher & watcher)
         std::unique_lock<std::mutex> lock(JobLock);
         Notify.wait(lock);
         std::swap(LocalJobs,Jobs);
-        LOG(DEBUG) << "Worker has woken. " << LocalJobs.size() << " jobs in queue";
+        LOG(DEBUG) << "Worker has woken. " << LocalJobs.size() << " job(s) in queue";
         lock.unlock();
         //even if wakeup is spurious, this is quick
         while (LocalJobs.size() > 0)
@@ -72,11 +72,14 @@ void Worker::ProcessFileChange()
         std::this_thread::sleep_for(sleepTime);
     }
 
-    auto files = CurrentWatcher->GetTask();
+    auto reports = CurrentWatcher->GetTask();
 
-    for (auto file : files)
+    for (auto report : reports)
     {
-        LOG(INFO) << "Processing change to " << file.Path;
+        if (report.Mask & IN_ISDIR)
+        {
+            
+        }
     }
     {
         std::lock_guard<std::mutex> lock(JobLock);

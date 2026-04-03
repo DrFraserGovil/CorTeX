@@ -46,7 +46,7 @@ void SystemWatcher::Stop()
     {
         AsyncThread.join();
     }
-    fs::remove(terminate);
+    if (fs::exists(terminate)) fs::remove(terminate); //cleanup just in case
     Executor.Notify.notify_all();
     LOG(DEBUG) << "Watcher process terminated";
     
@@ -65,7 +65,7 @@ void SystemWatcher::AsyncLoop()
 
         AddToBuffer(buffer, length);
     }
-    
+   
 }
 
 void SystemWatcher::AddToBuffer(char * buffer, int length)
@@ -78,11 +78,18 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
         if (event->len)
         {
             auto report = FileReport(WatchMap[event->wd].lock()->FullPath,event);
-
             if (report.IsTerminationSequence)
             {
-                Active=false;
                 std::filesystem::remove(report.Path);
+                
+                
+                if (!Settings.System.Headless.Active)
+                {
+                    //have to hard slam on the breaks in this case: it's only reachable if the termination sequence is encountered whilst the menu is locked on std::cin.
+                    LOG(ERROR) << "Termination sequence encountered whilst in interactive mode. \nSystem will experience a hard-shutdown"; 
+                    exit(0);
+                }
+                Active=false;
                 return;
             }
             else

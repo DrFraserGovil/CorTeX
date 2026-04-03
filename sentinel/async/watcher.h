@@ -29,13 +29,11 @@ class SystemWatcher
         void Start();
         void Stop();
         
-        // // std::set<fs::path> PopulateDirectories(std::filesystem::path root);
-        // void RemoveWatches(fs::path root);
-        bool Active=false;
         std::set<FileReport> GetTask();    
         void AddWatches(DirectoryPtr head);
         friend class Directory;
     private:
+        bool Active=false;
         std::thread AsyncThread;
         DirectoryPtr  Root;
         Worker & Executor;

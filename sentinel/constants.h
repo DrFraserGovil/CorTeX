@@ -7,3 +7,7 @@ const std::string metadataLocation = ".cortex/about.dat";
 const std::string settingLocation = ".cortex/settings.dat";
 namespace fs = std::filesystem;
 namespace txt = JSL::Text;
+
+//now make sure that the master index is globally accessible
+
+

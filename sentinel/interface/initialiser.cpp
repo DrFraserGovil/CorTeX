@@ -16,8 +16,9 @@ void Initialiser::WelcomeMessage()
     if (log::Config.Level >= INFO)
     {
         log::Config.ShowHeaders = false;
-        LOG(INFO) << txt::Yellow <<  "\n        -------- CorTeX Sentinel --------";
-        LOG(INFO) << txt::Yellow <<  "Welcome to CorTeX: The LaTeX-graph knowledge system!\n";
+        auto col = txt::Cyan;
+        LOG(INFO) << col <<  "\n        -------- CorTeX Sentinel --------";
+        LOG(INFO) << col <<  "Welcome to CorTeX: The LaTeX-graph knowledge system!\n";
         log::Config.ShowHeaders = true;
     }
 }

@@ -42,7 +42,7 @@ void Directory::Walk()
                 //for files, we only want those which match our watch pattern
                 if (glob(child,Settings.Files.WatchedPatterns))
                 {
-                    auto noteChild = std::make_shared<Note>(child);
+                    auto noteChild = Note::Create(child);
                     Notes[child] = noteChild;
                 }
             }

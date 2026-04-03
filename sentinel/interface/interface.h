@@ -9,9 +9,9 @@ class Interface
 
         void BeginLoop();
         void ConnectWorker(Worker & w);
+        bool Headless;
     private:
         Worker * Handler;
-        bool Headless;
         void ConfigureLocation();
         bool ParseCommand(std::string_view cmd);
         bool CommandSearcher(std::vector<std::string_view> & data);

@@ -9,6 +9,8 @@ Initialise_JSL_Log()
 #include "async/watcher.h"
 #include "async/worker.h"
 #include "files/directory.h"
+#include "files/index.h"
+FileIndex MasterIndex;
 
 int main(int argc, char**argv)
 {
@@ -19,11 +21,12 @@ int main(int argc, char**argv)
     Worker Manager;
     auto Root = Directory::GetRoot();
     SystemWatcher Watcher(Root,Manager);
-    Menu.ConnectWorker(Manager);
     
-    if (!Settings.System.Headless.Active)
+    if (!Menu.Headless)
     {
-        auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker (also spawns a second threead internally)
+        Menu.ConnectWorker(Manager);
+        auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker 
+
         
         Menu.BeginLoop();
 
@@ -34,9 +37,10 @@ int main(int argc, char**argv)
     }
     else
     {
-        LOG(ERROR) << "Headless mode not yet implemented";
-    //    auto Root = Directory::GetRoot();
+        LOG(INFO) << "Entering headless mode";
+        Manager.WorkerLoop(Watcher);
     }
+    
 
     Root->Unwatch();
     LOG(INFO) << "CorTeX Shutdown complete";
