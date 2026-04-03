@@ -103,7 +103,7 @@ bool Interface::ParseCommand(std::string_view cmd)
     auto array = JSL::split(cmd," ");
 
     bool foundCommand = CommandSearcher(array);
-    if (!foundCommand)
+    if (!foundCommand && array.size() > 1)
     {
         std::swap(array[1],array[0]);
         foundCommand = CommandSearcher(array);
