@@ -43,6 +43,6 @@ int main(int argc, char**argv)
     }
     
 
-    MasterIndex.GetStructure().lock()->Unwatch();
+    MasterIndex.UnwatchAll();
     LOG(INFO) << "CorTeX Shutdown complete";
 }

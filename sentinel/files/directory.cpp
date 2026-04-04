@@ -127,10 +127,13 @@ void Directory::ConnectToINotify(SystemWatcher * watcher)
 
 void Directory::Unwatch()
 {
+
     for (auto & child : Children)
     {
         child.second->Unwatch();
     }
+    
+    LOG(DEBUG) << "Releasing inotify watch " << INotifyID << " on " << FullPath.filename().string();
     inotify_rm_watch(Watcher->watcherID,INotifyID);
     Watcher->WatchMap.erase(INotifyID);
     

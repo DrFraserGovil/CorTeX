@@ -24,6 +24,7 @@ class FileIndex
         void Register(std::shared_ptr<Note> newNote);
         int GetID();
         std::weak_ptr<Directory> GetStructure();
+        void UnwatchAll();
     private:
         int SequentialID=0;
         std::shared_ptr<Directory> Structure;

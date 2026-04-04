@@ -41,3 +41,8 @@ void FileIndex::DeleteFile(std::weak_ptr<Note> file)
     Registry.erase(note->UniqueID); //erase from the registry 
     note->Delete(); //handfles file cleanup and signals to the inbound links that something is amiss
 }
+
+void FileIndex::UnwatchAll()
+{
+    Structure->Unwatch();
+}
