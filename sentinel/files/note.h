@@ -9,11 +9,12 @@ class Note
         Note(fs::path path,bool isError=false);
 
         static std::shared_ptr<Note> Create(fs::path path);
+        void Delete(){LOG(DEBUG) << "Deleting " << SourcePath;};
         bool IsError = false;
         friend class FileIndex;
-    private:
-        int UniqueID;
         fs::path SourcePath;
+        int UniqueID;
+    private:
         fs::path CompilePath;
         std::vector<std::string> Aliases;
         std::vector<std::weak_ptr<Note>> InboundLinks;

@@ -1,7 +1,7 @@
 #include "note.h"
 #include <array>
 #include <algorithm>
-#include "index.h"
+#include "../project/index.h"
 
 
 Note::Note(fs::path path, bool isError):IsError(isError){
@@ -25,9 +25,12 @@ using extensions = std::array<std::string,N>;
 std::shared_ptr<Note> Note::Create(fs::path path)
 {
     std::string extension = path.extension();
+    
     if (contains(extension,list({ ".tex" })))
     {
-        return std::make_shared<Note>(path); //default object is a tex file
+        auto out = std::make_shared<Note>(path); //default object is a tex file
+        MasterIndex.Register(out);
+        return out;
     }
     // if (contains(extension,list({ ".tikz" })))
     // {
@@ -36,5 +39,7 @@ std::shared_ptr<Note> Note::Create(fs::path path)
     // }
     
     LOG(WARN) << "Encountered file of unknown extension (" << path << ")\nAttempting to interpret as a tex file";
-    return std::make_shared<Note>(path,true); //send a badConstruct signal
+    auto out = std::make_shared<Note>(path,true); //send a badConstruct signal
+    MasterIndex.Register(out);
+    return out;
 }

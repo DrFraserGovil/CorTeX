@@ -4,6 +4,8 @@
 #include "../constants.h"
 namespace fs = std::filesystem;
 
+Metadata MainProject ;
+
 std::string joinTail(std::vector<std::string_view> & s, size_t start)
 {
     std::ostringstream out;

@@ -1,7 +1,8 @@
 #include "watcher.h"
 #include "worker.h"
 #include "../files/glob.h"
-SystemWatcher::SystemWatcher(DirectoryPtr root, Worker & W): Root(root), Executor(W)
+#include "../project/index.h"
+SystemWatcher::SystemWatcher(Worker & W): Root(MasterIndex.GetStructure()), Executor(W)
  {
     //inotify is a process which reports back when watched directories (and their contents)
     //undergo a change. It's a posix function so should exist everywhere (or have a compiler-flagged in alternative for windows)
@@ -12,7 +13,7 @@ SystemWatcher::SystemWatcher(DirectoryPtr root, Worker & W): Root(root), Executo
         exit(1);
     }
 
-    AddWatches(root);
+    AddWatches(Root);
 }
 
 

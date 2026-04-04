@@ -1,15 +1,15 @@
 #include "initialiser.h"
 #include "../settings/validate.h" //also include settings
 #include "../constants.h"
-
+#include "../project/metadata.h"
 namespace log = JSL::Log;
 
 Initialiser::Initialiser(int argc,char**argv)
 {
     Settings.Parse(argc,argv);
     ValidateSettings();
-
     WelcomeMessage();
+    AssignMetadata();
 }
 void Initialiser::WelcomeMessage()
 {
@@ -24,9 +24,8 @@ void Initialiser::WelcomeMessage()
 }
 
 
-Metadata Initialiser::GetMetadata()
+void Initialiser::AssignMetadata()
 {
-    Metadata MetaCache;
     fs::path expected = (fs::path)Settings.Files.TargetDirectory / ".cortex";
     log::Config.ShowHeaders = false;
     if (fs::exists(expected))
@@ -34,23 +33,22 @@ Metadata Initialiser::GetMetadata()
         auto metafile = (fs::path)Settings.Files.TargetDirectory /metadataLocation;
         if (fs::exists(metafile))
         {
-            MetaCache.Load(metafile);
-            LOG(INFO) << txt::Italics << MetaCache.Name << txt::Reset  << " cortex loaded";
+            MainProject.Load(metafile);
+            LOG(INFO) << txt::Italics << MainProject.Name << txt::Reset  << " cortex loaded";
         }
         else
         {
             LOG(WARN) << "A cortex directory was found, but the metadata is missing\nA new cortex metadata will be initialised.\n" << txt::Bold << "Existing notes will not be affected.";
-            MetaCache.ExistsOnDisk = false;
+            MainProject.ExistsOnDisk = false;
         }
     }
     else
     {
         fs::create_directories(expected);
-        MetaCache.ExistsOnDisk = false;
+        MainProject.ExistsOnDisk = false;
     }
 
     LoadSettings(); //performs its own checks - if not exist, creates it
-    return MetaCache;
 }
 
 void Initialiser::LoadSettings()

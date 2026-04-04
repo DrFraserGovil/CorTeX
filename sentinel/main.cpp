@@ -9,18 +9,19 @@ Initialise_JSL_Log()
 #include "async/watcher.h"
 #include "async/worker.h"
 #include "files/directory.h"
-#include "files/index.h"
+#include "project/index.h"
 FileIndex MasterIndex;
-
 int main(int argc, char**argv)
 {
     Initialiser Bootstrap(argc,argv);
-    Interface Menu(Bootstrap.GetMetadata());
+    Interface Menu;
+    
+    //now use the setup we have to initialise the vital structures
+    
     ValidateSettings();    
-
     Worker Manager;
-    auto Root = Directory::GetRoot();
-    SystemWatcher Watcher(Root,Manager);
+    MasterIndex.Initialise();
+    SystemWatcher Watcher(Manager);
     
     if (!Menu.Headless)
     {
@@ -42,6 +43,6 @@ int main(int argc, char**argv)
     }
     
 
-    Root->Unwatch();
+    MasterIndex.GetStructure().lock()->Unwatch();
     LOG(INFO) << "CorTeX Shutdown complete";
 }

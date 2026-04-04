@@ -22,7 +22,7 @@ class SystemWatcher
 {
     public:
     
-        SystemWatcher(DirectoryPtr root,Worker & W);
+        SystemWatcher(Worker & W);
         ~SystemWatcher();
 
 

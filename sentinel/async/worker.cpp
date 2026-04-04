@@ -1,6 +1,6 @@
 #include "worker.h"
 #include "watcher.h"
-
+#include "../project/index.h"
 void Worker::WorkerLoop(SystemWatcher & watcher)
 {
     watcher.Start();
@@ -73,12 +73,13 @@ void Worker::ProcessFileChange()
     }
 
     auto reports = CurrentWatcher->GetTask();
-
+    bool dirSweep = false;
     for (auto report : reports)
     {
-        if (report.Mask & IN_ISDIR)
+        if ((report.Mask & IN_ISDIR) && !dirSweep)
         {
-            
+            MasterIndex.GetStructure().lock()->ReWalk();
+            dirSweep = true; // ensure we only do this once per report - its a clean slate wipe
         }
     }
     {

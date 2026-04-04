@@ -4,11 +4,12 @@
 #include <filesystem>
 #include "../constants.h"
 #include <regex>
-
-Interface::Interface(Metadata cache) : MetaCache(cache) 
+#include "directory_display.h"
+#include "../project/metadata.h"
+Interface::Interface() 
 {
     Headless = Settings.System.Headless.Active;
-    if (!cache.ExistsOnDisk)
+    if (!MainProject.ExistsOnDisk)
     {
         ConfigureLocation();
     }
@@ -123,6 +124,11 @@ bool Interface::CommandSearcher(std::vector<std::string_view> & array)
         ShowSettings(array);
         return true;
     }
+    if (equal(array[0],"list") || equal(array[0],"ls"))
+    {
+        directoryDisplay(array);
+        return true;
+    }
 
     if (equal(array[0],"set"))
     {
@@ -172,9 +178,9 @@ void Interface::ConfigureLocation()
 {
     LOG(INFO) << txt::Blue << "Initialising a new Cortex at " << fs::current_path();
 
-    MetaCache.Name = GetAnswer("Project Name",Settings.System.Headless.CortexName,Headless);
-    MetaCache.Author = GetAnswer("Project Author",Settings.System.Headless.AuthorName,Headless);
+    MainProject.Name = GetAnswer("Project Name",Settings.System.Headless.CortexName,Headless);
+    MainProject.Author = GetAnswer("Project Author",Settings.System.Headless.AuthorName,Headless);
 
     fs::path metalocation = (fs::path)Settings.Files.TargetDirectory / metadataLocation;
-    MetaCache.Save(metalocation);
+    MainProject.Save(metalocation);
 }

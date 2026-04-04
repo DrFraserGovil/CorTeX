@@ -15,3 +15,5 @@ class Metadata
         void SetDefaults();
         
 };
+
+extern Metadata MainProject;

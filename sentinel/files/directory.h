@@ -17,20 +17,22 @@ class SystemWatcher; //forward declaration
         Directory(const Directory&) = delete;
         Directory& operator=(const Directory&) = delete;
 
-        static std::shared_ptr<Directory> GetRoot();
         fs::path FullPath;
         std::unordered_map<fs::path, std::shared_ptr<Directory>> Children;
-        std::unordered_map<fs::path, std::shared_ptr<Note>> Notes;
+        std::unordered_map<fs::path, std::weak_ptr<Note>> Notes;
         void ConnectToINotify(SystemWatcher * Watcher);
 
         void Unwatch();
-
-    protected:
+        void Delete();
         void Walk();
+        void ReWalk();
+        bool IsRoot = false;
+        std::weak_ptr<Directory>  Find(std::vector<std::string_view> path);
     private:
         int INotifyID;
         std::weak_ptr<Directory> Parent;
         SystemWatcher * Watcher;
+        void NewEntity(fs::directory_iterator path);
 };
 
 typedef std::shared_ptr<Directory> DirectoryPtr;
