@@ -1,26 +1,63 @@
 #pragma once
 #include "../constants.h"
-#include <unordered_map>
+#include <set>
+#include <map>
 #include <memory>
+#include "fileHeader.h"
+#include <deque>
+#include "linkCapture.h"
+class Directory;
+
+struct CaseInsensitiveLess {
+    using is_transparent = void; // Enable string_view lookups
+
+    bool operator()(std::string_view lhs, std::string_view rhs) const {
+        return std::lexicographical_compare(
+            lhs.begin(), lhs.end(),
+            rhs.begin(), rhs.end(),
+            [](char a, char b) {
+                return std::tolower(static_cast<unsigned char>(a)) < 
+                       std::tolower(static_cast<unsigned char>(b));
+            }
+        );
+    }
+};
+
+// struct CompileResult{
+//     bool Success;
+//     int exitCode;
+// }
 
 class Note
 {
     public:
-        Note(fs::path path,bool isError=false);
+        Note(fs::path path,std::weak_ptr<Directory> parent,  bool isError=false);
 
-        static std::shared_ptr<Note> Create(fs::path path);
+        static std::shared_ptr<Note> Create(fs::path path,std::weak_ptr<Directory> parent);
         void Delete(){LOG(DEBUG) << "Deleting " << SourcePath;};
         bool IsError = false;
+        void Scan(bool saveToBuffer=false);
+        void Compile(std::string_view preamble);
         friend class FileIndex;
+        FileHeader Header;
+    private:
+        int BodyStartLine;
         fs::path SourcePath;
         int UniqueID;
-    private:
         fs::path CompilePath;
-        std::vector<std::string> Aliases;
+        std::weak_ptr<Directory> Parent;
         std::vector<std::weak_ptr<Note>> InboundLinks;
         
-        std::unordered_map<std::string, std::weak_ptr<Note>> OutboundLinks;
-        std::vector<std::string> OrphanedLinks;
+        std::map<std::string, std::weak_ptr<Note>,CaseInsensitiveLess> OutboundLinks;
+        std::set<std::string> OrphanedLinks;
+
+        std::vector<Link> ParsedLinks;
+
+        void CheckLinks();
+        fs::path ToBuild(std::string_view preamble="",int Truncation=0);
+        std::vector<std::string> PreambleBuffer;
+        std::vector<std::string> BodyBuffer;
+        std::deque<int> LinesWithLinks;
 };
 
 typedef std::weak_ptr<Note> NotePtr;

@@ -27,8 +27,5 @@ class Worker
         std::queue<Task> LocalJobs;
         std::mutex JobLock;
         void ProcessHead();
-
         void ProcessFileChange();
-        void ProcessParameterSet(std::vector<std::string> & data);
-      
 };

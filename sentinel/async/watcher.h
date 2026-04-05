@@ -5,6 +5,7 @@
 // #include <chrono>
 // #include <condition_variable>
 // #include <thread>
+#include <map>
 #include <sys/inotify.h>
 #include "JSL/modules/Display/Log.h"
 // #include "utils.h"
@@ -43,8 +44,7 @@ class SystemWatcher
         std::mutex WatcherSync;
 
         void AddToBuffer(char * buffer, int length);
-        // bool WatchDirectory(std::filesystem::path path);
-        // void DeleteWatchedDirectory(std::filesystem::path path);
+
         void AsyncLoop();
 
         

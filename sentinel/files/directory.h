@@ -3,7 +3,7 @@
 #include <memory>
 #include "../constants.h"
 #include "note.h"
-
+#include <unordered_map>
 class SystemWatcher; //forward declaration
 
  class Directory :public std::enable_shared_from_this<Directory>
@@ -18,6 +18,8 @@ class SystemWatcher; //forward declaration
         Directory& operator=(const Directory&) = delete;
 
         fs::path FullPath;
+        fs::path OutputEquivalent;
+        fs::path BuildEquivalent;
         std::unordered_map<fs::path, std::shared_ptr<Directory>> Children;
         std::unordered_map<fs::path, std::weak_ptr<Note>> Notes;
         void ConnectToINotify(SystemWatcher * Watcher);
@@ -28,6 +30,7 @@ class SystemWatcher; //forward declaration
         void ReWalk();
         bool IsRoot = false;
         std::weak_ptr<Directory>  Find(std::vector<std::string_view> path);
+        void SetOutput();
     private:
         int INotifyID;
         std::weak_ptr<Directory> Parent;

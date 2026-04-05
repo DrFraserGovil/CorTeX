@@ -46,7 +46,7 @@ void Worker::FileChange() //function called by the watcher thread (async with th
         {
             return;
         }
-        Jobs.push(Task::FileChange()); //pushes the task to the WorkerLoop thread to run the Process File change
+        Jobs.push(Task(Instruction::FileChange)); //pushes the task to the WorkerLoop thread to run the Process File change
         iNotifyCooldown = true;
         CooldownStart = std::chrono::steady_clock::now();
         Notify.notify_one();
@@ -127,7 +127,7 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
     return out;
 }
 
-void Worker::ProcessParameterSet(std::vector<std::string> & data)
+void ProcessParameterSet(std::vector<std::string> & data)
 {
     auto [valid,description] = CheckParameterData(data);
     if (!valid)
@@ -230,15 +230,26 @@ void ProcessVector(std::vector<std::string> & data)
 }
 
 
-
+void AttemptCompilation(std::vector<std::string> & data)
+{
+    LOG(INFO) << data.size();
+    if (data.size() == 0)
+    {
+        MasterIndex.Compile(true);
+    }
+}
 
 void Worker::ProcessHead()
 {
     auto & job = LocalJobs.front();
     switch(job.Type)
     {
+        
         case Instruction::Shutdown:
             Active = false;
+            break;
+        case Instruction::CompileRequest:
+            AttemptCompilation(job.TaskData);
             break;
         case Instruction::FileChange:
             ProcessFileChange();

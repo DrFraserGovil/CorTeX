@@ -8,10 +8,28 @@ Directory::Directory(fs::path path)
     Parent.reset();
     FullPath = path;
     INotifyID = -1;
+
+    SetOutput();
 }
 Directory::Directory(fs::path path,std::weak_ptr<Directory> parent) : Directory(path)
 {
     Parent = parent;
+}
+
+void Directory::SetOutput()
+{
+    auto relpath = fs::relative(FullPath,Settings.Files.TargetDirectory);
+    OutputEquivalent = Settings.Files.OutputDirectory /relpath;
+    BuildEquivalent = Settings.Files.BuildDirectory /relpath;
+
+    if (!fs::exists(OutputEquivalent))
+    {
+        fs::create_directories(OutputEquivalent);
+    }
+    if (!fs::exists(BuildEquivalent))
+    {
+        fs::create_directories(BuildEquivalent);
+    }
 }
 
 void Directory::Walk()
@@ -48,7 +66,7 @@ void Directory::NewEntity(fs::directory_iterator path)
             //for files, we only want those which match our watch pattern
             if (glob(child,Settings.Files.WatchedPatterns))
             {
-                auto noteChild = Note::Create(child);
+                auto noteChild = Note::Create(child,shared_from_this());
                 Notes[child] = noteChild;
             }
         }
@@ -108,6 +126,15 @@ void Directory::Delete()
     {
         MasterIndex.DeleteFile(note.second);
     }
+    if (fs::exists(OutputEquivalent))
+    {
+        fs::remove(OutputEquivalent);
+    }
+    if (fs::exists(BuildEquivalent))
+    {
+        fs::remove(BuildEquivalent);
+    }
+    Unwatch();
 }
 
 void Directory::ConnectToINotify(SystemWatcher * watcher)

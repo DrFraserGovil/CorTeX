@@ -25,11 +25,14 @@ class FileIndex
         int GetID();
         std::weak_ptr<Directory> GetStructure();
         void UnwatchAll();
+        void NotifyDirty(int id);
+        void Compile(bool forceAll =false);
     private:
         int SequentialID=0;
         std::shared_ptr<Directory> Structure;
         std::map<int,std::shared_ptr<Note>> Registry;
         std::map<std::string,LinkResolver> Aliases;
+        std::deque<int> DirtyFiles;
 };
 
 extern FileIndex MasterIndex;

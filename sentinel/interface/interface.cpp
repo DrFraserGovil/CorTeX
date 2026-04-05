@@ -97,7 +97,7 @@ bool Interface::ParseCommand(std::string_view cmd)
     cmd = JSL::trim(cmd);
     if (equal(cmd,"exit") ||equal(cmd,"shutdown"))
     {
-        Handler->AddTask(Task::Shutdown());
+        Handler->AddTask(Task(Instruction::Shutdown));
         return false;
     }
 
@@ -129,24 +129,25 @@ bool Interface::CommandSearcher(std::vector<std::string_view> & array)
         directoryDisplay(array);
         return true;
     }
+    if (equal(array[0],"compile"))
+    {
+        Handler->AddTask(Task(Instruction::CompileRequest,array));
+        return true;
+    }
 
     if (equal(array[0],"set"))
     {
-        Handler->AddTask(Task::ParameterChange(array));
+        Handler->AddTask(Task(Instruction::ParameterUpdate,array));
         return true;
     }
     if (equal(array[0],"add"))
     {
-        auto T = Task::ParameterChange(array);
-        T.Type = Instruction::VectorAdd;
-        Handler->AddTask(T);
+        Handler->AddTask(Task(Instruction::VectorAdd,array));
         return true;
     }
     if (equal(array[0],"remove") || equal(array[0],"rm"))
     {
-        auto T = Task::ParameterChange(array);
-        T.Type = Instruction::VectorRemove;
-        Handler->AddTask(T);
+        Handler->AddTask(Task(Instruction::VectorRemove,array));
         return true;
     }
   

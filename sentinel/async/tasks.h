@@ -10,6 +10,7 @@ enum class Instruction
     VectorAdd,
     VectorRemove,
     FileChange,
+    CompileAll,
     CompileRequest,
     Shutdown,
     None,
@@ -22,9 +23,7 @@ class Task
 
         // std::variant<std::vector<fs::path>,std::vector<std::string>> TaskData;
         std::vector<std::string> TaskData;
-        Task();
+        Task(Instruction cmd = Instruction::None);
+        Task(Instruction cmd,std::vector<std::string_view> & input,int ignoreIndex=1);
         ~Task(){};
-        static Task Shutdown();
-        static Task FileChange();
-        static Task ParameterChange(std::vector<std::string_view> & input);
 };

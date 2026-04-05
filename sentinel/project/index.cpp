@@ -6,7 +6,7 @@ void FileIndex::Register(std::shared_ptr<Note> newNote)
     newNote->UniqueID = id;
     Registry[id] = newNote;
 
-    for (auto & alias: newNote->Aliases)
+    for (auto & alias: newNote->Header.Aliases)
     {
         Aliases[alias].Add(newNote);
     }
@@ -33,7 +33,7 @@ std::weak_ptr<Directory> FileIndex::GetStructure()
 void FileIndex::DeleteFile(std::weak_ptr<Note> file)
 {
     auto note = file.lock();
-    for (auto & alias : note->Aliases)
+    for (auto & alias : note->Header.Aliases)
     {
         Aliases[alias].Remove(file);
     }
@@ -45,4 +45,38 @@ void FileIndex::DeleteFile(std::weak_ptr<Note> file)
 void FileIndex::UnwatchAll()
 {
     Structure->Unwatch();
+}
+
+void FileIndex::NotifyDirty(int id)
+{
+    DirtyFiles.push_back(id);
+}
+
+
+void FileIndex::Compile(bool forceAll)
+{
+    std::ostringstream preamble;
+    preamble << "\\documentclass[varwidth =" << Settings.Document.Width << "cm]{standalone}\n";
+    preamble << "\\usepackage{xcolor}\n";
+
+    std::string globalPreamble = preamble.str();
+    if (forceAll)
+    {
+        LOG(INFO) << "Beginning compile all";
+        for (auto & file : Registry)
+        {
+            file.second->Compile(globalPreamble);
+        }
+    }
+    else
+    {
+        while (DirtyFiles.size() > 0)
+        {
+            if (Registry.contains(DirtyFiles[0]))
+            {
+                Registry[DirtyFiles[0]]->Compile(globalPreamble);
+            }
+            DirtyFiles.pop_front();
+        }
+    }
 }
