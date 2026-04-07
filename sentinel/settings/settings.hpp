@@ -196,37 +196,44 @@ class SettingsObject_Document
 
 		size_t Width = 10;
 		size_t FontSize = 10;
+		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath"};
 		void Parse(int argc, char** argv)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",argc,argv).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",argc,argv).Value();
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",argc,argv).Value();
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",configFile,configDelimiter).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",configFile,configDelimiter).Value();
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",configFile,configDelimiter).Value();
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",linevec).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",linevec).Value();
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",linevec).Value();
 		}
 		std::string ToText()
 		{
 			std::ostringstream s;
 			s << "width " << JSL::MakeString(Width) << "\n";
 			s << "text-size " << JSL::MakeString(FontSize) << "\n";
+			s << "package " << JSL::MakeString(Packages) << "\n";
 			return s.str();
 		}
 		void Help(JSL::HelpMessages & help)
 		{
 			help.AddMessage("SettingsObject_Document","width",10,"Width","The width of each standalone document (measured in cm)");
 			help.AddMessage("SettingsObject_Document","text-size",10,"FontSize","The font size (in pt) of the body text of the documents");
+			help.AddMessage("SettingsObject_Document","package",(std::vector<std::string>){"xcolor","amssymb","amsmath"},"Packages","Latex packages which are included in the global shared preamble");
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
 			JSL::ParameterDescription("Width","size_t","width",Width,(size_t)10,"The width of each standalone document (measured in cm)").Query(parameter,found);
 			JSL::ParameterDescription("FontSize","size_t","text-size",FontSize,(size_t)10,"The font size (in pt) of the body text of the documents").Query(parameter,found);
+			JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
 		}
 };
 class SettingsObject

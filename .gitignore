@@ -1,3 +1,5 @@
 *.build/
 *.vscode
-cortex
+*cortex
+*compiled
+*test

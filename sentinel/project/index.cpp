@@ -57,12 +57,15 @@ void FileIndex::Compile(bool forceAll)
 {
     std::ostringstream preamble;
     preamble << "\\documentclass[varwidth =" << Settings.Document.Width << "cm]{standalone}\n";
-    preamble << "\\usepackage{xcolor}\n";
+
+    for (auto & package: Settings.Document.Packages)
+    {
+        preamble << "\\usepackage{" << package << "}\n";
+    }
 
     std::string globalPreamble = preamble.str();
     if (forceAll)
     {
-        LOG(INFO) << "Beginning compile all";
         for (auto & file : Registry)
         {
             file.second->Compile(globalPreamble);

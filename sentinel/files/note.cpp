@@ -87,7 +87,11 @@ void Note::Scan(bool saveToBuffer)
     Header.Parse(fileChunks[0]);
     if (Header.Title.size() == 0)
     {
-        LOG(WARN) << "No title detected for '" << SourcePath.filename().string() << "'. Default name will be assigned";
+        if (!NoTitleWarn)
+        {
+            LOG(WARN) << "No title detected for '" << SourcePath.filename().string() << "'. Default name will be assigned";
+            NoTitleWarn = true;
+        }
         Header.Title = SourcePath.stem().string();
     }
 
@@ -106,12 +110,12 @@ void Note::Scan(bool saveToBuffer)
 
     CheckLinks();
     ToBuild();
-    // if (!saveToBuffer)
-    // {
-    //     //free the memory
-    //     BodyBuffer.clear();
-    //     PreambleBuffer.clear();
-    // }
+    if (!saveToBuffer)
+    {
+        //free the memory
+        BodyBuffer.clear();
+        PreambleBuffer.clear();
+    }
 
 }
 
@@ -148,8 +152,12 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
         std::fstream output(relpath,std::ios::out);
 
         output << preamble;
+        output << "\\newcommand\\title[1]{";
+
+        output << "}";
         output << "\\begin{document}\n";
         int linkId = 0;
+        output << "\\title{" << Header.Title << "}\n";
         for (int i = 0; i < BodyBuffer.size()-Truncation; ++i)
         {
             if (i == LinesWithLinks[0])
@@ -185,6 +193,7 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
 
 void Note::Compile(std::string_view preamble)
 {
+    LOG(DEBUG) << "Attempting Compiling " << Header.Title;
     if (BodyBuffer.size() == 0){Scan(true);};
     int truncation = 0;
     auto dir = Parent.lock()->BuildEquivalent;
@@ -192,27 +201,31 @@ void Note::Compile(std::string_view preamble)
     while (truncation < BodyBuffer.size())
     {
         build = ToBuild(preamble,truncation);
-
+        
         std::string cmd = "pdflatex -interaction=nonstopmode -halt-on-error -output-directory=" + dir.string();
         cmd += " " + build.string() + "> /dev/null 2>&1";
         int status = std::system(cmd.c_str());
         int exitCode = WEXITSTATUS(status);
-
+        
         if (exitCode == 0){
             break;
         } 
-        else {LOG(WARN) << "Compilation failed on " << Header.Title << " at truncation level " << truncation;}
         ++truncation;
     }
-
+    
+    build.replace_extension(".pdf");
     if (fs::exists(build))
     {
-        build.replace_extension(".pdf");
         auto target = Parent.lock()->OutputEquivalent / build.filename();
         fs::rename(build,target);
+        LOG(DEBUG) << "Compilation successful";
     }
-    //  BodyBuffer.clear();
-    // PreambleBuffer.clear();
+    else
+    {
+        LOG(WARN) << "Failed to compile a MCE" << Header.Title;
+    }
+    BodyBuffer.clear();
+    PreambleBuffer.clear();
 }
 
 

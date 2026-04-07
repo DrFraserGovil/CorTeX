@@ -58,6 +58,7 @@ class Note
         std::vector<std::string> PreambleBuffer;
         std::vector<std::string> BodyBuffer;
         std::deque<int> LinesWithLinks;
+        bool NoTitleWarn = false;
 };
 
 typedef std::weak_ptr<Note> NotePtr;

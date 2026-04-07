@@ -118,7 +118,13 @@ Settings : Global
                     default=10
                     trigger="text-size"
                     note="The font size (in pt) of the body text of the documents"
-                }                
+                }   
+                std::vector<std::string> Packages
+                {
+                    default={"xcolor","amssymb","amsmath"}
+                    trigger="package"
+                    note="Latex packages which are included in the global shared preamble"
+                }             
             }   
         }
     }
