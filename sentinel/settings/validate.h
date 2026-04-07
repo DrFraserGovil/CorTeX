@@ -2,6 +2,8 @@
 
 
 
-void ValidateSettings();
+bool ValidateSettings();
 
 void ConfigureLogging();
+
+extern SettingsObject_Document CachedCompileSettings;

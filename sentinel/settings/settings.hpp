@@ -36,6 +36,7 @@ class SettingsObject_System_Headless
 			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",linevec).Value();
 			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",linevec).Value();
 		}
+		auto operator<=>(const SettingsObject_System_Headless&) const = default;
 		std::string ToText()
 		{
 			std::ostringstream s;
@@ -92,6 +93,7 @@ class SettingsObject_System
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",linevec).Value();
 			Headless.ParseLine(linevec);
 		}
+		auto operator<=>(const SettingsObject_System&) const = default;
 		std::string ToText()
 		{
 			std::ostringstream s;
@@ -158,6 +160,7 @@ class SettingsObject_Files
 			IgnoredPatterns = JSL::Parameter<std::vector<std::string>>(IgnoredPatterns,"ignore",linevec).Value();
 			StructureDelimiterRepeatCount = JSL::Parameter<size_t>(StructureDelimiterRepeatCount,"delimiter-repeat",linevec).Value();
 		}
+		auto operator<=>(const SettingsObject_Files&) const = default;
 		std::string ToText()
 		{
 			std::ostringstream s;
@@ -195,30 +198,41 @@ class SettingsObject_Document
 		SettingsObject_Document(int argc,char** argv){Parse(argc,argv);}
 
 		size_t Width = 10;
+		size_t TitleSize = 18;
+		bool TitleCentered = false;
 		size_t FontSize = 10;
-		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath"};
+		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath","lmodern"};
 		void Parse(int argc, char** argv)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",argc,argv).Value();
+			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",argc,argv).Value();
+			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",argc,argv).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",argc,argv).Value();
 			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",argc,argv).Value();
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",configFile,configDelimiter).Value();
+			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",configFile,configDelimiter).Value();
+			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",configFile,configDelimiter).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",configFile,configDelimiter).Value();
 			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",configFile,configDelimiter).Value();
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",linevec).Value();
+			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",linevec).Value();
+			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",linevec).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",linevec).Value();
 			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",linevec).Value();
 		}
+		auto operator<=>(const SettingsObject_Document&) const = default;
 		std::string ToText()
 		{
 			std::ostringstream s;
 			s << "width " << JSL::MakeString(Width) << "\n";
+			s << "title-size " << JSL::MakeString(TitleSize) << "\n";
+			s << "title-center " << JSL::MakeString(TitleCentered) << "\n";
 			s << "text-size " << JSL::MakeString(FontSize) << "\n";
 			s << "package " << JSL::MakeString(Packages) << "\n";
 			return s.str();
@@ -226,14 +240,18 @@ class SettingsObject_Document
 		void Help(JSL::HelpMessages & help)
 		{
 			help.AddMessage("SettingsObject_Document","width",10,"Width","The width of each standalone document (measured in cm)");
+			help.AddMessage("SettingsObject_Document","title-size",18,"TitleSize","The font size (in pt) of the title text of the documents");
+			help.AddMessage("SettingsObject_Document","title-center",false,"TitleCentered","If true, the title of all notes are centered on the page");
 			help.AddMessage("SettingsObject_Document","text-size",10,"FontSize","The font size (in pt) of the body text of the documents");
-			help.AddMessage("SettingsObject_Document","package",(std::vector<std::string>){"xcolor","amssymb","amsmath"},"Packages","Latex packages which are included in the global shared preamble");
+			help.AddMessage("SettingsObject_Document","package",(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern"},"Packages","Latex packages which are included in the global shared preamble");
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
 			JSL::ParameterDescription("Width","size_t","width",Width,(size_t)10,"The width of each standalone document (measured in cm)").Query(parameter,found);
+			JSL::ParameterDescription("TitleSize","size_t","title-size",TitleSize,(size_t)18,"The font size (in pt) of the title text of the documents").Query(parameter,found);
+			JSL::ParameterDescription("TitleCentered","bool","title-center",TitleCentered,(bool)false,"If true, the title of all notes are centered on the page").Query(parameter,found);
 			JSL::ParameterDescription("FontSize","size_t","text-size",FontSize,(size_t)10,"The font size (in pt) of the body text of the documents").Query(parameter,found);
-			JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
+			JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
 		}
 };
 class SettingsObject
@@ -276,6 +294,7 @@ class SettingsObject
 			Files.ParseLine(linevec);
 			Document.ParseLine(linevec);
 		}
+		auto operator<=>(const SettingsObject&) const = default;
 		std::string ToText()
 		{
 			std::ostringstream s;

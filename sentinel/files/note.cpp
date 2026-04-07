@@ -109,7 +109,6 @@ void Note::Scan(bool saveToBuffer)
     //don't care about preamble at this stage, just sweep the body for link indicators
 
     CheckLinks();
-    ToBuild();
     if (!saveToBuffer)
     {
         //free the memory
@@ -152,9 +151,6 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
         std::fstream output(relpath,std::ios::out);
 
         output << preamble;
-        output << "\\newcommand\\title[1]{";
-
-        output << "}";
         output << "\\begin{document}\n";
         int linkId = 0;
         output << "\\title{" << Header.Title << "}\n";
@@ -202,8 +198,12 @@ void Note::Compile(std::string_view preamble)
     {
         build = ToBuild(preamble,truncation);
         
-        std::string cmd = "pdflatex -interaction=nonstopmode -halt-on-error -output-directory=" + dir.string();
+        auto canonical = (fs::canonical)((fs::path)Settings.Files.TargetDirectory);
+        std::string texinputs = "TEXINPUTS=.:" + canonical.string() + "/: ";
+        
+        std::string cmd = texinputs + "pdflatex -interaction=nonstopmode -halt-on-error -output-directory=" + dir.string();
         cmd += " " + build.string() + "> /dev/null 2>&1";
+
         int status = std::system(cmd.c_str());
         int exitCode = WEXITSTATUS(status);
         

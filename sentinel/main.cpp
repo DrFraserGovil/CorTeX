@@ -20,7 +20,9 @@ int main(int argc, char**argv)
     
     ValidateSettings();    
     Worker Manager;
+    LOG(DEBUG) << "Initialising master index";
     MasterIndex.Initialise();
+    LOG(DEBUG) << "Initialising system watcher";
     SystemWatcher Watcher(Manager);
     
     if (!Menu.Headless)
@@ -28,7 +30,7 @@ int main(int argc, char**argv)
         Menu.ConnectWorker(Manager);
         auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker 
 
-        
+        LOG(DEBUG) << "Entering main menu";
         Menu.BeginLoop();
 
         if (workthread.joinable())

@@ -113,6 +113,19 @@ Settings : Global
                     trigger="width"
                     note="The width of each standalone document (measured in cm)"
                 }
+                size_t TitleSize
+                {
+                    default=18
+                    trigger="title-size"
+                    note="The font size (in pt) of the title text of the documents"
+                }   
+                bool TitleCentered
+                {
+                    default=false
+                    trigger="title-center"
+                    note="If true, the title of all notes are centered on the page"
+                }
+                
                 size_t FontSize
                 {
                     default=10
@@ -121,7 +134,7 @@ Settings : Global
                 }   
                 std::vector<std::string> Packages
                 {
-                    default={"xcolor","amssymb","amsmath"}
+                    default={"xcolor","amssymb","amsmath","lmodern"}
                     trigger="package"
                     note="Latex packages which are included in the global shared preamble"
                 }             

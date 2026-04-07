@@ -21,6 +21,7 @@ int FileIndex::GetID()
 void FileIndex::Initialise()
 {
     Structure = std::make_shared<Directory>(Settings.Files.TargetDirectory);
+    
     Structure->IsRoot = true;
     Structure->Walk();
 }
@@ -56,12 +57,18 @@ void FileIndex::NotifyDirty(int id)
 void FileIndex::Compile(bool forceAll)
 {
     std::ostringstream preamble;
-    preamble << "\\documentclass[varwidth =" << Settings.Document.Width << "cm]{standalone}\n";
+    preamble << "\\documentclass[width =" << Settings.Document.Width << "cm, " <<  Settings.Document.FontSize << "pt]{cortex}\n";
 
     for (auto & package: Settings.Document.Packages)
     {
         preamble << "\\usepackage{" << package << "}\n";
     }
+
+    //compile the global settings
+    preamble << "\\def\\titleFontSize{" << Settings.Document.TitleSize << "}\n";
+    preamble << "\\def\\titleCentered{" << (int)Settings.Document.TitleCentered << "}\n";
+
+
 
     std::string globalPreamble = preamble.str();
     if (forceAll)

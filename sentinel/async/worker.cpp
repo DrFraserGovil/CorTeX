@@ -56,9 +56,11 @@ void Worker::FileChange() //function called by the watcher thread (async with th
 
 void Worker::AddTask(Task newjob)
 {
+    LOG(DEBUG) << "A new task of id " << (int)newjob.Type << " added " << Jobs.size();
     std::lock_guard<std::mutex> lock(JobLock);
     Jobs.push(newjob);
     Notify.notify_one();
+    LOG(DEBUG) << "\tJob added to queue at position " << Jobs.size();
 }
 
 
@@ -127,26 +129,29 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
     return out;
 }
 
-void ProcessParameterSet(std::vector<std::string> & data)
+bool ProcessParameterSet(std::vector<std::string> & data)
 {
     auto [valid,description] = CheckParameterData(data);
     if (!valid)
     {
-        return;
+        return false;
     }
     data[0] = description.Key; //swap in the key in case the user gave the parameter name
     try
     {
         Settings.ParseLine(data);
        
-        ValidateSettings();
+        bool requiresRecompile = ValidateSettings();
         fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
         Settings.SaveConfig(settings);
+        return requiresRecompile;
     }
     catch (...)
     {
         LOG(WARN) << "An error was encountered whilst parsing your argument.";
+        return false;
     }
+
 }
 
 struct TryPush
@@ -232,7 +237,6 @@ void ProcessVector(std::vector<std::string> & data)
 
 void AttemptCompilation(std::vector<std::string> & data)
 {
-    LOG(INFO) << data.size();
     if (data.size() == 0)
     {
         MasterIndex.Compile(true);
@@ -242,6 +246,7 @@ void AttemptCompilation(std::vector<std::string> & data)
 void Worker::ProcessHead()
 {
     auto & job = LocalJobs.front();
+    bool cascade=false;
     switch(job.Type)
     {
         
@@ -255,7 +260,7 @@ void Worker::ProcessHead()
             ProcessFileChange();
             break;
         case Instruction::ParameterUpdate:
-            ProcessParameterSet(job.TaskData);
+            cascade = ProcessParameterSet(job.TaskData);
             break;
         case Instruction::VectorAdd:
             ProcessVector<TryPush>(job.TaskData);
@@ -266,6 +271,9 @@ void Worker::ProcessHead()
         default:
             LOG(WARN) << "Unimplemented instruction recieved";
     }
-    
+    if (cascade)
+    {
+        LocalJobs.push(Task(Instruction::CompileRequest));
+    }
     LocalJobs.pop();
 }

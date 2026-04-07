@@ -65,5 +65,6 @@ void Initialiser::LoadSettings()
     {
         Settings.SaveConfig((fs::path)Settings.Files.TargetDirectory / settingLocation); //creates a saved instance if necessary
     }
+    CachedCompileSettings = Settings.Document;
 }
 

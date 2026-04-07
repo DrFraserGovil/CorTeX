@@ -18,10 +18,10 @@ Directory::Directory(fs::path path,std::weak_ptr<Directory> parent) : Directory(
 
 void Directory::SetOutput()
 {
+    auto Root = (fs::path)Settings.Files.TargetDirectory;
     auto relpath = fs::relative(FullPath,Settings.Files.TargetDirectory);
-    OutputEquivalent = Settings.Files.OutputDirectory /relpath;
-    BuildEquivalent = Settings.Files.BuildDirectory /relpath;
-
+    OutputEquivalent = Root/Settings.Files.OutputDirectory /relpath;
+    BuildEquivalent = Root/Settings.Files.BuildDirectory /relpath;
     if (!fs::exists(OutputEquivalent))
     {
         fs::create_directories(OutputEquivalent);
@@ -49,8 +49,10 @@ void Directory::Walk()
 void Directory::NewEntity(fs::directory_iterator path)
 {
     auto child = path->path();
+    LOG(DEBUG) << "Walked to " << child;
     //ignore pattern specifies patterns in both directories and files which should be ignored
     bool ignored = glob(child,Settings.Files.IgnoredPatterns);
+    LOG(DEBUG) << "Was ignored?" << ignored;
     if (!ignored)
     {
         if (path->is_directory())
@@ -165,6 +167,8 @@ void Directory::Unwatch()
     Watcher->WatchMap.erase(INotifyID);
     
     Children.clear();
+
+    
 }
 
 std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)

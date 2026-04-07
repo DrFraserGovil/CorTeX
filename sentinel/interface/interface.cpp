@@ -6,13 +6,32 @@
 #include <regex>
 #include "directory_display.h"
 #include "../project/metadata.h"
+#include "../resources/resources.h"
+
+
+
+void CheckClassFile(bool expectWrite)
+{
+     fs::path classLocation = (fs::path)Settings.Files.TargetDirectory / clsLocation;
+
+     if (!fs::exists(classLocation))
+     {
+        if (!expectWrite){LOG(WARN) << "Expected to find a .cls file but none found: creating a new one.";}
+        JSL::writeStringToFile(classLocation,Resources::cortex_cls,std::ios::out);
+     }
+}
+
 Interface::Interface() 
 {
     Headless = Settings.System.Headless.Active;
-    if (!MainProject.ExistsOnDisk)
+    bool expectWriting = !MainProject.ExistsOnDisk;
+
+    if (expectWriting)
     {
         ConfigureLocation();
     }
+    CheckClassFile(expectWriting);
+   
 }
 
 void Interface::BeginLoop()
@@ -117,6 +136,17 @@ bool Interface::ParseCommand(std::string_view cmd)
     return true;
 }
 
+
+void Resetter(std::vector<std::string_view> & array)
+{
+    if (equal(array[1],"format"))
+    {
+        LOG(INFO) << "Reverting changes to the cls file";
+        fs::remove((fs::path)Settings.Files.TargetDirectory / clsLocation);
+        CheckClassFile(true);
+    }
+}
+
 bool Interface::CommandSearcher(std::vector<std::string_view> & array)
 {
     if (equal(array[0],"show"))
@@ -124,12 +154,17 @@ bool Interface::CommandSearcher(std::vector<std::string_view> & array)
         ShowSettings(array);
         return true;
     }
+    if (equal(array[0],"reset"))
+    {
+        Resetter(array);
+        return true;
+    }
     if (equal(array[0],"list") || equal(array[0],"ls"))
     {
         directoryDisplay(array);
         return true;
     }
-    if (equal(array[0],"compile"))
+    if (equal(array[0],"compile") || equal(array[0],"make"))
     {
         Handler->AddTask(Task(Instruction::CompileRequest,array));
         return true;
@@ -184,4 +219,6 @@ void Interface::ConfigureLocation()
 
     fs::path metalocation = (fs::path)Settings.Files.TargetDirectory / metadataLocation;
     MainProject.Save(metalocation);
+
+ 
 }

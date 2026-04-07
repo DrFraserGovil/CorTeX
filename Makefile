@@ -6,6 +6,7 @@ BUILD_DIR = .build
 # 1. The default target: ensures .build exists, runs cmake, then builds
 all:
 	@mkdir -p $(BUILD_DIR)
+	@python3 sentinel/resources/compile_resources.py sentinel/resources/ sentinel/resources/resources.h
 	@cmake -S . -B $(BUILD_DIR)
 	@make -C $(BUILD_DIR) --no-print-directory
 
