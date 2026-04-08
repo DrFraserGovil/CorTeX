@@ -20,6 +20,17 @@ void CheckClassFile(bool expectWrite)
         JSL::writeStringToFile(classLocation,Resources::cortex_cls,std::ios::out);
      }
 }
+void CheckMacroFile(bool expectWrite)
+{
+     fs::path macroLocation = (fs::path)Settings.Files.TargetDirectory /macroFile;
+     if (!fs::exists(macroLocation))
+     {
+        if (!expectWrite){LOG(WARN) << "Expected to find a .sty file but none found: creating a new one.";}
+        JSL::writeStringToFile(macroLocation,Resources::macros_sty,std::ios::out);
+     }
+}
+
+
 
 Interface::Interface() 
 {
@@ -31,6 +42,7 @@ Interface::Interface()
         ConfigureLocation();
     }
     CheckClassFile(expectWriting);
+    CheckMacroFile(expectWriting);
    
 }
 
@@ -144,6 +156,16 @@ void Resetter(std::vector<std::string_view> & array)
         LOG(INFO) << "Reverting changes to the cls file";
         fs::remove((fs::path)Settings.Files.TargetDirectory / clsLocation);
         CheckClassFile(true);
+    }
+    if (equal(array[1],"macros"))
+    {
+        auto path = (fs::path)Settings.Files.TargetDirectory / macroFile;
+        auto newpath = (fs::path)Settings.Files.TargetDirectory/".cortex";
+        newpath.replace_extension(".old");
+        LOG(WARN) << "All macros will be deleted. Recover from " << newpath.string();
+        // fs::remove((fs::path)Settings.Files.TargetDirectory / clsLocation);
+        fs::rename(path,newpath);
+        CheckMacroFile(true);
     }
 }
 

@@ -8,7 +8,7 @@ namespace Resources {
 \setlength\parskip{5pt}
 \setlength\parindent{0pt}
 
-)macros_sty";
+\def\div{/})macros_sty";
 
     // From cortex.cls
     inline constexpr std::string_view cortex_cls = R"cortex_cls(%%%% This defines the style sheet for the cortex notes

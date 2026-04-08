@@ -66,7 +66,6 @@ void Worker::AddTask(Task newjob)
 
 void Worker::ProcessFileChange()
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     //wait on this thread, allow the watcher thread to collate info
     auto elapsed = std::chrono::steady_clock::now() - CooldownStart;
     auto sleepTime = std::chrono::milliseconds(Settings.System.DispatchDelay) - elapsed;
@@ -86,7 +85,7 @@ void Worker::ProcessFileChange()
         }
         else
         {
-            // LOG(DEBUG) << "Change reported in " << report.Path;
+            LOG(DEBUG) << "Change reported in " << report.Path;
             MasterIndex.FindFile(report.Path);
         }
 
@@ -96,6 +95,7 @@ void Worker::ProcessFileChange()
         std::lock_guard<std::mutex> lock(JobLock);
         iNotifyCooldown = false;
     }
+    LOG(DEBUG) << "Beginning recompilation sweep";
     MasterIndex.Compile();
 }
 
@@ -255,6 +255,7 @@ void AttemptCompilation(std::vector<std::string> & data)
 void Worker::ProcessHead()
 {
     auto & job = LocalJobs.front();
+    LOG(DEBUG) << "Processing " << (int)job.Type;
     bool cascade=false;
     switch(job.Type)
     {

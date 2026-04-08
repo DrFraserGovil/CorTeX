@@ -68,7 +68,15 @@ void FileIndex::Compile(bool forceAll)
     preamble << "\\def\\titleFontSize{" << Settings.Document.TitleSize << "}\n";
     preamble << "\\def\\titleCentered{" << (int)Settings.Document.TitleCentered << "}\n";
 
-
+    //now insert the macros file
+    fs::path macros = (fs::path)Settings.Files.TargetDirectory / macroFile;
+    JSL::forLineIn(macros,[&](std::string_view line)
+    {
+        if (line[0] != '%') // omit comment lines
+        {
+            preamble << line << "\n";
+        }
+    });
 
     std::string globalPreamble = preamble.str();
     if (forceAll)
@@ -95,6 +103,7 @@ void FileIndex::Compile(bool forceAll)
 void FileIndex::FindFile(fs::path path)
 {
     auto truePath = Settings.Files.TargetDirectory / path;
+    
     auto parent = Structure->Find(path.parent_path()).lock();
     auto file = path.filename();
     

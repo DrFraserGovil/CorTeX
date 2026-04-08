@@ -182,6 +182,7 @@ void Directory::Unwatch()
 
 std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
 {
+
     std::string target = (std::string)arr[0];
     arr.erase(arr.begin());
 
@@ -208,6 +209,10 @@ std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
 
 std::weak_ptr<Directory> Directory::Find(fs::path path)
 {
+    if (path.empty())
+    {
+        return shared_from_this();
+    }
     std::vector<std::string> array {path.begin(), path.end()};
     std::vector<std::string_view> arr {array.begin(), array.end()};
     return Find(arr);

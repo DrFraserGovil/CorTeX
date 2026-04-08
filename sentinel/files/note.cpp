@@ -151,8 +151,16 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
     if (!IsError)
     {
         std::fstream output(relpath,std::ios::out);
-
+        //global preamble & documentclass
         output << preamble;
+
+        //local preamble
+        for (int i = 0; i < PreambleBuffer.size(); ++i)
+        {
+            output << PreambleBuffer[i] << "\n";
+        }
+
+        //main matter
         output << "\\begin{document}\n";
         int linkId = 0;
         output << "\\title{" << Header.Title << "}\n";
