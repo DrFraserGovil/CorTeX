@@ -124,11 +124,11 @@ void Note::Scan(bool saveToBuffer)
 void Note::CheckLinks()
 {
     ParsedLinks.clear();
+    LinesWithLinks.clear();
     auto originalOrphans = OrphanedLinks;
     for (int i = 0; i < BodyBuffer.size(); ++i)
     {
         std::string_view line = BodyBuffer[i];
-
         auto links = Link::GetLinks(line,i);
         
         if (links.size() > 0) LinesWithLinks.push_back(i);

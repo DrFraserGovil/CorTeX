@@ -1,6 +1,6 @@
 #include "linkCapture.h"
 #include "JSL/modules/Strings/trim.h"
-
+#include "../constants.h"
 Link::Link(int lineNo, int startPos, int endPos, std::string_view line) : Line(lineNo), Start(startPos), End(endPos)
 {
     auto capture = line.substr(startPos+2,endPos-startPos-4);
