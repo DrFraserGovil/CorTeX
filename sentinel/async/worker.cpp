@@ -85,7 +85,6 @@ void Worker::ProcessFileChange()
         }
         else
         {
-            LOG(DEBUG) << "Change reported in " << report.Path;
             MasterIndex.FindFile(report.Path);
         }
 

@@ -8,8 +8,14 @@
 
 Note::Note(fs::path path,std::weak_ptr<Directory> parent, bool isError):IsError(isError), Parent(parent){
     UniqueID = -1; //negative = unregistered
-    LOG(DEBUG) << "Found " << path;
     SourcePath = path;
+
+    BuildPath = (Parent.lock()->BuildEquivalent / SourcePath.stem());
+    BuildPath.replace_extension(".tex");
+
+    CompilePath = (Parent.lock()->OutputEquivalent / SourcePath.stem());
+    CompilePath.replace_extension(".pdf");
+
     Scan();
 };
 
@@ -144,13 +150,11 @@ void Note::CheckLinks()
     }
 }
 
-fs::path Note::ToBuild(std::string_view preamble,int Truncation)
+void Note::ToBuild(std::string_view preamble,int Truncation)
 {
-    auto relpath = (Parent.lock()->BuildEquivalent / SourcePath.stem());
-    relpath.replace_extension(".tex");
     if (!IsError)
     {
-        std::fstream output(relpath,std::ios::out);
+        std::fstream output(BuildPath,std::ios::out);
         //global preamble & documentclass
         output << preamble;
 
@@ -193,27 +197,25 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
         output.close();
     }
 
-   return relpath;
 }
 
 
 void Note::Compile(std::string_view preamble)
 {
-    LOG(DEBUG) << "Attempting Compiling " << Header.Title;
-    if (IsError){return;}
     if (BodyBuffer.size() == 0){Scan(true);};
+    if (IsError){return;}
     int truncation = 0;
     auto dir = Parent.lock()->BuildEquivalent;
     fs::path build;
     while (truncation < BodyBuffer.size())
     {
-        build = ToBuild(preamble,truncation);
+        ToBuild(preamble,truncation);
         
         auto canonical = (fs::canonical)((fs::path)Settings.Files.TargetDirectory);
         std::string texinputs = "TEXINPUTS=.:" + canonical.string() + "/: ";
         
         std::string cmd = texinputs + "pdflatex -interaction=nonstopmode -halt-on-error -output-directory=" + dir.string();
-        cmd += " " + build.string() + "> /dev/null 2>&1";
+        cmd += " " + BuildPath.string() + "> /dev/null 2>&1";
 
         int status = std::system(cmd.c_str());
         int exitCode = WEXITSTATUS(status);
@@ -223,17 +225,23 @@ void Note::Compile(std::string_view preamble)
         } 
         ++truncation;
     }
-    
-    build.replace_extension(".pdf");
-    if (fs::exists(build))
+    auto buildpdf = BuildPath;
+    if (fs::exists(buildpdf))
     {
-        auto target = Parent.lock()->OutputEquivalent / build.filename();
-        fs::rename(build,target);
-        LOG(DEBUG) << "Compilation successful";
+        buildpdf.replace_extension(".pdf");
+        fs::rename(buildpdf,CompilePath);
+        if (truncation == 0)
+        {
+            LOG(DEBUG) << JSL::Text::Green << "Successfully compiled " << Header.Title;
+        }
+        else
+        {
+            LOG(WARN) << JSL::Text::Red << "Compilation error in " << Header.Title << "\n\tError found on line " << BodyBuffer.size() - truncation + BodyStartLine << "\n\tGenerated a Minimally-Compiling Document";
+        }
     }
     else
     {
-        LOG(WARN) << "Failed to compile a MCE" << Header.Title;
+        LOG(WARN) << "Failed to compile a MCD" << Header.Title;
     }
     BodyBuffer.clear();
     PreambleBuffer.clear();

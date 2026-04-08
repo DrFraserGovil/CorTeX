@@ -44,9 +44,10 @@ class Note
     private:
         int BodyStartLine;
         fs::path SourcePath;
+        fs::path BuildPath;
+        fs::path CompilePath;
         int UniqueID;
         bool isDirty=false;
-        fs::path CompilePath;
         std::weak_ptr<Directory> Parent;
         std::vector<std::weak_ptr<Note>> InboundLinks;
         
@@ -56,7 +57,7 @@ class Note
         std::vector<Link> ParsedLinks;
 
         void CheckLinks();
-        fs::path ToBuild(std::string_view preamble="",int Truncation=0);
+        void ToBuild(std::string_view preamble="",int Truncation=0);
         std::vector<std::string> PreambleBuffer;
         std::vector<std::string> BodyBuffer;
         std::deque<int> LinesWithLinks;

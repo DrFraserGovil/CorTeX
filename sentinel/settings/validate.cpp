@@ -59,16 +59,19 @@ bool ValidateSettings()
 
 void ConfigureLogging()
 {
-    JSL::Log::Config.SetLevel(INFO);
+    auto & log = JSL::Log::Config;
+    log.SetLevel(INFO);
     if (Settings.System.Quiet)
     {
-        JSL::Log::Config.SetLevel(ERROR);
-
+        log.SetLevel(ERROR);
     }
     if (Settings.System.Verbose)
     {
-        JSL::Log::Config.SetLevel(DEBUG);
+        log.SetLevel(DEBUG);
     }
+    log.WarnColour = JSL::Text::Red;
+    log.DebugColour= JSL::Text::Colour(80,80,60);
+    
 }
 
 SettingsObject_Document CachedCompileSettings;
