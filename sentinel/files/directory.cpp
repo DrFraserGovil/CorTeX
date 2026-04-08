@@ -22,6 +22,12 @@ void Directory::SetOutput()
     auto relpath = fs::relative(FullPath,Settings.Files.TargetDirectory);
     OutputEquivalent = Root/Settings.Files.OutputDirectory /relpath;
     BuildEquivalent = Root/Settings.Files.BuildDirectory /relpath;
+   
+    ExistanceSweep();
+}
+
+void Directory::ExistanceSweep()
+{
     if (!fs::exists(OutputEquivalent))
     {
         fs::create_directories(OutputEquivalent);
@@ -29,6 +35,20 @@ void Directory::SetOutput()
     if (!fs::exists(BuildEquivalent))
     {
         fs::create_directories(BuildEquivalent);
+    }
+    
+    for (auto & child : Children)
+    {
+        child.second->ExistanceSweep();
+    }
+    for (auto & note : Notes)
+    {
+        auto n = note.second.lock();
+        note.second.lock()->DiskCheck();
+        if (n->IsDirty())
+        {
+            MasterIndex.NotifyDirty(n->UniqueID);
+        }
     }
 }
 
@@ -87,7 +107,6 @@ void Directory::ReWalk()
 {
     //called when a directory-level change happens during a live watch. We perform a complete rescan and check for any differences
     // at the end, the system should have re-configured itself to the new layout with the minimal number of changes that require recompilation
-
     std::error_code ec;
     using fsdir = fs::directory_iterator;
 
@@ -137,6 +156,11 @@ void Directory::Delete()
     {
         MasterIndex.DeleteFile(note.second);
     }
+    for (auto & child : Children)
+    {
+        child.second->Delete();
+        Children.erase(child.first);
+    }
     if (fs::exists(OutputEquivalent))
     {
         fs::remove_all(OutputEquivalent);
@@ -180,7 +204,7 @@ void Directory::Unwatch()
     
 }
 
-std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
+std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr,bool softMatch)
 {
 
     std::string target = (std::string)arr[0];
@@ -203,8 +227,15 @@ std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
         }
     }
 
-    LOG(WARN) << "Could not resolve '" << target <<"'. Best match is:";
-    return shared_from_this();
+    if (softMatch)
+    {
+        LOG(WARN) << "Could not resolve '" << target <<"'. Best match is:";
+        return shared_from_this();
+    }
+    else{
+        DirectoryPtr out;
+        return out;
+    }
 }
 
 std::weak_ptr<Directory> Directory::Find(fs::path path)
@@ -215,5 +246,21 @@ std::weak_ptr<Directory> Directory::Find(fs::path path)
     }
     std::vector<std::string> array {path.begin(), path.end()};
     std::vector<std::string_view> arr {array.begin(), array.end()};
-    return Find(arr);
+    return Find(arr,false);
+}
+
+void Directory::GatherOutputs(std::set<fs::path> & index)
+{
+    fs::path dir = (fs::path)Settings.Files.TargetDirectory/ Settings.Files.OutputDirectory;
+    for (auto & note : Notes)
+    {
+        auto n = note.second.lock();
+        index.insert(fs::relative(n->CompilePath,dir));
+    }
+
+    for (auto & child : Children)
+    {
+        auto c = child.second;
+        c->GatherOutputs(index);
+    }
 }

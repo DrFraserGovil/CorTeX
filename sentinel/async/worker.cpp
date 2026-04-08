@@ -1,6 +1,7 @@
 #include "worker.h"
 #include "watcher.h"
 #include "../project/index.h"
+
 void Worker::WorkerLoop(SystemWatcher & watcher)
 {
     if (MasterIndex.IsDirty())
@@ -21,7 +22,7 @@ void Worker::WorkerLoop(SystemWatcher & watcher)
         std::unique_lock<std::mutex> lock(JobLock);
         Notify.wait(lock);
         std::swap(LocalJobs,Jobs);
-        LOG(DEBUG) << "Worker has woken. " << LocalJobs.size() << " job(s) in queue";
+        // LOG(DEBUG) << "Worker has woken. " << LocalJobs.size() << " job(s) in queue";
         lock.unlock();
         //even if wakeup is spurious, this is quick
         while (LocalJobs.size() > 0)
@@ -46,7 +47,6 @@ void Worker::FileChange() //function called by the watcher thread (async with th
 {
     { 
         std::lock_guard<std::mutex> lock(JobLock);
-        LOG(DEBUG) << "Pushing file change to worker thread";
         if (iNotifyCooldown) //the worker is already about to 
         {
             return;
@@ -71,11 +71,17 @@ void Worker::AddTask(Task newjob)
 
 void Worker::ProcessFileChange()
 {
+    LOG(DEBUG) << "Confirming directory integrity";
+    MasterIndex.GetStructure().lock()->ExistanceSweep(); //perform a full resweep of the structure to ensure that everything still works fine
+
+    LOG(DEBUG) << "Directory integrity confirmed";
+
     //wait on this thread, allow the watcher thread to collate info
     auto elapsed = std::chrono::steady_clock::now() - CooldownStart;
     auto sleepTime = std::chrono::milliseconds(Settings.System.DispatchDelay) - elapsed;
     if (sleepTime > std::chrono::milliseconds(0))
     {
+        LOG(DEBUG) << JSL::Text::Colour(70,40,40) << "Debouncing";
         std::this_thread::sleep_for(sleepTime);
     }
 
@@ -150,11 +156,13 @@ bool ProcessParameterSet(std::vector<std::string> & data)
         return false;
     }
     data[0] = description.Key; //swap in the key in case the user gave the parameter name
+    LOG(DEBUG) << "Processing change to " << description.Key;
     try
     {
         Settings.ParseLine(data);
        
         bool requiresRecompile = ValidateSettings();
+        LOG(DEBUG) << "Validate " << requiresRecompile;
         fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
         Settings.SaveConfig(settings);
         return requiresRecompile;
@@ -210,12 +218,12 @@ struct TryRemove
 
 
 template<class Functor>
-void ProcessVector(std::vector<std::string> & data)
+bool ProcessVector(std::vector<std::string> & data)
 {
     auto [valid,description] = CheckParameterData(data);
     if (!valid)
     {
-        return;
+        return false;
     }
     std::ostringstream s(data[1]);
     for (size_t i = 2; i < data.size(); ++i)
@@ -237,13 +245,15 @@ void ProcessVector(std::vector<std::string> & data)
             LOG(WARN) << "Vector actions are not supported for objects of type '" << description.TypeString << "'";
         }
 
-        ValidateSettings();
+        bool requiresRecompile = ValidateSettings();
         fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
         Settings.SaveConfig(settings);
+        return requiresRecompile;
     }
     catch (...)
     {
         LOG(WARN) << "An error was encountered whilst parsing your argument.";
+        return false;
     }
 }
 
@@ -259,7 +269,7 @@ void AttemptCompilation(std::vector<std::string> & data)
 void Worker::ProcessHead()
 {
     auto & job = LocalJobs.front();
-    LOG(DEBUG) << "Processing " << (int)job.Type;
+    LOG(DEBUG) << JSL::Text::Colour(50,50,80) << "Processing job (type " << (int)job.Type <<")";
     bool cascade=false;
     switch(job.Type)
     {
@@ -277,17 +287,28 @@ void Worker::ProcessHead()
             cascade = ProcessParameterSet(job.TaskData);
             break;
         case Instruction::VectorAdd:
-            ProcessVector<TryPush>(job.TaskData);
+             cascade =ProcessVector<TryPush>(job.TaskData);
             break;
         case Instruction::VectorRemove:
-            ProcessVector<TryRemove>(job.TaskData);
+             cascade =ProcessVector<TryRemove>(job.TaskData);
+            break;
+        case Instruction::Clean:
+            MasterIndex.CleanOutput();
             break;
         default:
             LOG(WARN) << "Unimplemented instruction recieved";
+            break;
     }
+    LOG(DEBUG) << "Cascade: " << cascade;
     if (cascade)
     {
         LocalJobs.push(Task(Instruction::CompileRequest));
     }
+    LOG(DEBUG) << "Task " << (int)job.Type << " complete ";
     LocalJobs.pop();
+
+    if (JSL::Log::Config.Level == DEBUG && LocalJobs.size() == 0)
+    {
+        std::cout << JSL::Cursor::ClearLine <<  JSL::Text::Blue << ">> " << JSL::Text::Cyan << std::flush; //bit of manual hackery to get a reprompt
+    }
 }

@@ -69,8 +69,8 @@ void ConfigureLogging()
     {
         log.SetLevel(DEBUG);
     }
-    log.WarnColour = JSL::Text::Red;
     log.DebugColour= JSL::Text::Colour(80,80,60);
+    log.ForceClear = true;
     
 }
 

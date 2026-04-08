@@ -17,7 +17,7 @@ Note::Note(fs::path path,std::weak_ptr<Directory> parent, bool isError):IsError(
     CompilePath.replace_extension(".pdf");
 
     Scan();
-    InitialTimeCheck();
+    DiskCheck();
 };
 
 
@@ -233,23 +233,29 @@ void Note::Compile(std::string_view preamble)
         fs::rename(buildpdf,CompilePath);
         if (truncation == 0)
         {
-            LOG(DEBUG) << JSL::Text::Green << "Successfully compiled " << Header.Title;
+            LOG(DEBUG) << JSL::Text::Green << "Successfully compiled " << Header.Title << " (Note " << UniqueID <<")";
         }
         else
         {
-            LOG(WARN) << JSL::Text::Red << "Compilation error in " << Header.Title << "\n\tError found on line " << BodyBuffer.size() - truncation + BodyStartLine << "\n\tGenerated a Minimally-Compiling Document";
+            LOG(WARN) << JSL::Text::Red << "Compilation error in " << Header.Title << " (Note " << UniqueID <<")\n\tError found on line " << BodyBuffer.size() - truncation + BodyStartLine << "\n\tGenerated a Minimally-Compiling Document";
         }
     }
     else
     {
-        LOG(WARN) << "Failed to compile a MCD" << Header.Title;
+        LOG(WARN) << "Failed to compile a MCD for " << Header.Title << " (Note " << UniqueID <<")";
     }
     BodyBuffer.clear();
     PreambleBuffer.clear();
+    isDirty = false;
 }
 
-void Note::InitialTimeCheck()
+void Note::DiskCheck()
 {
+    if (!fs::exists(SourcePath))
+    {
+        return;
+    }
+
     bool fileExists = fs::exists(CompilePath);
     if (!fileExists)
     {
@@ -257,13 +263,31 @@ void Note::InitialTimeCheck()
         return;
     }
 
+
     auto sourceTime = fs::last_write_time(SourcePath);
     auto compileTime = fs::last_write_time(CompilePath);
 
     if (sourceTime > compileTime)
     {
         isDirty = true;
-        LOG(DEBUG) << Header.Title << "dirty when loaded in";
     }
 
+}
+
+
+void tryDelete(fs::path path)
+{
+    if (fs::exists(path))
+    {
+        fs::remove(path);
+    }
+}
+
+void Note::Delete()
+{
+    LOG(DEBUG) << "Deleting " << SourcePath.string() << " and associated files";
+    
+    // tryDelete(SourcePath); // shouldn't risk deleting source code automatically!
+    tryDelete(BuildPath);
+    tryDelete(CompilePath);
 }

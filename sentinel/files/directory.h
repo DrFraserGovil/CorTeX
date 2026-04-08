@@ -29,10 +29,12 @@ class SystemWatcher; //forward declaration
         void Walk();
         void ReWalk();
         bool IsRoot = false;
-        std::weak_ptr<Directory>  Find(std::vector<std::string_view> path);
+        std::weak_ptr<Directory>  Find(std::vector<std::string_view> path,bool softMatch=true);
         std::weak_ptr<Directory>  Find(fs::path path);
         void SetOutput();
         NotePtr NewNote(fs::path path); 
+        void ExistanceSweep();
+        void GatherOutputs(std::set<fs::path> & index);
     private:
         int INotifyID;
         void NewEntity(fs::directory_iterator path,bool connect=false);

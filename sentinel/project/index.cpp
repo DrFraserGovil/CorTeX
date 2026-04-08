@@ -1,5 +1,6 @@
 #include "index.h"
 #include "../settings/settings.hpp"
+#include <algorithm>
 void FileIndex::Register(std::shared_ptr<Note> newNote)
 {
     int id = GetID();
@@ -55,12 +56,16 @@ void FileIndex::UnwatchAll()
 
 void FileIndex::NotifyDirty(int id)
 {
-    DirtyFiles.push_back(id);
+    if (std::find(DirtyFiles.begin(),DirtyFiles.end(),id) == DirtyFiles.end())
+    {
+        DirtyFiles.push_back(id);
+    }
 }
 
 
 void FileIndex::Compile(bool forceAll)
 {
+    // Structure->ExistanceSweep(); //perform a full resweep of the structure to ensure that everything still works fine
     std::ostringstream preamble;
     preamble << "\\documentclass[width =" << Settings.Document.Width << "cm, " <<  Settings.Document.FontSize << "pt]{cortex}\n";
 
@@ -97,7 +102,12 @@ void FileIndex::Compile(bool forceAll)
         {
             if (Registry.contains(DirtyFiles[0]))
             {
+                LOG(DEBUG) << JSL::Text::Colour(50,80,50) << "Compiling " << DirtyFiles[0];
                 Registry[DirtyFiles[0]]->Compile(globalPreamble);
+            }
+            else
+            {
+                LOG(DEBUG) << JSL::Text::Colour(50,80,50) << "Ignoring " << DirtyFiles[0] << " due to file deletion";
             }
             DirtyFiles.pop_front();
         }
@@ -109,31 +119,37 @@ void FileIndex::FindFile(fs::path path)
 {
     auto truePath = Settings.Files.TargetDirectory / path;
     
-    auto parent = Structure->Find(path.parent_path()).lock();
+    auto find = Structure->Find(path.parent_path());
+
+    if (find.use_count() == 0)
+    {
+        return;
+    }
+
+    auto parent = find.lock();
     auto file = path.filename();
     
-    LOG(DEBUG) << "Attempting to locate " << truePath;
     if (parent->Notes.contains(file))
     {
         auto entry = parent->Notes[file].lock();
         if (fs::exists(truePath)) //check if deletion
         {
-            LOG(DEBUG) << "Found file, recompiling";
-            DirtyFiles.push_back(entry->UniqueID);
+            LOG(DEBUG) << truePath << " identified with file " << entry->UniqueID;
+            NotifyDirty(entry->UniqueID);
             
         }
         else
         {
-            LOG(DEBUG) << "File no longer on disk: deleting";
-            entry->Delete();
+            LOG(DEBUG) << truePath << " no longer on disk: deleting";
+            DeleteFile(entry);
         }
     }
     else
     {
-        LOG(DEBUG) << "Not found - creating a new entry";
+        LOG(DEBUG) << truePath << " not in index - creating a new entry";
         //create a new file
         auto note = parent->NewNote(truePath);
-        DirtyFiles.push_back(note.lock()->UniqueID);
+        NotifyDirty(note.lock()->UniqueID);
     }
 
 }
@@ -141,4 +157,49 @@ void FileIndex::FindFile(fs::path path)
 bool FileIndex::IsDirty()
 {
     return DirtyFiles.size() > 0;
+}
+
+void FileIndex::CleanOutput()
+{
+    std::error_code ec;
+    using fsdir = fs::recursive_directory_iterator;
+
+    fs::path dir = (fs::path)Settings.Files.TargetDirectory/ Settings.Files.OutputDirectory;
+    // //now search for children
+    std::set<fs::path> paths;
+    for (auto   it = fsdir(dir,ec); it != fsdir(); ++it) 
+    {
+        if (ec ) continue;
+        auto p = it->path();
+        if (p.extension() == ".pdf")
+        {
+            paths.insert(fs::relative(p,dir));
+        }
+    }
+
+    std::set<fs::path> expected;
+    Structure->GatherOutputs(expected);
+
+
+    std::set<fs::path> leftovers; // Create the destination
+
+    std::set_difference(
+        paths.begin(), paths.end(),
+        expected.begin(), expected.end(),
+        std::inserter(leftovers, leftovers.begin())
+    );
+
+    if (leftovers.size() > 0)
+    {
+        LOG(INFO) << "The following output files have no corresponding source.\nThey are being deleted.";
+        for (auto & left : leftovers)
+        {
+            LOG(INFO) << "  - " << left.string();
+            fs::remove(dir/left);
+        }
+    }
+    else
+    {
+        LOG(INFO) << "No files to clean: output matches source";
+    }
 }

@@ -13,6 +13,7 @@ enum class Instruction
     CompileAll,
     CompileRequest,
     Shutdown,
+    Clean,
     None,
 };
 

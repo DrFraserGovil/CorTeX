@@ -109,7 +109,6 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
     }
     if (!batch.empty())
     {
-       
         std::lock_guard<std::mutex> lock(WatcherSync);
         for (auto& report : batch)
         {
@@ -122,7 +121,10 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
                 // Merge the new mask into the existing one
                 it->second.Mask |= report.Mask;
             }
-            LOG(DEBUG) << "Watcher reports change to " << report.Path;
+            else
+            {
+                LOG(DEBUG) << "Watcher reports change to " << report.Path << ", code " << report.Mask;
+            }
         }
     }
     Executor.FileChange();

@@ -54,7 +54,7 @@ void Interface::BeginLoop()
     bool continues = true;
     while (continues)
     {
-        std::cout << txt::Blue << ">> " << txt::Cyan;
+        std::cout << JSL::Cursor::ClearLine << txt::Blue << ">> " << txt::Cyan;
         std::getline(std::cin,cmd);
         continues = ParseCommand(JSL::trim(cmd));
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -174,6 +174,11 @@ bool Interface::CommandSearcher(std::vector<std::string_view> & array)
     if (equal(array[0],"show"))
     {
         ShowSettings(array);
+        return true;
+    }
+    if (equal(array[0],"clean"))
+    {
+        Handler->AddTask(Task(Instruction::Clean));
         return true;
     }
     if (equal(array[0],"reset"))

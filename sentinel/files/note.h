@@ -34,20 +34,24 @@ class Note
         Note(fs::path path,std::weak_ptr<Directory> parent,  bool isError=false);
 
         static std::shared_ptr<Note> Create(fs::path path,std::weak_ptr<Directory> parent);
-        void Delete(){LOG(DEBUG) << "Deleting " << SourcePath;};
+        
         bool IsError = false;
         void Scan(bool saveToBuffer=false);
         void Compile(std::string_view preamble);
         friend class FileIndex;
         FileHeader Header;
         void SetDirty(){isDirty=true;};
-    private:
-        bool isDirty=false;
-        int BodyStartLine;
+        
+        void DiskCheck();
+        bool IsDirty(){return isDirty;}
+        int UniqueID;
         fs::path SourcePath;
         fs::path BuildPath;
         fs::path CompilePath;
-        int UniqueID;
+    private:
+        void Delete();
+        bool isDirty=false;
+        int BodyStartLine;
         std::weak_ptr<Directory> Parent;
         std::vector<std::weak_ptr<Note>> InboundLinks;
         
@@ -62,7 +66,6 @@ class Note
         std::vector<std::string> BodyBuffer;
         std::deque<int> LinesWithLinks;
         bool NoTitleWarn = false;
-        void InitialTimeCheck();
 };
 
 typedef std::weak_ptr<Note> NotePtr;
