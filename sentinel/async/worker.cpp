@@ -3,6 +3,11 @@
 #include "../project/index.h"
 void Worker::WorkerLoop(SystemWatcher & watcher)
 {
+    if (MasterIndex.IsDirty())
+    {
+        LOG(DEBUG) << "Initial compilation sweep required";
+        MasterIndex.Compile();
+    }
     watcher.Start();
     LOG(DEBUG) << "Worker process initialised";
     CurrentWatcher = &watcher;

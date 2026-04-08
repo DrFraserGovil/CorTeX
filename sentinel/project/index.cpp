@@ -10,6 +10,11 @@ void FileIndex::Register(std::shared_ptr<Note> newNote)
     {
         Aliases[alias].Add(newNote);
     }
+
+    if (newNote->isDirty)
+    {
+        NotifyDirty(id);
+    }
 }
 
 int FileIndex::GetID()
@@ -131,4 +136,9 @@ void FileIndex::FindFile(fs::path path)
         DirtyFiles.push_back(note.lock()->UniqueID);
     }
 
+}
+
+bool FileIndex::IsDirty()
+{
+    return DirtyFiles.size() > 0;
 }

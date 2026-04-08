@@ -42,12 +42,12 @@ class Note
         FileHeader Header;
         void SetDirty(){isDirty=true;};
     private:
+        bool isDirty=false;
         int BodyStartLine;
         fs::path SourcePath;
         fs::path BuildPath;
         fs::path CompilePath;
         int UniqueID;
-        bool isDirty=false;
         std::weak_ptr<Directory> Parent;
         std::vector<std::weak_ptr<Note>> InboundLinks;
         
@@ -62,6 +62,7 @@ class Note
         std::vector<std::string> BodyBuffer;
         std::deque<int> LinesWithLinks;
         bool NoTitleWarn = false;
+        void InitialTimeCheck();
 };
 
 typedef std::weak_ptr<Note> NotePtr;

@@ -17,6 +17,7 @@ Note::Note(fs::path path,std::weak_ptr<Directory> parent, bool isError):IsError(
     CompilePath.replace_extension(".pdf");
 
     Scan();
+    InitialTimeCheck();
 };
 
 
@@ -247,4 +248,22 @@ void Note::Compile(std::string_view preamble)
     PreambleBuffer.clear();
 }
 
+void Note::InitialTimeCheck()
+{
+    bool fileExists = fs::exists(CompilePath);
+    if (!fileExists)
+    {
+        isDirty = true;
+        return;
+    }
 
+    auto sourceTime = fs::last_write_time(SourcePath);
+    auto compileTime = fs::last_write_time(CompilePath);
+
+    if (sourceTime > compileTime)
+    {
+        isDirty = true;
+        LOG(DEBUG) << Header.Title << "dirty when loaded in";
+    }
+
+}
