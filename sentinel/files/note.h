@@ -40,10 +40,12 @@ class Note
         void Compile(std::string_view preamble);
         friend class FileIndex;
         FileHeader Header;
+        void SetDirty(){isDirty=true;};
     private:
         int BodyStartLine;
         fs::path SourcePath;
         int UniqueID;
+        bool isDirty=false;
         fs::path CompilePath;
         std::weak_ptr<Directory> Parent;
         std::vector<std::weak_ptr<Note>> InboundLinks;

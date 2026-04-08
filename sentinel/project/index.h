@@ -27,6 +27,7 @@ class FileIndex
         void UnwatchAll();
         void NotifyDirty(int id);
         void Compile(bool forceAll =false);
+        void FindFile(fs::path path);
     private:
         int SequentialID=0;
         std::shared_ptr<Directory> Structure;

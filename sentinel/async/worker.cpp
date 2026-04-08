@@ -66,6 +66,7 @@ void Worker::AddTask(Task newjob)
 
 void Worker::ProcessFileChange()
 {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     //wait on this thread, allow the watcher thread to collate info
     auto elapsed = std::chrono::steady_clock::now() - CooldownStart;
     auto sleepTime = std::chrono::milliseconds(Settings.System.DispatchDelay) - elapsed;
@@ -83,11 +84,19 @@ void Worker::ProcessFileChange()
             MasterIndex.GetStructure().lock()->ReWalk();
             dirSweep = true; // ensure we only do this once per report - its a clean slate wipe
         }
+        else
+        {
+            // LOG(DEBUG) << "Change reported in " << report.Path;
+            MasterIndex.FindFile(report.Path);
+        }
+
+        
     }
     {
         std::lock_guard<std::mutex> lock(JobLock);
         iNotifyCooldown = false;
     }
+    MasterIndex.Compile();
 }
 
 std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::string> & data)

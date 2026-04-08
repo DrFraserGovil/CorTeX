@@ -90,3 +90,36 @@ void FileIndex::Compile(bool forceAll)
         }
     }
 }
+
+
+void FileIndex::FindFile(fs::path path)
+{
+    auto truePath = Settings.Files.TargetDirectory / path;
+    auto parent = Structure->Find(path.parent_path()).lock();
+    auto file = path.filename();
+    
+    LOG(DEBUG) << "Attempting to locate " << truePath;
+    if (parent->Notes.contains(file))
+    {
+        auto entry = parent->Notes[file].lock();
+        if (fs::exists(truePath)) //check if deletion
+        {
+            LOG(DEBUG) << "Found file, recompiling";
+            DirtyFiles.push_back(entry->UniqueID);
+            
+        }
+        else
+        {
+            LOG(DEBUG) << "File no longer on disk: deleting";
+            entry->Delete();
+        }
+    }
+    else
+    {
+        LOG(DEBUG) << "Not found - creating a new entry";
+        //create a new file
+        auto note = parent->NewNote(truePath);
+        DirtyFiles.push_back(note.lock()->UniqueID);
+    }
+
+}

@@ -1,3 +1,8 @@
+%%%% This defines the style sheet for the cortex notes
+%%%% It contains many definitions which are referenced internally by the CorTeX sentinel: DO NOT MODIFY unless you are confident that it won't break things. 
+%%%% Errors in this document will prevent a MCE from being generated
+%%%% For custom macros available globally in a project, see *macros.sty* instead
+
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{cortex}
 

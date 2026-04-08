@@ -46,13 +46,18 @@ void Directory::Walk()
     }
 }
 
-void Directory::NewEntity(fs::directory_iterator path)
+NotePtr Directory::NewNote(fs::path child)
+{
+     auto noteChild = Note::Create(child,shared_from_this());
+    Notes[child.filename()] = noteChild;
+    return noteChild;
+}
+
+void Directory::NewEntity(fs::directory_iterator path,bool connect)
 {
     auto child = path->path();
-    LOG(DEBUG) << "Walked to " << child;
     //ignore pattern specifies patterns in both directories and files which should be ignored
     bool ignored = glob(child,Settings.Files.IgnoredPatterns);
-    LOG(DEBUG) << "Was ignored?" << ignored;
     if (!ignored)
     {
         if (path->is_directory())
@@ -60,6 +65,10 @@ void Directory::NewEntity(fs::directory_iterator path)
             //all non-ignored directories are traversed
             auto dirChild = std::make_shared<Directory>(child,shared_from_this());
             dirChild->Walk();
+            if (connect)
+            {
+                dirChild->ConnectToINotify(Watcher);
+            }
             Children[child] = (dirChild);
             return;
         }
@@ -68,8 +77,7 @@ void Directory::NewEntity(fs::directory_iterator path)
             //for files, we only want those which match our watch pattern
             if (glob(child,Settings.Files.WatchedPatterns))
             {
-                auto noteChild = Note::Create(child,shared_from_this());
-                Notes[child] = noteChild;
+               NewNote(child);
             }
         }
     }
@@ -103,12 +111,13 @@ void Directory::ReWalk()
         else
         {
             //then test if its a file we already know about
-            auto fileFind = Notes.find(child);
+            auto fileFind = Notes.find(child.filename());
             if (fileFind == Notes.end())
             {
                 //anything that fails is either a new directory, or a file in a new directory that didn't otherwise trigger a newfile alert
                 // (i.e. a file that existed before the directory was mv'd in)
-                NewEntity(it); //this adds the new entity, and continues recursively
+                NewEntity(it,true); //this adds the new entity, and continues recursively
+                
             }
 
         }
@@ -130,11 +139,11 @@ void Directory::Delete()
     }
     if (fs::exists(OutputEquivalent))
     {
-        fs::remove(OutputEquivalent);
+        fs::remove_all(OutputEquivalent);
     }
     if (fs::exists(BuildEquivalent))
     {
-        fs::remove(BuildEquivalent);
+        fs::remove_all(BuildEquivalent);
     }
     Unwatch();
 }
@@ -195,4 +204,11 @@ std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
 
     LOG(WARN) << "Could not resolve '" << target <<"'. Best match is:";
     return shared_from_this();
+}
+
+std::weak_ptr<Directory> Directory::Find(fs::path path)
+{
+    std::vector<std::string> array {path.begin(), path.end()};
+    std::vector<std::string_view> arr {array.begin(), array.end()};
+    return Find(arr);
 }

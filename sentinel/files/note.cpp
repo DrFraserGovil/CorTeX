@@ -64,6 +64,7 @@ bool isDelimiter(std::string_view line)
 
 void Note::Scan(bool saveToBuffer)
 {
+    IsError = false;
     std::vector<std::vector<std::string>> fileChunks;
     std::vector<std::string> bucket;
     int i = 1;
@@ -81,6 +82,7 @@ void Note::Scan(bool saveToBuffer)
         }
         i++;
     });
+    if (i == 1){IsError = true; return;}
     fileChunks.push_back(bucket);
 
     //always assume firts block is title + link metadata
@@ -190,6 +192,7 @@ fs::path Note::ToBuild(std::string_view preamble,int Truncation)
 void Note::Compile(std::string_view preamble)
 {
     LOG(DEBUG) << "Attempting Compiling " << Header.Title;
+    if (IsError){return;}
     if (BodyBuffer.size() == 0){Scan(true);};
     int truncation = 0;
     auto dir = Parent.lock()->BuildEquivalent;
