@@ -1,9 +1,8 @@
-#include "settings.hpp"
+#include "../settings/settings.hpp"
 
-
-
+/*
+    The validator 
+*/
 bool ValidateSettings();
 
-void ConfigureLogging();
-
-extern SettingsObject_Document CachedCompileSettings;
+extern SettingsObject CachedSettings;

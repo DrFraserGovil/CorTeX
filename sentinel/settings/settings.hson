@@ -30,7 +30,12 @@ Settings : Global
                     default="cortex_disable_message"
                     note="If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted."
                 }
-                
+                 size_t PollingDelay
+                {
+                    trigger="poll-delay"
+                    default = 100
+                    note="The responsiveness delay (in ms) in the menu polling interface"
+                }
     
             }
             Categories

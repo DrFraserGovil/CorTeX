@@ -1,9 +1,9 @@
 #include "directory_display.h"
 #include "JSL/modules/Display/Log.h"
 #include "JSL/modules/Strings/Strings.h"
-
-#include "../global.h"
-#include "../index/directory.h"
+#include "../project/index.h"
+#include "../project/metadata.h"
+#include "../constants.h"
 
 std::vector<JSL::detail::ColourConstructor> colorArray = {
     txt::Colour(255, 99, 132),   // red
@@ -37,18 +37,18 @@ void display(std::weak_ptr<Directory> input,std::string dirPrefix, std::string f
     }
     if (dir->IsRoot)
     {
-        LOG(INFO) << dirCol << txt::Bold << Cortex.Info.Name << txt::Italics<< " (Project root)";
+        LOG(INFO) << dirCol << txt::Bold << MainProject.Name << txt::Italics<< " (Project root)";
     }
     else
     {
-        LOG(INFO) << dirPrefix  << txt::Bold  << dirCol << dir->Path.Source.filename().string();
+        LOG(INFO) << dirPrefix  << txt::Bold  << dirCol << dir->FullPath.filename().string();
     }
     auto & notes = dir->Notes;
     for (auto note : notes)
     {
-        LOG(INFO) << newFilePrefix << txt::Italics << note.lock()->Path.Source.filename().string();
+        LOG(INFO) << newFilePrefix << txt::Italics << note.first.filename().string();
     }
-    // //child directories
+    //child directories
     size_t i = 0;
     for (auto & child : children)
     {
@@ -58,19 +58,20 @@ void display(std::weak_ptr<Directory> input,std::string dirPrefix, std::string f
             junction = col + "└───";
             newFilePrefix = endFilePrefix;
         }
-        display(child,filePrefix + junction,newFilePrefix);
+        display(child.second,filePrefix + junction,newFilePrefix);
         ++i;
     }
 }
 
 
-void directoryDisplay(std::vector<std::string> & array)
+void directoryDisplay(std::vector<std::string_view> array)
 {
-    auto s = Cortex.Index.RootDir;
-    // if (array.size() > 1)
-    // {
-    //     s = s->Find(JSL::split(array[1],"/"));
-    // }
+    auto s = MasterIndex.GetStructure();
+    ColIndex = 0;
+    if (array.size() > 1)
+    {
+        s = s.lock()->Find(JSL::split(array[1],"/"));
+    }
 
     display(s,"","");
 }

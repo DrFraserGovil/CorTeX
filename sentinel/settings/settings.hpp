@@ -68,6 +68,7 @@ class SettingsObject_System
 		bool Verbose = false;
 		bool Quiet = false;
 		std::string TerminationFileName = "cortex_disable_message";
+		size_t PollingDelay = 100;
 		SettingsObject_System_Headless Headless;
 		void Parse(int argc, char** argv)
 		{
@@ -75,6 +76,7 @@ class SettingsObject_System
 			Verbose = JSL::Parameter<bool>(Verbose,"v",argc,argv).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",argc,argv).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",argc,argv).Value();
+			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",argc,argv).Value();
 			Headless.Parse(argc,argv);
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
@@ -83,6 +85,7 @@ class SettingsObject_System
 			Verbose = JSL::Parameter<bool>(Verbose,"v",configFile,configDelimiter).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",configFile,configDelimiter).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",configFile,configDelimiter).Value();
+			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",configFile,configDelimiter).Value();
 			Headless.Configure(configFile,configDelimiter);
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
@@ -91,6 +94,7 @@ class SettingsObject_System
 			Verbose = JSL::Parameter<bool>(Verbose,"v",linevec).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",linevec).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",linevec).Value();
+			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",linevec).Value();
 			Headless.ParseLine(linevec);
 		}
 		auto operator<=>(const SettingsObject_System&) const = default;
@@ -101,6 +105,7 @@ class SettingsObject_System
 			s << "v " << JSL::MakeString(Verbose) << "\n";
 			s << "q " << JSL::MakeString(Quiet) << "\n";
 			s << "terminate " << JSL::MakeString(TerminationFileName) << "\n";
+			s << "poll-delay " << JSL::MakeString(PollingDelay) << "\n";
 			s << Headless.ToText();
 			return s.str();
 		}
@@ -110,6 +115,7 @@ class SettingsObject_System
 			help.AddMessage("SettingsObject_System","v",false,"Verbose","Inlcudes debugging error messages. Overrides quiet");
 			help.AddMessage("SettingsObject_System","q",false,"Quiet","Suppresses all outputs except errors.");
 			help.AddMessage("SettingsObject_System","terminate","cortex_disable_message","TerminationFileName","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.");
+			help.AddMessage("SettingsObject_System","poll-delay",100,"PollingDelay","The responsiveness delay (in ms) in the menu polling interface");
 			Headless.Help(help);
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
@@ -118,6 +124,7 @@ class SettingsObject_System
 			JSL::ParameterDescription("Verbose","bool","v",Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
 			JSL::ParameterDescription("Quiet","bool","q",Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
 			JSL::ParameterDescription("TerminationFileName","std::string","terminate",TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
+			JSL::ParameterDescription("PollingDelay","size_t","poll-delay",PollingDelay,(size_t)100,"The responsiveness delay (in ms) in the menu polling interface").Query(parameter,found);
 			Headless.GetDescription(parameter,found);
 		}
 };

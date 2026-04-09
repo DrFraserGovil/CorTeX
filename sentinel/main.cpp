@@ -2,49 +2,52 @@
 #include "JSL/JSL.h"
 Initialise_JSL_Log()
 #include <iostream>
+#include "global.h"
+#include "project/project.h"
+#include "interface/watcher.h"
+#include "interface/worker.h"
+void HeadlessMain()
+{
 
-#include "settings/validate.h"
-#include "interface/initialiser.h"
-#include "interface/interface.h"
-#include "async/watcher.h"
-#include "async/worker.h"
-#include "files/directory.h"
-#include "project/index.h"
-FileIndex MasterIndex;
+};
+
+
+void InterfaceMain()
+{
+    Watcher watcher;
+    Worker worker;
+
+    watcher.Connect(&worker);
+    
+    worker.ProcessInput(); //main loop which waits for an exit signal
+
+    watcher.Exit();
+};
+
+
+
+Project Cortex;
+
 int main(int argc, char**argv)
 {
-    Initialiser Bootstrap(argc,argv);
-    Interface Menu;
-    
-    //now use the setup we have to initialise the vital structures
-    
-    ValidateSettings();    
-    Worker Manager;
-    LOG(DEBUG) << "Initialising master index";
-    MasterIndex.Initialise();
-    LOG(DEBUG) << "Initialising system watcher";
-    SystemWatcher Watcher(Manager);
-    
-    if (!Menu.Headless)
+    Cortex.Initialise(argc,argv);
+    if (Settings.System.Headless.Active)
     {
-        Menu.ConnectWorker(Manager);
-        auto workthread = std::thread(&Worker::WorkerLoop,&Manager,std::ref(Watcher)); //launch the asynchronous worker 
-
-        LOG(DEBUG) << "Entering main menu";
-        Menu.BeginLoop();
-
-        if (workthread.joinable())
-        {
-            workthread.join();
-        }
+        HeadlessMain();
     }
     else
     {
-        LOG(INFO) << "Entering headless mode";
-        Manager.WorkerLoop(Watcher);
+        InterfaceMain();
     }
-    
 
-    MasterIndex.UnwatchAll();
     LOG(INFO) << "CorTeX Shutdown complete";
 }
+
+
+// FileIndex MasterIndex;
+//     MasterIndex.Initialise();
+
+
+//     MasterIndex.UnwatchAll();
+//     LOG(INFO) << "CorTeX Shutdown complete";
+// }

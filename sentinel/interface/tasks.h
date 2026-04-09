@@ -2,17 +2,17 @@
 #include <vector>
 #include <string>
 #include <string_view>
-#include <variant>
-#include "../constants.h"
 enum class Instruction
 {
-    ParameterUpdate,
-    VectorAdd,
-    VectorRemove,
-    FileChange,
-    CompileAll,
-    CompileRequest,
     Shutdown,
+    SettingView,
+    SettingChange,
+    SettingVectorAdd,
+    SettingVectorRemove,
+    FileChange,
+    Compile,
+    List,
+    Reset,
     Clean,
     None,
 };

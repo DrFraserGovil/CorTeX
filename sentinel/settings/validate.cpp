@@ -1,7 +1,8 @@
 #include "validate.h"
 #include "../constants.h"
-#include "JSL/modules/Display/Log.h"
-#include "../project/index.h"
+
+
+
 
 void FixFontSize(std::string value, size_t & target)
 {
@@ -27,39 +28,10 @@ void FixFontSize(std::string value, size_t & target)
 }
 
 
-
-bool ValidateSettings()
-{
-    ConfigureLogging();
-
-
-    //ensure the output directory is included in the ignored pattern, to prevent hellish event recursions
-    auto & files = Settings.Files;    
-    auto & tmp = files.IgnoredPatterns;
-    std::string ignore =  (fs::path)(files.OutputDirectory);
-    ignore = "*" + ignore + "*";
-    if (std::find(tmp.begin(),tmp.end(),ignore)==tmp.end())
-    {
-        tmp.push_back(ignore);
-        LOG(DEBUG) << "Updated ignored patterns to " << JSL::MakeString(Settings.Files.IgnoredPatterns);
-    }
-
-     FixFontSize("body text",Settings.Document.FontSize);
-   
-
-    if (CachedCompileSettings != Settings.Document)
-    {   
-        CachedCompileSettings = Settings.Document;
-        LOG(DEBUG) << "Detected a change in compiler settings - triggering recompile";
-        return true;
-    }
-
-    return false;
-}
-
 void ConfigureLogging()
 {
     auto & log = JSL::Log::Config;
+    log.ShowHeaders = false;
     log.SetLevel(INFO);
     if (Settings.System.Quiet)
     {
@@ -74,4 +46,38 @@ void ConfigureLogging()
     
 }
 
-SettingsObject_Document CachedCompileSettings;
+bool firstLoop = true;
+bool ValidateSettings()
+{
+    ConfigureLogging();
+
+
+    //ensure the output directory is included in the ignored pattern, to prevent hellish event recursions
+    auto & files = Settings.Files;    
+    auto & tmp = files.IgnoredPatterns;
+    std::string ignore =  (fs::path)(files.OutputDirectory);
+    ignore = "*" + ignore + "*";
+    if (std::find(tmp.begin(),tmp.end(),ignore)==tmp.end())
+    {
+        tmp.push_back(ignore);
+    }
+
+     FixFontSize("body text",Settings.Document.FontSize);
+   
+    if (!firstLoop)
+    {
+        if (CachedSettings.Document != Settings.Document)
+        {   
+            LOG(DEBUG) << "Detected a change in compiler settings - triggering recompile";
+            return true;
+        }
+        firstLoop = false;
+    }
+    CachedSettings = Settings;
+
+    return false;
+}
+
+
+
+SettingsObject CachedSettings;

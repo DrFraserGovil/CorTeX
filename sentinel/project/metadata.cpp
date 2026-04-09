@@ -1,10 +1,39 @@
 #include "metadata.h"
-#include <sstream>
-#include "JSL/modules/FileIO/FileIO.h"
-#include "../constants.h"
-namespace fs = std::filesystem;
+#include "../global.h"
 
-Metadata MainProject ;
+Metadata::Metadata()
+{
+    SetDefaults();
+}
+
+void Metadata::SetDefaults()
+{
+    Name = "Unknown";
+    Author = "None";
+}
+
+void Metadata::Initialise()
+{
+    LOG(DEBUG) << "Checking existence of " << Global.MetaRoot; 
+
+
+    bool dirExists = fs::exists(Global.MetaRoot);
+    bool fileExists = fs::exists(Global.MetaHeadFile);
+
+    if (!dirExists)
+    {
+        LOG(DEBUG) << "Initialising cortex metadata directory";
+        fs::create_directories(Global.MetaRoot);
+    }
+    if (dirExists && !fileExists)
+    {
+        LOG(INFO) << "Cortex metadata incomplete or corrupted. Reinitialising project.\n" << JSL::Text::Italics<< "Existing notes will not be affected.";
+    }
+
+    ExistsOnDisk = dirExists && fileExists;
+
+    if (ExistsOnDisk) Load();
+}
 
 std::string joinTail(std::vector<std::string_view> & s, size_t start)
 {
@@ -19,41 +48,17 @@ std::string joinTail(std::vector<std::string_view> & s, size_t start)
     }
     return out.str();
 }
-
-void Metadata::SetDefaults()
+void Metadata::Load()
 {
-    Name = "Unknown";
-    Author = "None";
-}
-
-Metadata::Metadata()
-{
-    SetDefaults();
-}
-Metadata::Metadata(fs::path path)
-{
-    SetDefaults();
-    Load(path);
-}
-void Metadata::Load(fs::path path)
-{
-    JSL::forSplitLineIn(path," ",[&](auto line)
+    JSL::forSplitLineIn(Global.MetaHeadFile," ",[&](auto line)
     {
         if (JSL::insensitiveEquals(line[0],"author:"))
-        {
-            Author = joinTail(line,1);
-        }
-        if (JSL::insensitiveEquals(line[0],"name:"))
-        {
-            Name = joinTail(line,1);
-        }
+    {
+        Author = joinTail(line,1);
+    }
+    if (JSL::insensitiveEquals(line[0],"name:"))
+    {
+        Name = joinTail(line,1);
+    }
     });
-    ExistsOnDisk = true;
-}
-void Metadata::Save(fs::path path)
-{
-    std::stringstream s;
-    s << "Name: " << Name << "\n";
-    s << "Author: " << Author << "\n";
-    JSL::writeStringToFile(path,s.str(),std::ios::out);
 }

@@ -5,4 +5,4 @@
 
 
 
-void directoryDisplay(std::vector<std::string_view> array);
+void directoryDisplay(std::vector<std::string> & array);

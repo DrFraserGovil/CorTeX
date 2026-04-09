@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <filesystem>
-
 class Metadata
 {
     public:
@@ -9,10 +8,12 @@ class Metadata
         std::string Name;
         std::string Author;
         Metadata();
-        void Initialise();
+        Metadata(std::filesystem::path path);
+        void Load(std::filesystem::path path);
+        void Save(std::filesystem::path path);
     private:
-        void Load();
-        void Save();
         void SetDefaults();
         
 };
+
+extern Metadata MainProject;
