@@ -131,25 +131,19 @@ void Directory::Walk()
     //the objects remaining in the 'original' lists no longer exist on disk: they need to be deleted
     if (originalChildren.size() > 0)
     {
-        LOG(DEBUG) << "Init child pruning";
         for (auto remaining : originalChildren)
         {
             Delete(remaining);
         }
-        LOG(DEBUG) << "Child pruning complete";
     }
     
     if (originalNotes.size() > 0)
     {
-        LOG(DEBUG) << "Init note pruning";
         for (auto remaining : originalNotes)
         {
             Delete(remaining);
         }
-        LOG(DEBUG) << "Note pruning complete";
-
     }
-    LOG(DEBUG) << "Walk " << Path.Source.string() << " complete";
 }
 
 void Directory::Connect()

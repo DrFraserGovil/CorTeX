@@ -9,11 +9,11 @@ bool fileChange()
     for (auto & report: reports)
     {
         
-        LOG(DEBUG) << "Processing change to " << report.Path;
+        LOG(DEBUG) << "\tProcessing change to " << report.Path;
         auto testPath = Cortex.Values.SourceRoot / report.Path;
         if ((fs::is_directory(testPath) || !fs::exists(testPath) )&& !dirSweepDone)
         {
-            LOG(DEBUG) << "Initialising full resweep";
+            LOG(DEBUG) << txt::Colour(100,40,40) << "Initialising full resweep";
             Cortex.Index.RootDir->Walk();
             dirSweepDone = true;// ensure we only do this once per report - its a clean slate wipe
         }
