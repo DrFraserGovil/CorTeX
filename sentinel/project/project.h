@@ -25,6 +25,7 @@ class Project
         DerivedSettings Values;
 
         bool Synchronise(bool save=true);
+        static void Prompt();
     private:
         SettingsObject CachedSettings;
         void SetMetadata();

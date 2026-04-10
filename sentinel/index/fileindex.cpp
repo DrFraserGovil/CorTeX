@@ -94,3 +94,8 @@ void FileIndex::Delete(std::weak_ptr<Note> note)
 
     n->Delete();
 }
+
+bool FileIndex::IsDirty()
+{
+    return !DirtyFiles.empty();
+}

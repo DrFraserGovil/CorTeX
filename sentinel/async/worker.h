@@ -15,7 +15,7 @@ class WorkerObject
 
         void AddTask(Task & newjob);
         void AddTask(Instruction cmd);
-
+        void Prod();
         std::condition_variable Notify;
     private:
         bool Active;
@@ -27,4 +27,5 @@ class WorkerObject
         void SetHandlers();
         std::map<Instruction,std::function<void(std::vector<std::string> &)>> Handlers;
         bool Cascade;
+        bool TotalCascade;
 };

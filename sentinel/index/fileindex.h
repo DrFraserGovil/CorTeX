@@ -15,6 +15,7 @@ class FileIndex
         void Delete(std::weak_ptr<Note> note);
 
         friend class CompilerObject;
+        bool IsDirty();
     private:
         int SequentialID;
 

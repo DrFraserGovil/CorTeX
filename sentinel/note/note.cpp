@@ -3,6 +3,8 @@
 
 Note::Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent) : Path(path),ID(id), Parent(parent)
 {
+    Path.Compile.replace_extension(".pdf");
+    IsDirty = false;
     Scan(false);
     DiskCheck();
 }

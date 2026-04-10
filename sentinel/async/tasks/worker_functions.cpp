@@ -128,3 +128,30 @@ bool ConsolidateChanges()
     
     return requiresRecompile;
 }
+
+
+bool Reset(std::vector<std::string> & array)
+{
+    if (array.size() == 1)
+    {
+        if (JSL::insensitiveEquals(array[0],"class"))
+        {
+            auto target = Cortex.Values.ClassFile_User;
+            if (fs::exists(target)){fs::remove(target);};
+
+            Cortex.Compiler.CheckResources(true);
+            return true;
+        }
+        if (JSL::insensitiveEquals(array[0],"macro"))
+        {
+            auto target = Cortex.Values.MacroFile;
+            if (fs::exists(target)){fs::remove(target);};
+
+            Cortex.Compiler.CheckResources(true);
+            return true;
+        }
+    }
+
+    LOG(WARN) << "Please specify either 'class' or 'macro' to reset";
+    return false;
+}

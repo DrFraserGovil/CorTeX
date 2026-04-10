@@ -11,6 +11,7 @@ enum class Instruction
     SettingVectorRemove,
     FileChange,
     Compile,
+    IncrementalCompile,
     List,
     Reset,
     Clean,

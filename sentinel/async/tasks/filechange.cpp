@@ -4,6 +4,7 @@
 
 bool fileChange()
 {
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
     auto reports = Cortex.Watcher->GetReports();
     bool dirSweepDone = false;
     for (auto & report: reports)
@@ -22,7 +23,8 @@ bool fileChange()
             auto note = Cortex.Index.GetNote(report.Path);
             if (note.use_count() > 0)
             {
-                note.lock()->Scan(true);
+                LOG(DEBUG) << "Dirty notification passed to index";
+                Cortex.Index.NotifyDirty(note.lock()->ID);
             }
             else
             {

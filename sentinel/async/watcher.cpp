@@ -21,10 +21,7 @@ WatcherObject::WatcherObject() : Callbacks({})
   
 }
 
-void Prompt()
-{
-    std::cout << JSL::Cursor::ClearLine << JSL::Text::Blue << ">> " << JSL::Text::Cyan <<std::flush;
-}
+
 
 
 void WatcherObject::Start()
@@ -33,10 +30,11 @@ void WatcherObject::Start()
 }
 void WatcherObject::Loop()
 {
-    if (!Cortex.Settings.System.Headless.Active) Prompt();
+    if (!Cortex.Settings.System.Headless.Active) Cortex.Prompt();
     std::string line;
     // Prompt();
     const int N = Polls.size();
+    int i = 0;
     while(Running)
     {
         int pollresult = poll(Polls.data(),N,Cortex.Settings.System.PollingDelay);
@@ -44,6 +42,13 @@ void WatcherObject::Loop()
 
         if (pollresult <= 0) 
         {
+            
+            ++i;
+            if (i == 10)
+            {
+                Cortex.Worker->Prod();
+                i = 0;
+            }
             if (errno == EINTR  || pollresult == 0) continue; //no wakeup, just a timeout
             break;
         }
@@ -55,6 +60,7 @@ void WatcherObject::Loop()
                 Callbacks[i]();
             }
         }
+        
     }
 }
 
@@ -94,7 +100,7 @@ void WatcherObject::AddMenu()
             }
             if (!addedTask)
             {
-                Prompt();
+                Cortex.Prompt();
             }
         }
     );
@@ -116,7 +122,6 @@ void WatcherObject::AddFileWatch()
     Callbacks.push_back(
         [&](){
             int length = read(WatcherID, buffer, sizeof(buffer));
-            
             std::set<FileReport> batch;
             int i = 0;
             while (i < length)
@@ -136,6 +141,7 @@ void WatcherObject::AddFileWatch()
             if (!batch.empty())
             {
                 std::lock_guard<std::mutex> lock(WatcherSync);
+                bool newReports = (Reports.size() == 0 );
                 for (auto& report : batch)
                 {
                     // Check if we already have a report for this path
@@ -154,7 +160,14 @@ void WatcherObject::AddFileWatch()
                         Reports.insert(std::move(modrep));
                     }
                 }
-                Cortex.Worker->AddTask(Instruction::FileChange);
+                if (newReports)
+                {
+                    Cortex.Worker->AddTask(Instruction::FileChange);
+                }
+                // else
+                // {
+                //     LOG(DEBUG) << "A";
+                // }
             }
 
 

@@ -17,5 +17,7 @@ void directoryDisplay(std::vector<std::string> & array);
 
 bool fileChange();
 
+bool Reset(std::vector<std::string> & array);
+
 //has to be down here as it depends on other funcs
 #include "vector_templates.h"

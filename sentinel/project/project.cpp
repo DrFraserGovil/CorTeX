@@ -109,6 +109,11 @@ void Project::Connect(WorkerObject * worker, WatcherObject * watcher)
     Watcher->Start();
 }
 
+void Project::Prompt()
+{
+    std::cout << JSL::Cursor::ClearLine << JSL::Text::Blue << ">> " << JSL::Text::Cyan <<std::flush;
+}
+
 bool Project::Synchronise(bool save)
 {
     bool compile = Values.Synchronise(Settings,CachedSettings);

@@ -3,11 +3,12 @@
 #include "tasks/worker_functions.h"
 void WorkerObject::ProcessInput()
 {
-    // if (MasterIndex.IsDirty())
-    // {
-    //     LOG(DEBUG) << "Initial compilation sweep required";
-    //     MasterIndex.Compile();
-    // }
+    if (Cortex.Index.IsDirty())
+    {
+        LOG(DEBUG) << "Initial compilation sweep required";
+        Cortex.Compiler.Run(false);
+        Cortex.Prompt();
+    }
 
     Active = true;
     while (Active)
@@ -28,8 +29,9 @@ void WorkerObject::AddTask(Task & newjob)
 {
     if (newjob.Type != Instruction::None)
     {
-        LOG(DEBUG) << "A new task of id " << (int)newjob.Type << " added " << Jobs.size();
         std::lock_guard<std::mutex> lock(JobLock);
+        
+        LOG(DEBUG) << "A new task of id " << (int)newjob.Type << " added.";
         Jobs.push(newjob);
         Notify.notify_one();
     }
@@ -57,16 +59,17 @@ void WorkerObject::ProcessHead()
          LOG(WARN) << "Unimplemented instruction recieved";
     }
   
-
     //flag which is set if a command makes changes that need recompiling
     if (Cascade)
     {
-        LocalJobs.push(Task(Instruction::Compile));
+        Instruction cmd = Instruction::IncrementalCompile;
+        if (TotalCascade) cmd = Instruction::Compile;
+        LocalJobs.push(cmd);
     }
 
 
     LocalJobs.pop();
-    LOG(DEBUG) << "Task " << (int)job.Type << " complete" ;
+    LOG(DEBUG) << "Task " << (int)job.Type << " complete";
 
     //bit of manual hackery to get a reprompt
     if (!Cortex.Settings.System.Headless.Active && LocalJobs.size() == 0 && Active)
@@ -106,13 +109,24 @@ void WorkerObject::SetHandlers()
     {
         Cortex.Compiler.Run(true);
     };
+    Handlers[Instruction::IncrementalCompile] = [](auto & data)
+    {
+        Cortex.Compiler.Run(false);
+    };
     Handlers[Instruction::FileChange] = [&](auto & data)
     {
-        fileChange();
+        Cascade = fileChange();
     };
-    // Handlers[Instruction::Reset] = [](auto & data)
-    // {
-    // }
+    Handlers[Instruction::Reset] = [&](auto & data)
+    {   
+        TotalCascade = Reset(data);
+        Cascade |= TotalCascade;
+    };
 
-    if (Cascade) AddTask(Instruction::Compile);
+}
+
+void WorkerObject::Prod()
+{
+    std::lock_guard<std::mutex> lock(JobLock);
+    if (Jobs.size() > 0) Notify.notify_all();
 }
