@@ -5,7 +5,8 @@
 #include <sys/inotify.h>
 #include "parser.h"
 #include "tasks/tasks.h"
-Watcher::Watcher() : Callbacks({})
+#include "worker.h"
+WatcherObject::WatcherObject() : Callbacks({})
 {
     Running= true;
 
@@ -24,12 +25,12 @@ void Prompt()
     std::cout << JSL::Cursor::ClearLine << JSL::Text::Blue << ">> " << JSL::Text::Cyan <<std::flush;
 }
 
-void Watcher::Connect(Worker * worker)
+
+void WatcherObject::Start()
 {
-    Work = worker;
-    Thread = std::thread(&Watcher::Loop,this);
+    Thread = std::thread(&WatcherObject::Loop,this);
 }
-void Watcher::Loop()
+void WatcherObject::Loop()
 {
     if (!Cortex.Settings.System.Headless.Active) Prompt();
     std::string line;
@@ -56,7 +57,7 @@ void Watcher::Loop()
     }
 }
 
-void Watcher::Exit()
+void WatcherObject::Exit()
 {
     Running = false;
     if (Thread.joinable())
@@ -65,7 +66,7 @@ void Watcher::Exit()
     }
 }
 
-void Watcher::AddMenu()
+void WatcherObject::AddMenu()
 {
     LOG(INFO) << "Initialising interactive mode";
     pollfd w;
@@ -85,7 +86,8 @@ void Watcher::AddMenu()
                     auto task = ParseCommand(tline);
                     if (task.Type != Instruction::None)
                     {
-                        Work->AddTask(task);
+                        LOG(INFO) << "Adding task";
+                        Cortex.Worker->AddTask(task);
                         addedTask = true;
                     }
                 }
@@ -97,7 +99,7 @@ void Watcher::AddMenu()
         }
     );
 }
-void Watcher::AddFileWatch()
+void WatcherObject::AddFileWatch()
 {
     WatcherID = inotify_init();
     if (WatcherID < 0)

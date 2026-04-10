@@ -100,10 +100,11 @@ void Project::Initialise(int argc, char ** argv)
     Index.Initialise();
 }
 
-void Project::Connect(Worker * worker, Watcher * watcher)
+void Project::Connect(WorkerObject * worker, WatcherObject * watcher) 
 {
-    GlobalWorker = worker;
-    GlobalWatcher = watcher;
+    Worker = worker;
+    Watcher = watcher;
+    Watcher->Start();
 }
 
 bool Project::Synchronise()

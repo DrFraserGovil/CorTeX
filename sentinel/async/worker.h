@@ -6,10 +6,10 @@
 #include "../settings/validate.h"
 #include <map>
 #include <functional>
-class Worker
+class WorkerObject
 {
     public:
-        Worker(){SetHandlers();};
+        WorkerObject(){SetHandlers();};
 
         void ProcessInput();
 

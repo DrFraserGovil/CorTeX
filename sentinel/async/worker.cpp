@@ -1,7 +1,7 @@
 #include "worker.h"
 #include "../global.h"
 #include "tasks/worker_functions.h"
-void Worker::ProcessInput()
+void WorkerObject::ProcessInput()
 {
     // if (MasterIndex.IsDirty())
     // {
@@ -24,7 +24,7 @@ void Worker::ProcessInput()
     }
 }
 
-void Worker::AddTask(Task & newjob)
+void WorkerObject::AddTask(Task & newjob)
 {
     if (newjob.Type != Instruction::None)
     {
@@ -37,7 +37,7 @@ void Worker::AddTask(Task & newjob)
 
 
 
-void Worker::ProcessHead()
+void WorkerObject::ProcessHead()
 {
     auto & job = LocalJobs.front();
     LOG(DEBUG) << JSL::Text::Colour(50,50,80) << "Processing job (type " << (int)job.Type <<")";
@@ -84,7 +84,7 @@ void Worker::ProcessHead()
     }
 }
 
-void Worker::SetHandlers()
+void WorkerObject::SetHandlers()
 {
     Handlers[Instruction::Shutdown] = [&](auto & data){
         Active = false;

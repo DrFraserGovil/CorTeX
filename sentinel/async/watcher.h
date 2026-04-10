@@ -4,14 +4,14 @@
 #include <vector>
 #include <functional>
 #include <vector>
-#include "worker.h"
-class Watcher
+class WatcherObject
 {
     public:
-        Watcher();
+        WatcherObject();
         void Exit();
 
-        void Connect(Worker * worker);
+        void Start();
+        // void Connect(Worker * worker);
     private:
         void Loop();
 
@@ -26,5 +26,4 @@ class Watcher
 
         int WatcherID;
         char buffer[4096];
-        Worker * Work;
 };

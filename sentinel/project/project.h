@@ -5,8 +5,8 @@
 #include "../settings/derived.h"
 
 //forward declarations
-class Worker;
-class Watcher;
+class WorkerObject;
+class WatcherObject;
 
 
 class Project
@@ -16,9 +16,9 @@ class Project
 
         FileIndex Index;
         void Initialise(int argc,char**argv);
-        void Connect(Worker * worker, Watcher * watcher);
-        Worker * GlobalWorker;
-        Watcher * GlobalWatcher;
+        void Connect(WorkerObject * worker, WatcherObject * watcher);
+        WorkerObject * Worker;
+        WatcherObject * Watcher;
         Metadata Info;
         SettingsObject Settings;
         DerivedSettings Values;

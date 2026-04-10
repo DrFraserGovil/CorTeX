@@ -14,10 +14,11 @@ void HeadlessMain()
 
 void InterfaceMain()
 {
-    Watcher watcher;
-    Worker worker;
+    WatcherObject watcher;
+    WorkerObject worker;
 
-    watcher.Connect(&worker);
+    Cortex.Connect(&worker,&watcher);
+    // watcher.Connect(&worker);
     
     worker.ProcessInput(); //main loop which waits for an exit signal
 
