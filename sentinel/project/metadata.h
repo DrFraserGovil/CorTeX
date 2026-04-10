@@ -10,9 +10,9 @@ class Metadata
         std::string Author;
         Metadata();
         void Initialise();
+        void Save();
     private:
         void Load();
-        void Save();
         void SetDefaults();
         
 };

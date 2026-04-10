@@ -62,3 +62,11 @@ void Metadata::Load()
     }
     });
 }
+
+void Metadata::Save()
+{
+    std::stringstream s;
+    s << "Name: " << Name << "\n";
+    s << "Author: " << Author << "\n";
+    JSL::writeStringToFile(Global.MetaHeadFile,s.str(),std::ios::out);
+}

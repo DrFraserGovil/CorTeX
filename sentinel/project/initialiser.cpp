@@ -49,6 +49,38 @@ void CheckHeadless()
 }
 
 
+
+std::string GetAnswer(std::string prompt, std::string defaultAnswer,bool headless)
+{
+    if (headless)
+    {
+        return defaultAnswer;
+    }
+    std::string answer;
+    std::cout << txt::Yellow << prompt << ":\t" << txt::Cyan;
+    std::getline(std::cin, answer);
+    
+    if (answer.empty())
+    {
+        std::cout << JSL::Cursor::CursorUp << JSL::Cursor::ClearLine;
+        std::cout << prompt << ":\t" << txt::Green << defaultAnswer << "\n" << txt::Reset; 
+        answer = defaultAnswer;
+    }
+    return answer;
+}
+
+
+void Project::SetMetadata()
+{
+    LOG(INFO) << txt::Blue << "Initialising a new Cortex at " << fs::canonical(Global.SourceRoot.string());
+    bool Headless = Settings.System.Headless.Active;
+    Info.Name = GetAnswer("Project Name",Settings.System.Headless.CortexName,Headless);
+    Info.Author = GetAnswer("Project Author",Settings.System.Headless.AuthorName,Headless);
+
+    Info.Save();
+}
+
+
 ////////////////// Linkage function
 
 void Project::Initialise(int argc, char ** argv)
@@ -59,6 +91,8 @@ void Project::Initialise(int argc, char ** argv)
     CheckHeadless();
     Info.Initialise();
     LoadSettings();
+
+    if (!Info.ExistsOnDisk)    SetMetadata();
 
     Index.Initialise();
 }

@@ -11,5 +11,6 @@ class Project
         void Initialise(int argc,char**argv);
         Metadata Info;
     private:
+        void SetMetadata();
 };
 
