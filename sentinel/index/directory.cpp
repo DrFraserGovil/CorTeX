@@ -1,7 +1,8 @@
 #include "directory.h"
 #include "../global.h"
 #include "glob.h"
-
+#include <sys/inotify.h>
+#include "../async/watcher.h"
 std::shared_ptr<Directory> Directory::MakeFrom(fs::path path)
 {
     auto out = std::make_shared<Directory>(ConstructorKey{0}, path,std::weak_ptr<Directory>{});
@@ -120,6 +121,20 @@ void Directory::Walk()
     }
 }
 
+void Directory::Connect()
+{
+    INotifyID = Cortex.Watcher->WatchDir(shared_from_this());
+
+    for (auto & child : Children)
+    {
+        if (child->INotifyID == -1)
+        {
+            child->Connect();
+        }
+    }
+    
+}
+
 void Directory::NewDirectory(fs::path path)
 {
     bool ignored = glob(path,Cortex.Settings.Files.IgnoredPatterns);
@@ -127,6 +142,10 @@ void Directory::NewDirectory(fs::path path)
     {
         auto dir = std::make_shared<Directory>(ConstructorKey(0),path,shared_from_this());
         dir->Walk();
+        if (Cortex.Watcher) //if the ptr is not null
+        {
+            dir->Connect();
+        }
         Children.insert(dir);
     }
 }

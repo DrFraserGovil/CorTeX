@@ -4,6 +4,7 @@
 #include <algorithm>
 void FileIndex::Initialise()
 {
+    LOG(DEBUG) << "Index initialising";
     RootDir = Directory::MakeFrom(Cortex.Values.SourceRoot);
     SequentialID = 0;
 }

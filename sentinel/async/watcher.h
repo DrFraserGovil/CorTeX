@@ -4,6 +4,9 @@
 #include <vector>
 #include <functional>
 #include <vector>
+#include <memory>
+#include <map>
+class Directory;
 class WatcherObject
 {
     public:
@@ -11,6 +14,7 @@ class WatcherObject
         void Exit();
 
         void Start();
+        int WatchDir(std::weak_ptr<Directory> dir);
         // void Connect(Worker * worker);
     private:
         void Loop();
@@ -23,7 +27,7 @@ class WatcherObject
 
         std::vector<pollfd> Polls;
         std::vector<std::function<void()>> Callbacks;
-
+        std::map<int,std::weak_ptr<Directory>> WatchMap;
         int WatcherID;
         char buffer[4096];
 };

@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <set>
 #include <vector>
+
 #include "../note/note.h"
 namespace fs = std::filesystem;
 
@@ -30,12 +31,13 @@ class Directory :public std::enable_shared_from_this<Directory>
         std::set<std::shared_ptr<Directory>> Children;
         std::vector<std::weak_ptr<Note>> Notes;
         bool IsRoot;
+        void Connect();
     private:
         
         Directory();
         void Walk();
         
-        int INotifyID;
+        int INotifyID = -1;
         std::weak_ptr<Directory> Parent;
         bool HasBeenDeleted;
 

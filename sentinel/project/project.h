@@ -17,8 +17,8 @@ class Project
         FileIndex Index;
         void Initialise(int argc,char**argv);
         void Connect(WorkerObject * worker, WatcherObject * watcher);
-        WorkerObject * Worker;
-        WatcherObject * Watcher;
+        WorkerObject * Worker = nullptr;
+        WatcherObject * Watcher = nullptr;
         Metadata Info;
         SettingsObject Settings;
         DerivedSettings Values;

@@ -121,3 +121,12 @@ void WatcherObject::AddFileWatch()
         }
     );
 }
+
+int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)
+{
+    auto dir = dirPtr.lock();
+    LOG(DEBUG) << "Initialising connection to " << dir->Path.Source.string();
+    int id = inotify_add_watch(WatcherID,dir->Path.Source.c_str(),IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE);
+    WatchMap[id] = dirPtr;
+    return id;
+}

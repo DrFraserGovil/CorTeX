@@ -104,6 +104,7 @@ void Project::Connect(WorkerObject * worker, WatcherObject * watcher)
 {
     Worker = worker;
     Watcher = watcher;
+    Index.RootDir->Connect();
     Watcher->Start();
 }
 
