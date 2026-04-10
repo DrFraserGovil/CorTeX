@@ -11,6 +11,7 @@ class FileIndex
         std::weak_ptr<Note> NewNote(fs::path path, std::weak_ptr<Directory> parent);
         void NotifyDirty(int id);
         std::shared_ptr<Directory> RootDir;
+        std::weak_ptr<Note> GetNote(fs::path path);
     private:
         int SequentialID;
 

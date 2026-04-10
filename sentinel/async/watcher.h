@@ -18,7 +18,7 @@ class WatcherObject
 
         void Start();
         int WatchDir(std::weak_ptr<Directory> dir);
-        // void Connect(Worker * worker);
+        std::set<FileReport> GetReports();
     private:
         void Loop();
 

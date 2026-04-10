@@ -5,8 +5,9 @@
 
 FileReport::FileReport(std::weak_ptr<Directory> dir, inotify_event *event)
 {
+    Parent = dir;
     Path = fs::relative(dir.lock()->Path.Source / event->name,Cortex.Settings.Files.TargetDirectory);
-    // Mask = event->mask;
+    Mask = event->mask;
     // std::string stem = Path.stem();
     // IsTerminationSequence = JSL::insensitiveEquals(stem, Cortex.Settings.System.TerminationFileName);
 }

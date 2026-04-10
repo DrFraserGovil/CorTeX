@@ -16,8 +16,8 @@ class Note
         Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent);
         FileHeader Header;
         void Build(std::string_view preamble,int Truncation);
-    private:
         void Scan(bool saveToBuffer);
+    private:
         BufferObj Buffer;
         void CheckLinks();
         LinkSet Links;

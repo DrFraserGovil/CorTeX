@@ -5,8 +5,8 @@
 void FileIndex::Initialise()
 {
     LOG(DEBUG) << "Index initialising";
-    RootDir = Directory::MakeFrom(Cortex.Values.SourceRoot);
     SequentialID = 0;
+    RootDir = Directory::MakeFrom(Cortex.Values.SourceRoot);
 }
 
 
@@ -47,8 +47,11 @@ std::weak_ptr<Note> FileIndex::Register(std::shared_ptr<Note> note)
 {
     SequentialID++;
     int id = note->ID;
+    LOG(INFO) << "Registering " << note->Path.Source << " " << id;
     Registry[id] = note;
-    PathRegistry[note->Path.Source] = id;
+
+    auto relpath = fs::relative(note->Path.Source,Cortex.Values.SourceRoot);
+    PathRegistry[relpath] = id;
     // for (auto & alias: Registry[id]->Header.Aliases)
     // {
     //     Aliases[alias].Add(newNote);
@@ -68,3 +71,16 @@ void FileIndex::NotifyDirty(int id)
         DirtyFiles.push_back(id);
     }
 }
+
+std::weak_ptr<Note> FileIndex::GetNote(fs::path path)
+{
+    if (PathRegistry.contains(path))
+    {
+        return Registry[PathRegistry[path]];
+    }
+    else
+    {
+        return std::weak_ptr<Note>{};
+    }
+    
+} 

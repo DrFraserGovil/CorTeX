@@ -171,3 +171,13 @@ int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)
     WatchMap[id] = dirPtr;
     return id;
 }
+
+std::set<FileReport> WatcherObject::GetReports()
+{
+    std::set<FileReport> out;
+    {
+        std::lock_guard<std::mutex> lock(WatcherSync);
+        std::swap(out,Reports);
+    }
+    return out;
+}

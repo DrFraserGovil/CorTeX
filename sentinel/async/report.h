@@ -5,6 +5,7 @@
 struct FileReport
 {
     fs::path Path;
+    std::weak_ptr<Directory> Parent;
     uint32_t Mask;
 
     bool IsImportant;

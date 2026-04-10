@@ -18,7 +18,6 @@ void InterfaceMain()
     WorkerObject worker;
 
     Cortex.Connect(&worker,&watcher);
-    // watcher.Connect(&worker);
     
     worker.ProcessInput(); //main loop which waits for an exit signal
 

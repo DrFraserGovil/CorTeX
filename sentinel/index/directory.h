@@ -15,7 +15,8 @@ class Directory :public std::enable_shared_from_this<Directory>
         
         PathObj Path;
         
-        void ReWalk();
+       
+        void Walk();
         
     
         //pointer shenanigans, so delete copy 
@@ -35,7 +36,6 @@ class Directory :public std::enable_shared_from_this<Directory>
     private:
         
         Directory();
-        void Walk();
         
         int INotifyID = -1;
         std::weak_ptr<Directory> Parent;
