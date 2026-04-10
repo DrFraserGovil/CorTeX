@@ -125,5 +125,6 @@ bool ChangeSetting(std::vector<std::string> & data)
 bool ConsolidateChanges()
 {
     bool requiresRecompile = Cortex.Synchronise();
+    
     return requiresRecompile;
 }

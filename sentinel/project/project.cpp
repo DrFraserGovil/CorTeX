@@ -88,7 +88,7 @@ void Project::SetMetadata()
 void Project::Initialise(int argc, char ** argv)
 {
     Settings.Parse(argc,argv);    
-    Synchronise();
+    Synchronise(false);
 
     WelcomeMessage();
     CheckHeadless();
@@ -98,6 +98,7 @@ void Project::Initialise(int argc, char ** argv)
     if (!Info.ExistsOnDisk)    SetMetadata();
 
     Index.Initialise();
+    CachedSettings = Settings;
 }
 
 void Project::Connect(WorkerObject * worker, WatcherObject * watcher) 
@@ -108,9 +109,12 @@ void Project::Connect(WorkerObject * worker, WatcherObject * watcher)
     Watcher->Start();
 }
 
-bool Project::Synchronise()
+bool Project::Synchronise(bool save)
 {
     bool compile = Values.Synchronise(Settings,CachedSettings);
-    Settings.SaveConfig(Values.SettingsFile);
+    if (save)
+    {
+        Settings.SaveConfig(Values.SettingsFile);
+    }
     return compile;
 }

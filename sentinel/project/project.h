@@ -3,7 +3,7 @@
 #include "metadata.h"
 #include "../index/fileindex.h"
 #include "../settings/derived.h"
-
+#include "compiler.h"
 //forward declarations
 class WorkerObject;
 class WatcherObject;
@@ -20,10 +20,11 @@ class Project
         WorkerObject * Worker = nullptr;
         WatcherObject * Watcher = nullptr;
         Metadata Info;
+        CompilerObject Compiler;
         SettingsObject Settings;
         DerivedSettings Values;
 
-        bool Synchronise();
+        bool Synchronise(bool save=true);
     private:
         SettingsObject CachedSettings;
         void SetMetadata();

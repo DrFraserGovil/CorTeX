@@ -87,7 +87,6 @@ void WatcherObject::AddMenu()
                     auto task = ParseCommand(tline);
                     if (task.Type != Instruction::None)
                     {
-                        LOG(INFO) << "Adding task";
                         Cortex.Worker->AddTask(task);
                         addedTask = true;
                     }

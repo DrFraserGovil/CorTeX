@@ -102,9 +102,10 @@ void WorkerObject::SetHandlers()
     // Handlers[Instruction::Clean] = [](auto & data)
     // {
     // }
-    // Handlers[Instruction::Compile] = [](auto & data)
-    // {
-    // }
+    Handlers[Instruction::Compile] = [](auto & data)
+    {
+        Cortex.Compiler.Run(true);
+    };
     Handlers[Instruction::FileChange] = [&](auto & data)
     {
         fileChange();
@@ -112,4 +113,6 @@ void WorkerObject::SetHandlers()
     // Handlers[Instruction::Reset] = [](auto & data)
     // {
     // }
+
+    if (Cascade) AddTask(Instruction::Compile);
 }

@@ -15,6 +15,9 @@ class DerivedSettings
         std::filesystem::path MetaRoot;
         std::filesystem::path MetaHeadFile;
         std::filesystem::path SettingsFile;
+        std::filesystem::path MacroFile;
+        std::filesystem::path ClassFile_User;
+        std::filesystem::path ClassFile_Compiler;
         bool Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings);
 
 };

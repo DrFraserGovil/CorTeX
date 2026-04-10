@@ -8,10 +8,15 @@ bool DerivedSettings::Synchronise(SettingsObject & Settings,SettingsObject & Cac
 
     SourceRoot = (fs::path)Settings.Files.TargetDirectory;
     MetaRoot = SourceRoot / ".cortex";
-    BuildRoot = MetaRoot / Settings.Files.BuildDirectory;
+    BuildRoot = SourceRoot / Settings.Files.BuildDirectory;
     CompileRoot = SourceRoot / Settings.Files.OutputDirectory;
 
     MetaHeadFile = MetaRoot / "about.dat";
     SettingsFile = MetaRoot / "settings.dat";
+
+    ClassFile_User = MetaRoot / "cortex.cls";
+    ClassFile_Compiler = BuildRoot / "cortex.cls";
+    MacroFile = SourceRoot/ "macros.sty";
+
     return requiresRecompile;
 }

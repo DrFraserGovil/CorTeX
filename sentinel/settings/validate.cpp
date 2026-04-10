@@ -68,11 +68,11 @@ bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
     {
         if (CachedSettings.Document != Settings.Document)
         {   
-            LOG(DEBUG) << "Detected a change in compiler settings - triggering recompile";
+            LOG(DEBUG) << "Detected a change in compiler settings\nTriggering recompile";
             return true;
         }
-        firstLoop = false;
     }
+    firstLoop = false;
     CachedSettings = Settings;
 
     return false;
