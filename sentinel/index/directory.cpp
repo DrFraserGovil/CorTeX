@@ -27,10 +27,13 @@ Directory::Directory(ConstructorKey key, fs::path path, std::weak_ptr<Directory>
 void Directory::ExistenceSweep()
 {
     auto tryCreate = [&](fs::path path){
-        if(!fs::exists(path)) fs::create_directories(path);
+        if(!fs::exists(path)){
+            fs::create_directories(path);
+            LOG(DEBUG) << "Created directory " << path.string();
+        }
     };
     HasBeenDeleted = false;
-    if (fs::exists(Path.Source))
+    if (!fs::exists(Path.Source))
     {
         HasBeenDeleted = true;
         return;
@@ -59,20 +62,25 @@ template<class T>
 std::weak_ptr<T> find(std::vector<std::weak_ptr<T>> & list, fs::path target)
 {
 
+    int i = 0;
     for (auto & el : list)
     {
         auto & path = el.lock()->Path.Source;
         if (target == path)
         {
-            return el;
+            // return el;
+            std::weak_ptr<T> out = el;
+            list.erase(list.begin()+i);
+            return out;
         }
+        ++i;
     }
     return std::weak_ptr<T>{};
 }
 
 void Directory::Walk()
 {
-
+    ExistenceSweep();
     //create a list of the original children (this is empty if first walk)
     std::vector<std::weak_ptr<Directory>> originalChildren;
     for (auto child : Children) originalChildren.push_back(child);
@@ -91,7 +99,7 @@ void Directory::Walk()
         //CASE: DIRECTORY
         if (fs::is_directory(child))
         {
-            auto directory = find(originalChildren,child);
+            std::weak_ptr<Directory> directory = find(originalChildren,child);
 
             if (directory.use_count()==0)
             {
@@ -119,6 +127,29 @@ void Directory::Walk()
             //we do nothing if file already exists: we already have a record, and can't recurse into it!
         }
     }
+
+    //the objects remaining in the 'original' lists no longer exist on disk: they need to be deleted
+    if (originalChildren.size() > 0)
+    {
+        LOG(DEBUG) << "Init child pruning";
+        for (auto remaining : originalChildren)
+        {
+            Delete(remaining);
+        }
+        LOG(DEBUG) << "Child pruning complete";
+    }
+    
+    if (originalNotes.size() > 0)
+    {
+        LOG(DEBUG) << "Init note pruning";
+        for (auto remaining : originalNotes)
+        {
+            Delete(remaining);
+        }
+        LOG(DEBUG) << "Note pruning complete";
+
+    }
+    LOG(DEBUG) << "Walk " << Path.Source.string() << " complete";
 }
 
 void Directory::Connect()
@@ -191,4 +222,39 @@ std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
     LOG(WARN) << "Could not resolve '" << target <<"'. Best match is:";
     return shared_from_this();
     
+}
+
+void Directory::Delete(std::weak_ptr<Directory> dir)
+{
+    auto p = dir.lock()->Path.Source;
+    dir.lock()->Delete();
+    Children.erase(dir.lock());
+    LOG(DEBUG) << p.string() << " has been deleted";
+}
+
+void Directory::Delete()
+{
+    for (auto child : Children)
+    {
+        child->Delete();
+    }
+    for (auto note: Notes)
+    {
+        Cortex.Index.Delete(note);
+    }
+    if (fs::exists(Path.Compile)) fs::remove_all(Path.Compile);
+    if (fs::exists(Path.Build)) fs::remove_all(Path.Build);
+}
+
+void Directory::Delete(std::weak_ptr<Note> note)
+{
+    for (int i = 0; i < Notes.size(); ++i)
+    {
+        if (note.lock()->ID == Notes[i].lock()->ID)
+        {
+            Notes.erase(Notes.begin() + i);
+            break;
+        }
+    }
+    Cortex.Index.Delete(note);
 }

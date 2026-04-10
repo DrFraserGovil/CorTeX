@@ -37,6 +37,7 @@ class Directory :public std::enable_shared_from_this<Directory>
 
         std::weak_ptr<Directory> Find(std::vector<std::string_view> arr);
 
+        void NewNote(fs::path path);
     private:
         
         Directory();
@@ -48,5 +49,7 @@ class Directory :public std::enable_shared_from_this<Directory>
         void ExistenceSweep();
 
         void NewDirectory(fs::path path);
-        void NewNote(fs::path path);
+        void Delete();//for deleting yourself
+        void Delete(std::weak_ptr<Directory> dir); //for deleting a child
+        void Delete(std::weak_ptr<Note> dir);
 };

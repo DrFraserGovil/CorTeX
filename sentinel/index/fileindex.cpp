@@ -83,3 +83,14 @@ std::weak_ptr<Note> FileIndex::GetNote(fs::path path)
     }
     
 } 
+
+
+void FileIndex::Delete(std::weak_ptr<Note> note)
+{
+    auto n = note.lock();
+    auto relpath = fs::relative(n->Path.Source,Cortex.Values.SourceRoot);
+    Registry.erase(n->ID);
+    PathRegistry.erase(relpath);
+
+    n->Delete();
+}
