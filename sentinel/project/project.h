@@ -5,7 +5,7 @@
 class Project
 {
     public:
-        Project();
+        Project(){};
 
         FileIndex Index;
         void Initialise(int argc,char**argv);
@@ -13,4 +13,3 @@ class Project
     private:
         void SetMetadata();
 };
-

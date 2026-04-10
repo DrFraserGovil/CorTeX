@@ -2,23 +2,11 @@
 #include <string_view>
 #include <string>
 #include <filesystem>
+#include <vector>
 class Directory; //forward declaration for ptr
 
 namespace fs = std::filesystem;
-struct CaseInsensitiveLess {
-    using is_transparent = void; // Enable string_view lookups
 
-    bool operator()(std::string_view lhs, std::string_view rhs) const {
-        return std::lexicographical_compare(
-            lhs.begin(), lhs.end(),
-            rhs.begin(), rhs.end(),
-            [](char a, char b) {
-                return std::tolower(static_cast<unsigned char>(a)) < 
-                       std::tolower(static_cast<unsigned char>(b));
-            }
-        );
-    }
-};
 
 struct PathObj
 {
@@ -28,4 +16,12 @@ struct PathObj
 
     PathObj(){};
     PathObj(fs::path path);
+};
+
+struct BufferObj
+{
+    std::vector<std::string> Preamble;
+    std::vector<std::string> Body;
+
+    void Reset(){Preamble.resize(0); Body.resize(0);}
 };

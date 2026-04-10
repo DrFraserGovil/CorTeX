@@ -46,7 +46,7 @@ void display(std::weak_ptr<Directory> input,std::string dirPrefix, std::string f
     auto & notes = dir->Notes;
     for (auto note : notes)
     {
-        LOG(INFO) << newFilePrefix << txt::Italics << note.lock()->Path.Source.filename().string();
+        LOG(INFO) << newFilePrefix << "- " << note.lock()->Path.Source.filename().string()   << txt::Italics <<" (" <<note.lock()->Header.Title<< ")";
     }
     // //child directories
     size_t i = 0;
