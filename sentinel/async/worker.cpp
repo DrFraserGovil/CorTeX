@@ -35,6 +35,11 @@ void WorkerObject::AddTask(Task & newjob)
     }
 }
 
+void WorkerObject::AddTask(Instruction cmd)
+{
+    Task t(cmd);
+    AddTask(t);
+}
 
 
 void WorkerObject::ProcessHead()
@@ -52,20 +57,6 @@ void WorkerObject::ProcessHead()
          LOG(WARN) << "Unimplemented instruction recieved";
     }
   
-    //     // case Instruction::CompileRequest:
-    //     //     AttemptCompilation(job.TaskData);
-    //     //     break;
-    //     // case Instruction::FileChange:
-    //     //     ProcessFileChange();
-    //     //     break;
-  
-    //     // case Instruction::Clean:
-    //     //     MasterIndex.CleanOutput();
-    //     //     break;
-    //     default:
-           
-    //         break;
-    // }
 
     //flag which is set if a command makes changes that need recompiling
     if (Cascade)
@@ -114,9 +105,10 @@ void WorkerObject::SetHandlers()
     // Handlers[Instruction::Compile] = [](auto & data)
     // {
     // }
-    // Handlers[Instruction::FileChange] = [](auto & data)
-    // {
-    // }
+    Handlers[Instruction::FileChange] = [&](auto & data)
+    {
+        fileChange();
+    };
     // Handlers[Instruction::Reset] = [](auto & data)
     // {
     // }

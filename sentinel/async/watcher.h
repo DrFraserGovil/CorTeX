@@ -6,6 +6,9 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <mutex>
+#include "report.h"
+
 class Directory;
 class WatcherObject
 {
@@ -28,6 +31,8 @@ class WatcherObject
         std::vector<pollfd> Polls;
         std::vector<std::function<void()>> Callbacks;
         std::map<int,std::weak_ptr<Directory>> WatchMap;
+        std::set<FileReport> Reports;
+        std::mutex WatcherSync;
         int WatcherID;
         char buffer[4096];
 };

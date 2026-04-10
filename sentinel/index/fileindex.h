@@ -17,6 +17,6 @@ class FileIndex
         std::map<int, std::shared_ptr<Note>> Registry;
         std::map<fs::path, int> PathRegistry;
         std::deque<int> DirtyFiles;
-        void Register(int id);
+        std::weak_ptr<Note> Register(std::shared_ptr<Note> note);
 };
 

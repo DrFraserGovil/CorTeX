@@ -29,9 +29,8 @@ std::weak_ptr<Note> FileIndex::NewNote(fs::path path, std::weak_ptr<Directory> p
     std::string extension = path.extension();
     if (contains(extension,list({ ".tex" })))
     {
-        Registry[id] = std::make_shared<Note>(id,path,parent); //default object is a tex file
-        Register(id);
-        return Registry[id];
+        auto note = std::make_shared<Note>(id,path,parent); //default object is a tex file
+        return Register(note);
     }
     // if (contains(extension,list({ ".tikz" })))
     // {
@@ -40,15 +39,16 @@ std::weak_ptr<Note> FileIndex::NewNote(fs::path path, std::weak_ptr<Directory> p
     // }
     
     LOG(WARN) << "Encountered file of unknown extension (" << path << ")\nAttempting to interpret as a tex file";
-    Registry[id] = std::make_shared<Note>(id,path,parent); //send a badConstruct signal
-    Register(id);
-    return Registry[id];
+    auto note = std::make_shared<Note>(id,path,parent); //send a badConstruct signal
+    return Register(note);
 }
 
-void FileIndex::Register(int id)
+std::weak_ptr<Note> FileIndex::Register(std::shared_ptr<Note> note)
 {
     SequentialID++;
-    auto note = Registry[id];
+    int id = note->ID;
+    Registry[id] = note;
+    PathRegistry[note->Path.Source] = id;
     // for (auto & alias: Registry[id]->Header.Aliases)
     // {
     //     Aliases[alias].Add(newNote);
@@ -58,6 +58,7 @@ void FileIndex::Register(int id)
     {
         NotifyDirty(id);
     }
+    return note;
 }
 
 void FileIndex::NotifyDirty(int id)

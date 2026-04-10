@@ -6,6 +6,7 @@
 #include "parser.h"
 #include "tasks/tasks.h"
 #include "worker.h"
+
 WatcherObject::WatcherObject() : Callbacks({})
 {
     Running= true;
@@ -116,8 +117,48 @@ void WatcherObject::AddFileWatch()
     Callbacks.push_back(
         [&](){
             int length = read(WatcherID, buffer, sizeof(buffer));
-            LOG(INFO) << "Got " << std::string(buffer,length);
             
+            std::set<FileReport> batch;
+            int i = 0;
+            while (i < length)
+            {
+                struct inotify_event* event = (struct inotify_event*)&buffer[i];
+                if (event->len)
+                {
+                    auto report = FileReport(WatchMap[event->wd],event);
+
+                    if (report.IsImportant)
+                    {
+                        batch.insert(report);
+                    }
+                }           
+                i += sizeof(struct inotify_event) + event->len;
+            }
+            if (!batch.empty())
+            {
+                std::lock_guard<std::mutex> lock(WatcherSync);
+                for (auto& report : batch)
+                {
+                    // Check if we already have a report for this path
+                                        
+                    auto it = Reports.find(report);
+                    if (it == Reports.end())
+                    {
+                        //if not, add it in
+                        Reports.insert(report);
+                    }
+                    else
+                    {
+                        //if a match, compound the mask
+                        auto modrep = Reports.extract(it);
+                        modrep.value().Mask |= report.Mask;
+                        Reports.insert(std::move(modrep));
+                    }
+                }
+                Cortex.Worker->AddTask(Instruction::FileChange);
+            }
+
+
         }
     );
 }

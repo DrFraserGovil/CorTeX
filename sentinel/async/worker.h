@@ -14,6 +14,7 @@ class WorkerObject
         void ProcessInput();
 
         void AddTask(Task & newjob);
+        void AddTask(Instruction cmd);
 
         std::condition_variable Notify;
     private:
