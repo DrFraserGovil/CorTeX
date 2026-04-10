@@ -1,6 +1,6 @@
 #include "worker.h"
 #include "../global.h"
-#include "worker_functions.h"
+#include "tasks/worker_functions.h"
 void Worker::ProcessInput()
 {
     // if (MasterIndex.IsDirty())
@@ -78,7 +78,7 @@ void Worker::ProcessHead()
     LOG(DEBUG) << "Task " << (int)job.Type << " complete" ;
 
     //bit of manual hackery to get a reprompt
-    if (!Settings.System.Headless.Active && LocalJobs.size() == 0 && Active)
+    if (!Cortex.Settings.System.Headless.Active && LocalJobs.size() == 0 && Active)
     {
         std::cout << JSL::Cursor::ClearLine <<  JSL::Text::Blue << ">> " << JSL::Text::Cyan << std::flush; 
     }

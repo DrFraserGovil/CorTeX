@@ -38,7 +38,7 @@ bool isDelimiter(std::string_view line)
 {
     if (line.empty()) return false;
 
-    if (line.size() < Settings.Files.StructureDelimiterRepeatCount) return false;
+    if (line.size() < Cortex.Settings.Files.StructureDelimiterRepeatCount) return false;
 
     auto firstChar = line[0];
     for (int i = 1; i < line.size(); ++i)

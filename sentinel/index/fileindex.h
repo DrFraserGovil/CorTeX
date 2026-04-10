@@ -20,5 +20,3 @@ class FileIndex
         void Register(int id);
 };
 
-
-extern FileIndex MasterIndex;

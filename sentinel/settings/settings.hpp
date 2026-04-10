@@ -351,4 +351,3 @@ class SettingsObject
 			exit(0);
 		}
 };
-extern SettingsObject Settings;

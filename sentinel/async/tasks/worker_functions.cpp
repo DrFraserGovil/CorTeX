@@ -24,7 +24,7 @@ void ShowSetting(std::vector<std::string> & cmd)
 
     if (cmd.size() == 1)
     {
-        auto out = Settings.GetDescription(cmd[0]);
+        auto out = Cortex.Settings.GetDescription(cmd[0]);
         if (out.size() == 0)
         {
             LOG(WARN) << txt::Italics << "No matches found.";
@@ -70,7 +70,7 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
     }
 
    
-    auto counts = Settings.GetDescription(data[0]);
+    auto counts = Cortex.Settings.GetDescription(data[0]);
     if (counts.size() == 0)
     {
         LOG(WARN) << "No parameter found matching key '" << data[0] << "'";
@@ -110,7 +110,7 @@ bool ChangeSetting(std::vector<std::string> & data)
     LOG(DEBUG) << "Processing change to " << description.Key;
     try
     {
-        Settings.ParseLine(data);
+        Cortex.Settings.ParseLine(data);
        
        return ConsolidateChanges();
     }
@@ -124,7 +124,6 @@ bool ChangeSetting(std::vector<std::string> & data)
 
 bool ConsolidateChanges()
 {
-    bool requiresRecompile = Global.Synchronise();
-    Settings.SaveConfig(Global.SettingsFile);
+    bool requiresRecompile = Cortex.Synchronise();
     return requiresRecompile;
 }

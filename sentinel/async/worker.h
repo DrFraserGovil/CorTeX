@@ -1,7 +1,7 @@
 #pragma once
 #include <condition_variable>
 #include <mutex>
-#include "tasks.h"
+#include "tasks/tasks.h"
 #include <queue>
 #include "../settings/validate.h"
 #include <map>

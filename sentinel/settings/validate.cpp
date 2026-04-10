@@ -28,7 +28,7 @@ void FixFontSize(std::string value, size_t & target)
 }
 
 
-void ConfigureLogging()
+void ConfigureLogging(SettingsObject & Settings)
 {
     auto & log = JSL::Log::Config;
     log.ShowHeaders = false;
@@ -47,9 +47,9 @@ void ConfigureLogging()
 }
 
 bool firstLoop = true;
-bool ValidateSettings()
+bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
 {
-    ConfigureLogging();
+    ConfigureLogging(Settings);
 
 
     //ensure the output directory is included in the ignored pattern, to prevent hellish event recursions
@@ -77,7 +77,3 @@ bool ValidateSettings()
 
     return false;
 }
-
-
-
-SettingsObject CachedSettings;

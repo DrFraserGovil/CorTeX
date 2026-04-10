@@ -4,14 +4,14 @@
 #include "../global.h"
 #include <sys/inotify.h>
 #include "parser.h"
-#include "tasks.h"
+#include "tasks/tasks.h"
 Watcher::Watcher() : Callbacks({})
 {
     Running= true;
 
     AddFileWatch();
     
-    if(!Settings.System.Headless.Active)
+    if(!Cortex.Settings.System.Headless.Active)
     {
         AddMenu();
     }
@@ -31,13 +31,13 @@ void Watcher::Connect(Worker * worker)
 }
 void Watcher::Loop()
 {
-    if (!Settings.System.Headless.Active) Prompt();
+    if (!Cortex.Settings.System.Headless.Active) Prompt();
     std::string line;
     // Prompt();
     const int N = Polls.size();
     while(Running)
     {
-        int pollresult = poll(Polls.data(),N,Settings.System.PollingDelay);
+        int pollresult = poll(Polls.data(),N,Cortex.Settings.System.PollingDelay);
 
 
         if (pollresult <= 0) 

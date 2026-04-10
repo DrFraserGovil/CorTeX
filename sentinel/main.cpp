@@ -4,8 +4,8 @@ Initialise_JSL_Log()
 #include <iostream>
 #include "global.h"
 #include "project/project.h"
-#include "interface/watcher.h"
-#include "interface/worker.h"
+#include "async/watcher.h"
+#include "async/worker.h"
 void HeadlessMain()
 {
 
@@ -31,7 +31,7 @@ Project Cortex;
 int main(int argc, char**argv)
 {
     Cortex.Initialise(argc,argv);
-    if (Settings.System.Headless.Active)
+    if (Cortex.Settings.System.Headless.Active)
     {
         HeadlessMain();
     }

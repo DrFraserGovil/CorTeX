@@ -2,11 +2,9 @@
 #include "validate.h"
 namespace fs = std::filesystem;
 
-DerivedSettings Global;
-
-bool DerivedSettings::Synchronise()
+bool DerivedSettings::Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings)
 {
-    bool requiresRecompile = ValidateSettings();
+    bool requiresRecompile = ValidateSettings(Settings,CachedSettings);
 
     SourceRoot = (fs::path)Settings.Files.TargetDirectory;
     MetaRoot = SourceRoot / ".cortex";

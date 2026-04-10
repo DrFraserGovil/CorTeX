@@ -1,6 +1,8 @@
 #include <unistd.h>
 #include "project.h"
 #include "../global.h"
+#include "../async/worker.h"
+#include "../async/watcher.h"
 namespace log = JSL::Log;
 
 
@@ -14,24 +16,24 @@ void WelcomeMessage()
 
 void LoadSettings()
 {
-    if (fs::exists(Global.SettingsFile))
+    if (fs::exists(Cortex.Values.SettingsFile))
     {
         LOG(DEBUG) << "Loading settings from file";
-        auto system = Settings.System;
-        Settings.Configure(Global.SettingsFile," ");
-        Settings.System = system; //system settings are per-instance and shouldn't be cached!
+        auto system = Cortex.Settings.System;
+        Cortex.Settings.Configure(Cortex.Values.SettingsFile," ");
+        Cortex.Settings.System = system; //system settings are per-instance and shouldn't be cached!
     }
     else
     {
         LOG(DEBUG) << "No save file detected, using those given";
-        Settings.SaveConfig(Global.SettingsFile);
+        Cortex.Settings.SaveConfig(Cortex.Values.SettingsFile);
     }
 }
 
 void CheckHeadless()
 {
     //check if the user is in a headless state but did not inform us
-    if (!Settings.System.Headless.Active)
+    if (!Cortex.Settings.System.Headless.Active)
     {
         bool isatty = JSL::PipedInputFound(); //platform specific wrapper for isatty(cin)
 
@@ -43,7 +45,7 @@ void CheckHeadless()
         if (forceHeadless)
         {
             LOG(WARN) << "Automatically switching system to --headless mode";
-            Settings.System.Headless.Active = true;
+            Cortex.Settings.System.Headless.Active = true;
         }
     }
 }
@@ -72,10 +74,10 @@ std::string GetAnswer(std::string prompt, std::string defaultAnswer,bool headles
 
 void Project::SetMetadata()
 {
-    LOG(INFO) << txt::Blue << "Initialising a new Cortex at " << fs::canonical(Global.SourceRoot.string());
-    bool Headless = Settings.System.Headless.Active;
-    Info.Name = GetAnswer("Project Name",Settings.System.Headless.CortexName,Headless);
-    Info.Author = GetAnswer("Project Author",Settings.System.Headless.AuthorName,Headless);
+    LOG(INFO) << txt::Blue << "Initialising a new Cortex at " << fs::canonical(Cortex.Values.SourceRoot.string());
+    bool Headless = Cortex.Settings.System.Headless.Active;
+    Info.Name = GetAnswer("Project Name",Cortex.Settings.System.Headless.CortexName,Headless);
+    Info.Author = GetAnswer("Project Author",Cortex.Settings.System.Headless.AuthorName,Headless);
 
     Info.Save();
 }
@@ -86,7 +88,8 @@ void Project::SetMetadata()
 void Project::Initialise(int argc, char ** argv)
 {
     Settings.Parse(argc,argv);    
-    Global.Synchronise();
+    Synchronise();
+
     WelcomeMessage();
     CheckHeadless();
     Info.Initialise();
@@ -95,4 +98,17 @@ void Project::Initialise(int argc, char ** argv)
     if (!Info.ExistsOnDisk)    SetMetadata();
 
     Index.Initialise();
+}
+
+void Project::Connect(Worker * worker, Watcher * watcher)
+{
+    GlobalWorker = worker;
+    GlobalWatcher = watcher;
+}
+
+bool Project::Synchronise()
+{
+    bool compile = Values.Synchronise(Settings,CachedSettings);
+    Settings.SaveConfig(Values.SettingsFile);
+    return compile;
 }

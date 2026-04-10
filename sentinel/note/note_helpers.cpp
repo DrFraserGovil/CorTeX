@@ -4,7 +4,7 @@
 
 PathObj::PathObj(fs::path path) : Source(path)
 {
-    auto relative = fs::relative(path,Global.SourceRoot);
-    Compile = Global.CompileRoot / relative;
-    Build = Global.BuildRoot / relative;
+    auto relative = fs::relative(path,Cortex.Values.SourceRoot);
+    Compile = Cortex.Values.CompileRoot / relative;
+    Build = Cortex.Values.BuildRoot / relative;
 }

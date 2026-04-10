@@ -4,10 +4,10 @@
 
 FileReport::FileReport(fs::path path, inotify_event *event)
 {
-    Path = fs::relative(path / event->name,Settings.Files.TargetDirectory);
+    Path = fs::relative(path / event->name,Cortex.Settings.Files.TargetDirectory);
     Mask = event->mask;
     std::string stem = Path.stem();
-    IsTerminationSequence = JSL::insensitiveEquals(stem, Settings.System.TerminationFileName);
+    IsTerminationSequence = JSL::insensitiveEquals(stem, Cortex.Settings.System.TerminationFileName);
 }
 
 bool FileReport::operator<(const FileReport &other) const

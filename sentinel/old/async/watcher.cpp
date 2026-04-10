@@ -40,7 +40,7 @@ void SystemWatcher::Stop()
     // Wake the watchdog up to see that it's hometime
 
     Active = false;
-    auto terminate = (*WatchMap.begin()).second.lock()->FullPath / Settings.System.TerminationFileName; //ensure the file ends up in a directory that is being watched
+    auto terminate = (*WatchMap.begin()).second.lock()->FullPath / Cortex.Settings.System.TerminationFileName; //ensure the file ends up in a directory that is being watched
     
     JSL::writeStringToFile(terminate,"",std::ios::out);
     if (AsyncThread.joinable())
@@ -84,7 +84,7 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
                 std::filesystem::remove(report.Path);
                 
                 
-                if (!Settings.System.Headless.Active)
+                if (!Cortex.Settings.System.Headless.Active)
                 {
                     //have to hard slam on the breaks in this case: it's only reachable if the termination sequence is encountered whilst the menu is locked on std::cin.
                     LOG(ERROR) << "Termination sequence encountered whilst in interactive mode. \nSystem will experience a hard-shutdown"; 
@@ -96,8 +96,8 @@ void SystemWatcher::AddToBuffer(char * buffer, int length)
             else
             {            
                 bool dirChange = report.Mask & IN_ISDIR;
-                bool validFile = glob(report.Path,Settings.Files.WatchedPatterns);
-                bool ignored = glob(report.Path,Settings.Files.IgnoredPatterns);
+                bool validFile = glob(report.Path,Cortex.Settings.Files.WatchedPatterns);
+                bool ignored = glob(report.Path,Cortex.Settings.Files.IgnoredPatterns);
                 if ((dirChange || validFile) && !ignored)
                 {
                     

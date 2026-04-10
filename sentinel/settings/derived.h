@@ -15,8 +15,6 @@ class DerivedSettings
         std::filesystem::path MetaRoot;
         std::filesystem::path MetaHeadFile;
         std::filesystem::path SettingsFile;
-        bool Synchronise();
+        bool Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings);
 
 };
-
-extern DerivedSettings Global;

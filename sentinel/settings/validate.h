@@ -3,6 +3,4 @@
 /*
     The validator 
 */
-bool ValidateSettings();
-
-extern SettingsObject CachedSettings;
+bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings);

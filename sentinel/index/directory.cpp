@@ -122,7 +122,7 @@ void Directory::Walk()
 
 void Directory::NewDirectory(fs::path path)
 {
-    bool ignored = glob(path,Settings.Files.IgnoredPatterns);
+    bool ignored = glob(path,Cortex.Settings.Files.IgnoredPatterns);
     if (!ignored)
     {
         auto dir = std::make_shared<Directory>(ConstructorKey(0),path,shared_from_this());
@@ -133,10 +133,10 @@ void Directory::NewDirectory(fs::path path)
 
 void Directory::NewNote(fs::path path)
 {
-    bool ignored = glob(path,Settings.Files.IgnoredPatterns);
+    bool ignored = glob(path,Cortex.Settings.Files.IgnoredPatterns);
     if (!ignored)
     {
-        bool isWatched = glob(path,Settings.Files.WatchedPatterns);
+        bool isWatched = glob(path,Cortex.Settings.Files.WatchedPatterns);
         if (isWatched)
         {
             auto note = Cortex.Index.NewNote(path,shared_from_this());

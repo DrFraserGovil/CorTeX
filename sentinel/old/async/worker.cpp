@@ -78,7 +78,7 @@ void Worker::ProcessFileChange()
 
     //wait on this thread, allow the watcher thread to collate info
     auto elapsed = std::chrono::steady_clock::now() - CooldownStart;
-    auto sleepTime = std::chrono::milliseconds(Settings.System.DispatchDelay) - elapsed;
+    auto sleepTime = std::chrono::milliseconds(Cortex.Settings.System.DispatchDelay) - elapsed;
     if (sleepTime > std::chrono::milliseconds(0))
     {
         LOG(DEBUG) << JSL::Text::Colour(70,40,40) << "Debouncing";
@@ -119,7 +119,7 @@ std::pair<bool,JSL::ParameterDescription> CheckParameterData(std::vector<std::st
     }
 
    
-    auto counts = Settings.GetDescription(data[0]);
+    auto counts = Cortex.Settings.GetDescription(data[0]);
     if (counts.size() == 0)
     {
         LOG(WARN) << "No parameter found matching key '" << data[0] << "'";
@@ -159,12 +159,12 @@ bool ProcessParameterSet(std::vector<std::string> & data)
     LOG(DEBUG) << "Processing change to " << description.Key;
     try
     {
-        Settings.ParseLine(data);
+        Cortex.Settings.ParseLine(data);
        
         bool requiresRecompile = ValidateSettings();
         LOG(DEBUG) << "Validate " << requiresRecompile;
-        fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
-        Settings.SaveConfig(settings);
+        fs::path settings = (fs::path)Cortex.Settings.Files.TargetDirectory / settingLocation;
+        Cortex.Settings.SaveConfig(settings);
         return requiresRecompile;
     }
     catch (...)
@@ -246,8 +246,8 @@ bool ProcessVector(std::vector<std::string> & data)
         }
 
         bool requiresRecompile = ValidateSettings();
-        fs::path settings = (fs::path)Settings.Files.TargetDirectory / settingLocation;
-        Settings.SaveConfig(settings);
+        fs::path settings = (fs::path)Cortex.Settings.Files.TargetDirectory / settingLocation;
+        Cortex.Settings.SaveConfig(settings);
         return requiresRecompile;
     }
     catch (...)

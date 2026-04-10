@@ -14,16 +14,16 @@ void Metadata::SetDefaults()
 
 void Metadata::Initialise()
 {
-    LOG(DEBUG) << "Checking existence of " << Global.MetaRoot; 
+    LOG(DEBUG) << "Checking existence of " << Cortex.Values.MetaRoot; 
 
 
-    bool dirExists = fs::exists(Global.MetaRoot);
-    bool fileExists = fs::exists(Global.MetaHeadFile);
+    bool dirExists = fs::exists(Cortex.Values.MetaRoot);
+    bool fileExists = fs::exists(Cortex.Values.MetaHeadFile);
 
     if (!dirExists)
     {
         LOG(DEBUG) << "Initialising cortex metadata directory";
-        fs::create_directories(Global.MetaRoot);
+        fs::create_directories(Cortex.Values.MetaRoot);
     }
     if (dirExists && !fileExists)
     {
@@ -50,7 +50,7 @@ std::string joinTail(std::vector<std::string_view> & s, size_t start)
 }
 void Metadata::Load()
 {
-    JSL::forSplitLineIn(Global.MetaHeadFile," ",[&](auto line)
+    JSL::forSplitLineIn(Cortex.Values.MetaHeadFile," ",[&](auto line)
     {
         if (JSL::insensitiveEquals(line[0],"author:"))
     {
@@ -68,5 +68,5 @@ void Metadata::Save()
     std::stringstream s;
     s << "Name: " << Name << "\n";
     s << "Author: " << Author << "\n";
-    JSL::writeStringToFile(Global.MetaHeadFile,s.str(),std::ios::out);
+    JSL::writeStringToFile(Cortex.Values.MetaHeadFile,s.str(),std::ios::out);
 }
