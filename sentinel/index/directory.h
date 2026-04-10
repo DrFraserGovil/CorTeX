@@ -32,7 +32,11 @@ class Directory :public std::enable_shared_from_this<Directory>
         std::set<std::shared_ptr<Directory>> Children;
         std::vector<std::weak_ptr<Note>> Notes;
         bool IsRoot;
+
         void Connect();
+
+        std::weak_ptr<Directory> Find(std::vector<std::string_view> arr);
+
     private:
         
         Directory();

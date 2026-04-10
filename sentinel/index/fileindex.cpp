@@ -47,7 +47,6 @@ std::weak_ptr<Note> FileIndex::Register(std::shared_ptr<Note> note)
 {
     SequentialID++;
     int id = note->ID;
-    LOG(INFO) << "Registering " << note->Path.Source << " " << id;
     Registry[id] = note;
 
     auto relpath = fs::relative(note->Path.Source,Cortex.Values.SourceRoot);

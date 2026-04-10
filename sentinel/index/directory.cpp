@@ -163,3 +163,32 @@ void Directory::NewNote(fs::path path)
         }
     }
 }
+
+
+std::weak_ptr<Directory> Directory::Find(std::vector<std::string_view> arr)
+{
+
+    std::string target = (std::string)arr[0];
+    arr.erase(arr.begin());
+
+    for (auto & child : Children)
+    {
+        // auto dir = child.second;
+        std::string test = child->Path.Source.filename().string();
+        if (test ==target)
+        {
+            if (arr.size() == 0)
+            {
+                return child;
+            }
+            else
+            {
+                return child->Find(arr);
+            }
+        }
+    }
+
+    LOG(WARN) << "Could not resolve '" << target <<"'. Best match is:";
+    return shared_from_this();
+    
+}

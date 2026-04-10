@@ -18,7 +18,7 @@ std::vector<JSL::detail::ColourConstructor> colorArray = {
     txt::Colour(120, 255, 120)   // green
 };
 
-int ColIndex;
+int ColIndex =0 ;
 
 void display(std::weak_ptr<Directory> input,std::string dirPrefix, std::string filePrefix)
 {
@@ -66,11 +66,12 @@ void display(std::weak_ptr<Directory> input,std::string dirPrefix, std::string f
 
 void directoryDisplay(std::vector<std::string> & array)
 {
-    auto s = Cortex.Index.RootDir;
-    // if (array.size() > 1)
-    // {
-    //     s = s->Find(JSL::split(array[1],"/"));
-    // }
+    ColIndex = 0;
+    std::weak_ptr<Directory> s = Cortex.Index.RootDir;
+    if (array.size() > 0)
+    {
+        s = s.lock()->Find(JSL::split(array[0],"/"));
+    }
 
     display(s,"","");
 }
