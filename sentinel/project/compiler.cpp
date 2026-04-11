@@ -53,6 +53,7 @@ void CompilerObject::CheckResources(bool expectWrite)
 
 void CompilerObject::Run(bool forceAll)
 {
+    if (Cortex.Settings.System.Pause) return;
     auto preamble =MakePreamble();
 
     auto & Registry = Cortex.Index.Registry;
