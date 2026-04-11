@@ -252,3 +252,21 @@ void Directory::Delete(std::weak_ptr<Note> note)
     }
     Cortex.Index.Delete(note);
 }
+
+
+void Directory::ListAll(std::set<fs::path> & container)
+{
+    for (auto & note : Notes)
+    {
+        auto f = note.lock()->Path.Source;
+        f.replace_extension(".pdf");
+        container.insert(fs::relative(f,Cortex.Values.SourceRoot));
+    }
+
+    for (auto & child : Children)
+    {
+        auto f = child->Path.Source;
+        container.insert(fs::relative(f,Cortex.Values.SourceRoot));
+        child->ListAll(container);
+    }
+}

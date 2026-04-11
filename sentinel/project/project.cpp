@@ -123,3 +123,66 @@ bool Project::Synchronise(bool save)
     }
     return compile;
 }
+
+void Project::Clean()
+{
+    LOG(INFO) << "Beginning a cleaning pass";
+
+    std::error_code ec;
+    using fsdir = fs::recursive_directory_iterator;
+
+    if (fs::exists(Values.BuildRoot))
+    {
+        LOG(DEBUG) << "Deleting entire build directory";
+        fs::remove_all(Values.BuildRoot);
+    }
+
+    
+    // //now search for children
+    std::set<fs::path> paths;
+    LOG(DEBUG) << "Detected files:";
+    for (auto   it = fsdir(Values.CompileRoot,ec); it != fsdir(); ++it) 
+    {
+        if (ec ) continue;
+        auto p = it->path();
+        if (p.extension() == ".pdf" || fs::is_directory(p))
+        {
+            auto r = fs::relative(p,Values.CompileRoot);
+            LOG(DEBUG) << "\t = " << r.string();
+            paths.insert(r);
+        }
+    }
+
+    std::set<fs::path> expected;
+    Index.RootDir->ListAll(expected);
+
+    LOG(DEBUG) << "Expected files:";
+    for (auto & el : expected)
+    {
+        LOG(DEBUG) << "\t = " << el.string();
+    }
+
+    std::set<fs::path> leftovers; // Create the destination
+
+    std::set_difference(
+        paths.begin(), paths.end(),
+        expected.begin(), expected.end(),
+        std::inserter(leftovers, leftovers.begin())
+    );
+
+    if (leftovers.size() > 0)
+    {
+        LOG(INFO) << "The following output disk objects have no corresponding source.\nThey are being deleted.";
+        for (auto & left : leftovers)
+        {
+            LOG(INFO) << "  - " << left.string();
+            fs::remove(Values.CompileRoot/left);
+        }
+    }
+    else
+    {
+        LOG(INFO) << "No files to clean: output matches source";
+    }
+    Index.RootDir->ExistenceSweep();
+    
+}

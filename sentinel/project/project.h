@@ -26,6 +26,7 @@ class Project
 
         bool Synchronise(bool save=true);
         static void Prompt();
+        void Clean();
     private:
         SettingsObject CachedSettings;
         void SetMetadata();

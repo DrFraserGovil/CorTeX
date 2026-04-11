@@ -31,6 +31,7 @@ class Directory :public std::enable_shared_from_this<Directory>
         
         std::set<std::shared_ptr<Directory>> Children;
         std::vector<std::weak_ptr<Note>> Notes;
+        void ListAll(std::set<fs::path> & container);
         bool IsRoot;
 
         void Connect();
@@ -38,6 +39,7 @@ class Directory :public std::enable_shared_from_this<Directory>
         std::weak_ptr<Directory> Find(std::vector<std::string_view> arr);
 
         void NewNote(fs::path path);
+        void ExistenceSweep();
     private:
         
         Directory();
@@ -46,7 +48,6 @@ class Directory :public std::enable_shared_from_this<Directory>
         std::weak_ptr<Directory> Parent;
         bool HasBeenDeleted;
 
-        void ExistenceSweep();
 
         void NewDirectory(fs::path path);
         void Delete();//for deleting yourself

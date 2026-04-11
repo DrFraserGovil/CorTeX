@@ -102,9 +102,10 @@ void WorkerObject::SetHandlers()
     {
         directoryDisplay(data);
     };
-    // Handlers[Instruction::Clean] = [](auto & data)
-    // {
-    // }
+    Handlers[Instruction::Clean] = [](auto & data)
+    {
+        Cortex.Clean();
+    };
     Handlers[Instruction::Compile] = [](auto & data)
     {
         Cortex.Compiler.Run(true);
