@@ -122,6 +122,10 @@ void WorkerObject::SetHandlers()
         TotalCascade = Reset(data);
         Cascade |= TotalCascade;
     };
+    Handlers[Instruction::PauseSignal] = [&](auto & data)
+    { 
+        Cascade=Pause(data);  
+    };
 
 }
 

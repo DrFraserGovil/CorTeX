@@ -41,10 +41,10 @@ Task SimpleCommands(std::string_view cmd)
     IF_ARG("clean")             return Task(Instruction::Clean);
 
     //spoof in an alias
-    vsv pause{"","pause","1"};
-    vsv resume{"","pause","0"};
-    IF_ARG("pause")             return Task(Instruction::SettingChange,pause);
-    IF_ARG("resume")            return Task(Instruction::SettingChange,resume);
+    vsv pause{"","1"};
+    vsv resume{"","0"};
+    IF_ARG("pause")             return Task(Instruction::PauseSignal,pause);
+    IF_ARG("resume")            return Task(Instruction::PauseSignal,resume);
 
     // return empty task
     return Task();

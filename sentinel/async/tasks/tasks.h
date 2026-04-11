@@ -15,6 +15,7 @@ enum class Instruction
     List,
     Reset,
     Clean,
+    PauseSignal,
     None,
 };
 

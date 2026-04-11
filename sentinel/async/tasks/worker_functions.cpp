@@ -155,3 +155,35 @@ bool Reset(std::vector<std::string> & array)
     LOG(WARN) << "Please specify either 'class' or 'macro' to reset";
     return false;
 }
+
+bool Pause(std::vector<std::string> & array)
+{
+    auto & pause = Cortex.Settings.System.Pause;
+
+    if (array[0] == "0")
+    {
+        if (pause)
+        {
+            LOG(INFO) << txt::Italics << txt::Green <<  "Resuming compilation";
+            pause = false;
+            return true;
+        }    
+        else
+        {
+            LOG(WARN) << "Compilation was not paused; resume command ignored";
+        }
+    }
+    else
+    {
+        if (pause)
+        {
+            LOG(WARN) << "Compilation is already paused";
+        }
+        else
+        {
+            pause=true;
+            LOG(INFO) << txt::Italics << txt::Yellow << "Pausing compilation";
+        }
+    }
+    return false;
+}
