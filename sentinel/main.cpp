@@ -2,14 +2,11 @@
 #include "JSL/JSL.h"
 Initialise_JSL_Log()
 #include <iostream>
+#include <csignal>
 #include "global.h"
 #include "project/project.h"
 #include "async/watcher.h"
 #include "async/worker.h"
-void HeadlessMain()
-{
-
-};
 
 
 void InterfaceMain()
@@ -25,22 +22,26 @@ void InterfaceMain()
 };
 
 
+void InterruptShutdown(int signal)
+{
+    if (signal == SIGINT)
+    {
+        LOG(ERROR) << "SIGINT signal recieved, attempting graceful shutdown";
+
+        Cortex.Worker->AddTask(Instruction::Shutdown);
+    }
+}
+
 
 Project Cortex;
 
 int main(int argc, char**argv)
 {
     Cortex.Initialise(argc,argv);
-    if (Cortex.Settings.System.Headless.Active)
-    {
-        HeadlessMain();
-    }
-    else
-    {
-        InterfaceMain();
-    }
+ 
+    std::signal(SIGINT, InterruptShutdown);
 
-    
+    InterfaceMain();
 
     Cortex.Shutdown();
 }

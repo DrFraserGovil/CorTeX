@@ -217,9 +217,12 @@ Task HeadlessInterface::Ping()
         //this is the case if it has been deleted by accident, or in order to test if the process is alive
         //since we're here, we're alive - recreate the file to signal we're here
         LOG(DEBUG) << "Detected a purge attempt: reaquiring lock";
-        if (!fs::exists(Cortex.Values.SharedSessionDirectory)) fs::create_directories(Cortex.Values.SharedSessionDirectory);
+        if (!fs::exists(Cortex.Values.SharedSessionDirectory))
+        {
+            fs::create_directories(Cortex.Values.SharedSessionDirectory);
+            Cortex.Watcher->AddHeadlessWatch();
+        }
         JSL::initialiseFile(LockFile);
-        Cortex.Watcher->AddHeadlessWatch();
     }
     
     if (fs::exists(MessageFile))

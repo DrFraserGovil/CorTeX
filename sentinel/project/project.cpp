@@ -108,9 +108,8 @@ void Project::Initialise(int argc, char ** argv)
     else
     {
         LOG(DEBUG) << "Entering broadcast mode";
-        // Antenna.FindSession();
         Antenna.Broadcast(argc,argv);
-        exit(1);
+        exit(0);
     }
 }
 

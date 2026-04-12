@@ -46,7 +46,8 @@ void WorkerObject::AddTask(Instruction cmd)
 
 void WorkerObject::ProcessHead()
 {
-    auto & job = LocalJobs.front();
+    auto job = LocalJobs.front();
+    LocalJobs.pop();
     LOG(DEBUG) << JSL::Text::Colour(50,50,80) << "Processing job (type " << (int)job.Type <<")";
     Cascade=false;
 
@@ -68,7 +69,6 @@ void WorkerObject::ProcessHead()
     }
 
 
-    LocalJobs.pop();
     LOG(DEBUG) << "Task " << (int)job.Type << " complete";
 
     //bit of manual hackery to get a reprompt
