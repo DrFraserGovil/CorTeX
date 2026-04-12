@@ -34,14 +34,18 @@ void HeadlessInterface::CreateSession()
     SetTarget();
     if (fs::exists(LockFile))
     {
-        LOG(ERROR) << "A cortex session of ID " << ID << " already exists.\nYou have another session running targeting this directory";
-        exit(1); 
+        LOG(WARN) <<  "A cortex session of ID " << ID << " already exists\nChecking if the process is dead";
+        fs::remove(LockFile);
+        bool returned = FileLoop(LockFile,true);
+        if (returned)
+        {
+            LOG(ERROR) << "Cortex session " << ID << " is still active\nCannot start a second session";
+            exit(1); 
+        }
+        LOG(WARN) << "No response from process: acquiring the lock";
     }
-    else
-    {
-        LOG(DEBUG) << "Assigning session id " << ID;
-        JSL::initialiseFile(LockFile);
-    }
+    LOG(DEBUG) << "Assigning session id " << ID;
+    JSL::initialiseFile(LockFile);
 }
 
 void HeadlessInterface::SetTarget()
@@ -146,7 +150,7 @@ void HeadlessInterface::Broadcast(int argc, char**argv)
         LOG(ERROR) << "Service timed out waiting for a previous message: parent has died";
         exit(1);
     }
-    bool consumed = FileVanish(MessageFile);
+    bool consumed = FileLoop(MessageFile,false);
     if (!consumed)
     {
         LOG(ERROR) << "Signal not acknowledged by " << LockFile.stem().string();
@@ -160,7 +164,7 @@ void HeadlessInterface::Broadcast(int argc, char**argv)
 
 bool HeadlessInterface::SendMessage(fs::path target, std::string & msg)
 {
-    bool vanished = FileVanish(target);
+    bool vanished = FileLoop(target,false);
 
     if (vanished)
     {
@@ -175,27 +179,33 @@ bool HeadlessInterface::SendMessage(fs::path target, std::string & msg)
         return false;
     }
 }
-bool HeadlessInterface::FileVanish(fs::path target, int recursion)
+bool HeadlessInterface::FileLoop(fs::path target, bool testExist)
 {
     auto & headless = Cortex.Settings.System.Headless;
-    if (fs::exists(target) && recursion < headless.RecursionLimit)
+
+    bool fileExists = fs::exists(target);
+    for (int i = 0; i < headless.RecursionLimit;++i)
     {
+        if (fileExists == testExist) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(headless.RecursionDelay));
-        FileVanish(target,recursion+1);
+        fileExists = fs::exists(target);
     }
 
-    if (fs::exists(target))
-    {
-        return false;
-    }
 
-    return true;
+    return fileExists == testExist;
+
 
 }
 
 void HeadlessInterface::Purge()
 {
-    // auto sessions
+    //nuke all active sessions
+    //if they're still alive, then they recreate their locks and its all fine
+    auto sessions = GetActive();
+    for (auto session : sessions)
+    {
+        fs::remove(session);
+    }
 }
 
 
@@ -206,7 +216,9 @@ Task HeadlessInterface::Ping()
     {
         //this is the case if it has been deleted by accident, or in order to test if the process is alive
         //since we're here, we're alive - recreate the file to signal we're here
-        fs::create_directories(LockFile);
+        LOG(DEBUG) << "Detected a purge attempt: reaquiring lock";
+        if (!fs::exists(Cortex.Values.SharedSessionDirectory)) fs::create_directories(Cortex.Values.SharedSessionDirectory);
+        JSL::initialiseFile(LockFile);
         Cortex.Watcher->AddHeadlessWatch();
     }
     

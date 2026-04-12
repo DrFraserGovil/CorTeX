@@ -35,7 +35,7 @@ class HeadlessInterface
         void Purge();
         bool SendMessage(std::filesystem::path target,std::string & msg);
         bool VerifyMessage(std::filesystem::path target);
-        bool FileVanish(std::filesystem::path target, int recursion = 0);
+        bool FileLoop(std::filesystem::path target,bool testExist);
         bool BadTarget;
 };
 
