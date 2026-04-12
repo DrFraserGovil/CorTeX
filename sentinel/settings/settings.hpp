@@ -18,23 +18,31 @@ class SettingsObject_System_Headless
 		bool Active = false;
 		std::string CortexName = "My Project";
 		std::string AuthorName = "Me";
+		int RecursionLimit = 10;
+		int RecursionDelay = 100;
 		void Parse(int argc, char** argv)
 		{
 			Active = JSL::Parameter<bool>(Active,"headless",argc,argv).Value();
 			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",argc,argv).Value();
 			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",argc,argv).Value();
+			RecursionLimit = JSL::Parameter<int>(RecursionLimit,"headless-recursion",argc,argv).Value();
+			RecursionDelay = JSL::Parameter<int>(RecursionDelay,"headless-delay",argc,argv).Value();
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
 			Active = JSL::Parameter<bool>(Active,"headless",configFile,configDelimiter).Value();
 			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",configFile,configDelimiter).Value();
 			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",configFile,configDelimiter).Value();
+			RecursionLimit = JSL::Parameter<int>(RecursionLimit,"headless-recursion",configFile,configDelimiter).Value();
+			RecursionDelay = JSL::Parameter<int>(RecursionDelay,"headless-delay",configFile,configDelimiter).Value();
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
 			Active = JSL::Parameter<bool>(Active,"headless",linevec).Value();
 			CortexName = JSL::Parameter<std::string>(CortexName,"headless-name",linevec).Value();
 			AuthorName = JSL::Parameter<std::string>(AuthorName,"headless-author",linevec).Value();
+			RecursionLimit = JSL::Parameter<int>(RecursionLimit,"headless-recursion",linevec).Value();
+			RecursionDelay = JSL::Parameter<int>(RecursionDelay,"headless-delay",linevec).Value();
 		}
 		auto operator<=>(const SettingsObject_System_Headless&) const = default;
 		std::string ToText()
@@ -43,6 +51,8 @@ class SettingsObject_System_Headless
 			s << "headless " << JSL::MakeString(Active) << "\n";
 			s << "headless-name " << JSL::MakeString(CortexName) << "\n";
 			s << "headless-author " << JSL::MakeString(AuthorName) << "\n";
+			s << "headless-recursion " << JSL::MakeString(RecursionLimit) << "\n";
+			s << "headless-delay " << JSL::MakeString(RecursionDelay) << "\n";
 			return s.str();
 		}
 		void Help(JSL::HelpMessages & help)
@@ -50,12 +60,16 @@ class SettingsObject_System_Headless
 			help.AddMessage("SettingsObject_System_Headless","headless",false,"Active","If true, runs the system in headless mode");
 			help.AddMessage("SettingsObject_System_Headless","headless-name","My Project","CortexName","The default name given to a new cortex instantiation if not provided by the user");
 			help.AddMessage("SettingsObject_System_Headless","headless-author","Me","AuthorName","The default author assigned to a new cortex instantiation if not provided by the user");
+			help.AddMessage("SettingsObject_System_Headless","headless-recursion",10,"RecursionLimit","The number of times a signal will be sent before determining the process is dead and unresponsive");
+			help.AddMessage("SettingsObject_System_Headless","headless-delay",100,"RecursionDelay","The time (in ms) between each recursive signal to a headless service");
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
 			JSL::ParameterDescription("Active","bool","headless",Active,(bool)false,"If true, runs the system in headless mode").Query(parameter,found);
 			JSL::ParameterDescription("CortexName","std::string","headless-name",CortexName,(std::string)"My Project","The default name given to a new cortex instantiation if not provided by the user").Query(parameter,found);
 			JSL::ParameterDescription("AuthorName","std::string","headless-author",AuthorName,(std::string)"Me","The default author assigned to a new cortex instantiation if not provided by the user").Query(parameter,found);
+			JSL::ParameterDescription("RecursionLimit","int","headless-recursion",RecursionLimit,(int)10,"The number of times a signal will be sent before determining the process is dead and unresponsive").Query(parameter,found);
+			JSL::ParameterDescription("RecursionDelay","int","headless-delay",RecursionDelay,(int)100,"The time (in ms) between each recursive signal to a headless service").Query(parameter,found);
 		}
 };
 class SettingsObject_System

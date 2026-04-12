@@ -20,12 +20,12 @@ class WatcherObject
         int WatchDir(std::weak_ptr<Directory> dir);
         std::set<FileReport> GetReports();
 
+        void AddHeadlessWatch();
     private:
         void Loop();
 
         void AddMenu();
         void AddFileWatch();
-        void AddHeadlessWatch();
         std::atomic<bool> Running;
         std::thread Thread;
 

@@ -68,6 +68,18 @@ SettingsObject
                             trigger = "headless-author"
                             note = "The default author assigned to a new cortex instantiation if not provided by the user"
                         }
+                        int RecursionLimit
+                        {
+                            default = 10
+                            trigger = "headless-recursion"
+                            note="The number of times a signal will be sent before determining the process is dead and unresponsive"
+                        }
+                        int RecursionDelay
+                        {
+                            default = 100
+                            trigger = "headless-delay"
+                            note="The time (in ms) between each recursive signal to a headless service"
+                        }
                     }
                 }
             }    

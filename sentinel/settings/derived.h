@@ -18,6 +18,7 @@ class DerivedSettings
         std::filesystem::path MacroFile;
         std::filesystem::path ClassFile_User;
         std::filesystem::path ClassFile_Compiler;
+        std::filesystem::path SharedSessionDirectory;
         bool Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings);
 
 };

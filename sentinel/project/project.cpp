@@ -89,16 +89,29 @@ void Project::Initialise(int argc, char ** argv)
 {
     Settings.Parse(argc,argv);    
     Synchronise(false);
-
-    WelcomeMessage();
     CheckHeadless();
-    Info.Initialise();
-    LoadSettings();
 
-    if (!Info.ExistsOnDisk)    SetMetadata();
+    Antenna.DetectStatus(argc,argv);
 
-    Index.Initialise();
-    CachedSettings = Settings;
+    if (Antenna.Status == HeadlessInterface::Mode::Recieve)
+    {
+        WelcomeMessage();
+        Antenna.CreateSession();
+        Info.Initialise();
+        LoadSettings();
+    
+        if (!Info.ExistsOnDisk)    SetMetadata();
+    
+        Index.Initialise();
+        CachedSettings = Settings;
+    }
+    else
+    {
+        LOG(DEBUG) << "Entering broadcast mode";
+        // Antenna.FindSession();
+        Antenna.Broadcast(argc,argv);
+        exit(1);
+    }
 }
 
 void Project::Connect(WorkerObject * worker, WatcherObject * watcher) 
@@ -185,4 +198,10 @@ void Project::Clean()
     }
     Index.RootDir->ExistenceSweep();
     
+}
+
+void Project::Shutdown()
+{
+    Antenna.EndSession();
+    LOG(INFO) << "CorTeX Shutdown complete";
 }

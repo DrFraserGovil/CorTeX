@@ -12,7 +12,7 @@ WatcherObject::WatcherObject() : Callbacks({})
     Running= true;
 
     AddFileWatch();
-    
+    AddHeadlessWatch();
     if(!Cortex.Settings.System.Headless.Active)
     {
         AddMenu();
@@ -113,7 +113,7 @@ void WatcherObject::AddFileWatch()
         LOG(ERROR) << "Could not establish inotify process\nReason: " << std::strerror(errno);
         exit(1);
     }
-
+   
 
     pollfd w;
     w.fd = WatcherID;
@@ -129,12 +129,26 @@ void WatcherObject::AddFileWatch()
                 struct inotify_event* event = (struct inotify_event*)&buffer[i];
                 if (event->len)
                 {
-                    auto report = FileReport(WatchMap[event->wd],event);
-
-                    if (report.IsImportant)
+                    int id =event->wd;
+                    
+                    if (id != Cortex.Antenna.ID)
                     {
-                        batch.insert(report);
+                        auto report = FileReport(WatchMap[id],event);
+    
+                        if (report.IsImportant)
+                        {
+                            batch.insert(report);
+                        }
                     }
+                    else
+                    {
+                        auto task = Cortex.Antenna.Ping();
+                        if (task.Type != Instruction::None)
+                        {
+                            Cortex.Worker->AddTask(task);
+                        }
+                    }
+
                 }           
                 i += sizeof(struct inotify_event) + event->len;
             }
@@ -175,11 +189,16 @@ void WatcherObject::AddFileWatch()
     );
 }
 
+void WatcherObject::AddHeadlessWatch()
+{
+    Cortex.Antenna.ID = inotify_add_watch(WatcherID,Cortex.Values.SharedSessionDirectory.c_str(),IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE);
+}
+
 int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)
 {
     auto dir = dirPtr.lock();
     LOG(DEBUG) << "Initialising connection to " << dir->Path.Source.string();
-    int id = inotify_add_watch(WatcherID,dir->Path.Source.c_str(),IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE);
+    int id = inotify_add_watch(WatcherID,dir->Path.Source.c_str(),IN_CREATE);
     WatchMap[id] = dirPtr;
     return id;
 }

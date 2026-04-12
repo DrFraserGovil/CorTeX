@@ -40,14 +40,7 @@ int main(int argc, char**argv)
         InterfaceMain();
     }
 
-    LOG(INFO) << "CorTeX Shutdown complete";
+    
+
+    Cortex.Shutdown();
 }
-
-
-// FileIndex MasterIndex;
-//     MasterIndex.Initialise();
-
-
-//     MasterIndex.UnwatchAll();
-//     LOG(INFO) << "CorTeX Shutdown complete";
-// }

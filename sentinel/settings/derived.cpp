@@ -17,6 +17,7 @@ bool DerivedSettings::Synchronise(SettingsObject & Settings,SettingsObject & Cac
     ClassFile_User = MetaRoot / "cortex.cls";
     ClassFile_Compiler = BuildRoot / "cortex.cls";
     MacroFile = SourceRoot/ "macros.sty";
-
+    SharedSessionDirectory = fs::temp_directory_path() / "cortex";
+    if (!fs::exists(SharedSessionDirectory)) fs::create_directories(SharedSessionDirectory);
     return requiresRecompile;
 }
