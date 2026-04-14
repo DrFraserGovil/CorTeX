@@ -1,0 +1,19 @@
+{
+	"name": "cortex",
+	"publisher": "test",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.60.0"
+	},
+	"activationEvents": [
+		"*"
+	],
+	"main": "./out/src/extension",
+	"devDependencies": {
+		"@types/node": "^25.6.0",
+		"@types/vscode": "^1.115.0"
+	},
+	"dependencies": {
+		"typescript": "^6.0.2"
+	}
+}

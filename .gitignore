@@ -3,3 +3,6 @@
 *cortex
 *compiled
 *test
+
+node_modules/
+out/
