@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { spawn, ChildProcess } from 'child_process';
 import { Disposable } from '../utils/disposable';
+import { getSystemErrorMap } from 'util';
 
 //central engine and manager of the extension processes
 
@@ -15,8 +16,11 @@ export class CortexEngine extends Disposable
         this.bootCortex();
     }
 
-    private bootCortex()
+    public bootCortex()
     {
+        //kill any existing processes running on this project
+        this.EngineCommand("shutdown");
+        
         const projectDirectory = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
         console.log("Launching cortex in",projectDirectory);
         if (projectDirectory)
@@ -62,6 +66,16 @@ export class CortexEngine extends Disposable
        
     }
 
+    public EngineCommand(command : string)
+    {
+        const projectDirectory = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+        if (projectDirectory)
+        {
+            console.log("Sending message",command,"to cortex engine in ", projectDirectory);
+             this.messageHost = spawn("/home/jfg/CodeProjects/cortex/cortex",[command,"-i",projectDirectory]);
+        }
+    }
+
     public override dispose() 
     {
         this.shutdown();
@@ -73,7 +87,8 @@ export class CortexEngine extends Disposable
         const host = this.engineHost;
         if (host)
         {
-            this.messageHost = spawn("/home/jfg/CodeProjects/cortex/cortex",['shutdown']);
+
+            this.EngineCommand("shutdown");
 
             //or kill it 
             setTimeout(() =>

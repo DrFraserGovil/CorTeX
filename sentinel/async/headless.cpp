@@ -95,7 +95,7 @@ std::set<fs::path> HeadlessInterface::GetActive()
     return out;
 }
 
-void HeadlessInterface::FindSession()
+void HeadlessInterface::FindSession(bool allowFailure)
 {
     SetTarget();
     if (!BadTarget && fs::exists(LockFile))
@@ -108,8 +108,16 @@ void HeadlessInterface::FindSession()
 
     if (sessions.size() == 0)
     {
-        LOG(ERROR) << "No active cortex session exist: cannot send signal";
-        exit(1);
+        if (allowFailure)
+        {
+            LOG(INFO) << "No active sessions to shut down";
+            exit(0); // calling shutdown when no active sessions returns a positive signal
+        }
+        else
+        {
+            LOG(ERROR) << "No active cortex session exist: cannot send signal";
+            exit(1);
+        }
     }
     if (sessions.size() > 1)
     {
@@ -133,7 +141,8 @@ void HeadlessInterface::Broadcast(int argc, char**argv)
         return;
     }
 
-    FindSession();
+    bool softFail = ((std::string)argv[1] == "shutdown") || ((std::string)argv[1] == "quit");
+    FindSession(softFail);
     std::ostringstream cmd;
     cmd << argv[1]; //we know this is good, as a prerequisite of entering broadcast mode
 

@@ -6,7 +6,9 @@
 		"vscode": "^1.60.0"
 	},
 	"activationEvents": [
-		"*"
+		"onCommand:cortex.launch",
+		"workspaceContains:**/.cortex",
+		"onCustomEditor:cortex.pdfViewer"
 	],
 	"main": "./out/src/extension",
 	"devDependencies": {
@@ -15,5 +17,19 @@
 	},
 	"dependencies": {
 		"typescript": "^6.0.2"
-	}
+	},
+	"contributes": {
+    "commands": [
+        {
+            "command": "cortex.launch",
+            "title": "Create Project",
+            "category": "Cortex"
+        },
+		{
+			"command": "cortex.reboot",
+			"title" : "Reboot Engine",
+			"category": "Cortex"
+		}
+    ]
+}
 }

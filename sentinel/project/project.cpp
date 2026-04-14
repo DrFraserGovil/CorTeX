@@ -89,8 +89,6 @@ void Project::Initialise(int argc, char ** argv)
 {
     Settings.Parse(argc,argv);    
     Synchronise(false);
-    JSL::Log::Config.Level = DEBUG;
-
     CheckHeadless();
     Antenna.DetectStatus(argc,argv);
 

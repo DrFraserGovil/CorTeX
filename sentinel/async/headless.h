@@ -26,7 +26,7 @@ class HeadlessInterface
         Task Ping();
         int ID;
     private:
-        void FindSession();
+        void FindSession(bool allowFailure=false);
 
         std::filesystem::path LockFile;
         std::filesystem::path MessageFile;

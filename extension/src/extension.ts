@@ -3,7 +3,13 @@ import { CortexEngine } from './core/CortexEngine';
 
 export function activate(context: vscode.ExtensionContext): void
 {
-	vscode.window.showInformationMessage('Initialising CorTeX');
+	const launchCommand = vscode.commands.registerCommand('cortex.launch', () => {
+        vscode.window.showInformationMessage('Cortex is launching...');
+    });
+	const rebootCommand = vscode.commands.registerCommand('cortex.reboot', () => {
+        vscode.window.showInformationMessage('Cortex is launching...');
+    });
+
 
 	//metadata & link engine
 	const engine = new CortexEngine();
