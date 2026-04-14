@@ -14,7 +14,7 @@
 void HeadlessInterface::DetectStatus(int argc, char**argv)
 {
     Status = Mode::Recieve;
-    if (argc > 0)
+    if (argc > 1)
     {
         auto first = argv[1][0];
         if (first != '-')
