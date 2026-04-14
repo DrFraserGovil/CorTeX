@@ -17,30 +17,42 @@ export class CortexEngine extends Disposable
 
     private bootCortex()
     {
-        this.engineHost = spawn("/home/jfg/CodeProjects/cortex/cortex",['-headless'],
+        const projectDirectory = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+        console.log("Launching cortex in",projectDirectory);
+        if (projectDirectory)
         {
-            shell: true,
-            stdio: ['pipe','pipe','pipe'], //in, out and err,
-            env: process.env
-        });
+            this.engineHost = spawn("/home/jfg/CodeProjects/cortex/cortex",['-headless','-i',projectDirectory],
+            {
+                shell: false,
+                stdio: ['pipe','pipe','pipe'], //in, out and err,
+                env: process.env
+            });
 
-        this.engineHost.on('error', (err) => 
+             this.engineHost.on('error', (err) => 
             {
                 vscode.window.showErrorMessage(`Cortex Engine Error: ${err.message}`);
             });
             this.engineHost.stderr?.on('data', (data) => {
-    console.error(`Cortex Native Error: ${data.toString()}`);
+    console.error(`Cortex Error: ${data.toString()}`);
 });
 
 this.engineHost.stdout?.on('data', (data) => {
-    console.log(`Cortex Native Output: ${data.toString()}`);
+    console.log(`Cortex Output: ${data.toString()}`);
 });
+console.log("Setting up output");
 
         // Ensure that if the process dies unexpectedly, we know about it
         this.engineHost.on('exit', (code) => 
             {
                 console.log(`Cortex Engine exited with code ${code}`);
             });
+        }
+        else
+        {
+            console.error("Could not launch cortex process");
+        }
+
+       
     }
 
     public override dispose() 
@@ -54,6 +66,7 @@ this.engineHost.stdout?.on('data', (data) => {
         const host = this.engineHost;
         if (host)
         {
+            console.log("Sending shudown message");
             this.messageHost = spawn("/home/jfg/CodeProjects/cortex/cortex",['shutdown']);
 
             //or kill it 

@@ -130,6 +130,7 @@ void WatcherObject::AddFileWatch()
                 if (event->len)
                 {
                     int id =event->wd;
+                    LOG(DEBUG) << "Ping: " << id << " " << Cortex.Antenna.ID;
                     if (id != Cortex.Antenna.ID)
                     {
                         auto report = FileReport(WatchMap[id],event);
@@ -190,7 +191,7 @@ void WatcherObject::AddFileWatch()
 
 void WatcherObject::AddHeadlessWatch()
 {
-    Cortex.Antenna.ID = inotify_add_watch(WatcherID,Cortex.Values.SharedSessionDirectory.c_str(),IN_CREATE);
+    Cortex.Antenna.ID = inotify_add_watch(WatcherID,Cortex.Values.SharedSessionDirectory.c_str(),IN_CREATE|IN_DELETE);
 }
 
 int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)

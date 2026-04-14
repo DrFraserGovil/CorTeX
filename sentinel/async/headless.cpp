@@ -46,6 +46,9 @@ void HeadlessInterface::CreateSession()
     }
     LOG(DEBUG) << "Assigning session id " << ID;
     JSL::initialiseFile(LockFile);
+    
+    fs::path emergency = Cortex.Values.MetaRoot/ "lock.lock";
+    JSL::writeStringToFile(emergency,LockFile.string(),std::ios::out);
 }
 
 void HeadlessInterface::SetTarget()

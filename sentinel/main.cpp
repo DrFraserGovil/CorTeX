@@ -37,6 +37,7 @@ Project Cortex;
 
 int main(int argc, char**argv)
 {
+    setvbuf(stdout, NULL, _IONBF, 0);
     Cortex.Initialise(argc,argv);
  
     std::signal(SIGINT, InterruptShutdown);
