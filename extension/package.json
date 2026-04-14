@@ -7,7 +7,7 @@
 	},
 	"activationEvents": [
 		"onCommand:cortex.launch",
-		"workspaceContains:**/.cortex",
+		"workspaceContains:**/.cortex/*",
 		"onCustomEditor:cortex.pdfViewer"
 	],
 	"main": "./out/src/extension",
@@ -28,6 +28,16 @@
 		{
 			"command": "cortex.reboot",
 			"title" : "Reboot Engine",
+			"category": "Cortex"
+		},
+		{
+			"command": "cortex.pause",
+			"title" : "Pause Compilation",
+			"category": "Cortex"
+		},
+		{
+			"command": "cortex.resume",
+			"title" : "Resume Compilation",
 			"category": "Cortex"
 		}
     ]
