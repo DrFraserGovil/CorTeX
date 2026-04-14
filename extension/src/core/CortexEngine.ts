@@ -8,7 +8,7 @@ export class CortexEngine extends Disposable
 {
     private engineHost?: ChildProcess;
     private messageHost?: ChildProcess;
-
+    
     constructor(){
         super();
         console.log("CorTeX Metadata Layer Initialised");
@@ -28,23 +28,30 @@ export class CortexEngine extends Disposable
                 env: process.env
             });
 
-             this.engineHost.on('error', (err) => 
+            this.engineHost.on('error', (err) => 
             {
                 vscode.window.showErrorMessage(`Cortex Engine Error: ${err.message}`);
             });
             this.engineHost.stderr?.on('data', (data) => {
-    console.error(`Cortex Error: ${data.toString()}`);
-});
+                console.error(`${data.toString()}`);
+            });
 
-this.engineHost.stdout?.on('data', (data) => {
-    console.log(`Cortex Output: ${data.toString()}`);
-});
-console.log("Setting up output");
+            this.engineHost.stdout?.on('data', (data) => {
+                console.log(`${data.toString()}`);
+            });
 
-        // Ensure that if the process dies unexpectedly, we know about it
-        this.engineHost.on('exit', (code) => 
+            // Ensure that if the process dies unexpectedly, we know about it
+            this.engineHost.on('exit', (code) => 
             {
-                console.log(`Cortex Engine exited with code ${code}`);
+                if (code == 2)
+                {
+                    console.log("An external cortex process is already running in this directory: communication established");
+                    this.engineHost = undefined;
+                }
+                else
+                {
+                    console.log(`Cortex Engine exited with code ${code}`);
+                }
             });
         }
         else
@@ -66,7 +73,6 @@ console.log("Setting up output");
         const host = this.engineHost;
         if (host)
         {
-            console.log("Sending shudown message");
             this.messageHost = spawn("/home/jfg/CodeProjects/cortex/cortex",['shutdown']);
 
             //or kill it 

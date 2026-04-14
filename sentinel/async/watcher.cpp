@@ -130,7 +130,6 @@ void WatcherObject::AddFileWatch()
                 if (event->len)
                 {
                     int id =event->wd;
-                    LOG(DEBUG) << "Ping: " << id << " " << Cortex.Antenna.ID;
                     if (id != Cortex.Antenna.ID)
                     {
                         auto report = FileReport(WatchMap[id],event);

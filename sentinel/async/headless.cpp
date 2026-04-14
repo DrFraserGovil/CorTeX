@@ -40,15 +40,13 @@ void HeadlessInterface::CreateSession()
         if (returned)
         {
             LOG(ERROR) << "Cortex session " << ID << " is still active\nCannot start a second session";
-            exit(1); 
+            exit(2); 
         }
         LOG(WARN) << "No response from process: acquiring the lock";
     }
     LOG(DEBUG) << "Assigning session id " << ID;
     JSL::initialiseFile(LockFile);
     
-    fs::path emergency = Cortex.Values.MetaRoot/ "lock.lock";
-    JSL::writeStringToFile(emergency,LockFile.string(),std::ios::out);
 }
 
 void HeadlessInterface::SetTarget()
