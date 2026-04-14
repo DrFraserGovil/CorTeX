@@ -50,7 +50,7 @@ void WorkerObject::ProcessHead()
     LocalJobs.pop();
     LOG(DEBUG) << JSL::Text::Colour(50,50,80) << "Processing job (type " << (int)job.Type <<")";
     Cascade=false;
-
+    TotalCascade = false;
     if (Handlers.contains(job.Type))
     {
         Handlers[job.Type](job.TaskData);
@@ -64,8 +64,12 @@ void WorkerObject::ProcessHead()
     if (Cascade)
     {
         Instruction cmd = Instruction::IncrementalCompile;
-        if (TotalCascade) cmd = Instruction::Compile;
-        LocalJobs.push(cmd);
+        if (TotalCascade)
+        {
+            cmd = Instruction::Compile;
+        }
+        auto cascadeTask = Task(cmd);
+        LocalJobs.push(cascadeTask);
     }
 
 

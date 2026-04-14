@@ -71,7 +71,6 @@ void CompilerObject::Run(bool forceAll)
         while (DirtyFiles.size() > 0)
         {
             int fileID = DirtyFiles[0];
-            LOG(DEBUG) << fileID << " is dirty";
             if (Registry.contains(fileID))
             {
                 CompileFile(Registry[fileID],preamble);
