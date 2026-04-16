@@ -40,6 +40,68 @@
 			"title" : "Resume Compilation",
 			"category": "Cortex"
 		}
-    ]
+    ],
+	 "capabilities": {
+      "untrustedWorkspaces": {
+        "supported": true
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "cortex.preview",
+        "displayName": "Cortex Preview",
+        "selector": [
+          {
+            "filenamePattern": "*.pdf"
+          }
+        ]
+      }
+    ],
+	 "configuration": {
+      "type": "object",
+      "title": "Cortex Preview",
+      "properties": {
+        "cortex.default.cursor": {
+          "markdownDescription": "The default cursor tool for preview.",
+          "type": "string",
+          "default": "select",
+          "enum": [
+            "select",
+            "hand"
+          ]
+        },
+        "cortex.default.scale": {
+          "markdownDescription": "The default zoom level for preview. Allowed values are `auto`, `page-actual`, `page-fit`, `page-width`, and 1-based scale values. (`1.0` means 100%)",
+          "type": "string",
+          "default": "page-width",
+          "pattern": "^(\\d+(?:\\.\\d+)?|auto|page-actual|page-fit|page-width)$"
+        },
+        "cortex.default.sidebar": {
+          "markdownDescription": "Show the sidebar on load. The default visibility of sidebar for preview.",
+          "type": "boolean",
+          "default": false
+        },
+        "cortex.default.scrollMode": {
+          "markdownDescription": "The default scroll mode for preview.",
+          "type": "string",
+          "default": "vertical",
+          "enum": [
+            "vertical",
+            "horizontal",
+            "wrapped"
+          ]
+        },
+        "cortex.default.spreadMode": {
+          "markdownDescription": "The default spread mode for preview.",
+          "type": "string",
+          "default": "none",
+          "enum": [
+            "none",
+            "odd",
+            "even"
+          ]
+        }
+	}
+}
 }
 }

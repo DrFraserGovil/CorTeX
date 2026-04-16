@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CortexEngine } from './core/CortexEngine';
-
+import { CustomProvider } from './viewer/CustomProvider';
+import { ViewManager } from './viewer/ViewManager';
 export function activate(context: vscode.ExtensionContext): void
 {
 	const launchCommand = vscode.commands.registerCommand('cortex.launch', () => {
@@ -9,9 +10,24 @@ export function activate(context: vscode.ExtensionContext): void
 	vscode.window.showInformationMessage('Cortex is launching...');
 	
 	//metadata & link engine
+	const extensionRoot = context.extensionUri;
+
 	const engine = new CortexEngine();
-	context.subscriptions.push(engine);
-	
+	const manager = new ViewManager(engine,extensionRoot);
+	const provider = new CustomProvider(manager);
+
+	const vsRegister=  vscode.window.registerCustomEditorProvider(
+      CustomProvider.viewType,
+      provider,
+      {
+        webviewOptions: {
+          enableFindWidget: false, // default
+          retainContextWhenHidden: true,
+        },
+      }
+    );
+
+	context.subscriptions.push(engine,manager,vsRegister);
 	
 	const rebootCommand = vscode.commands.registerCommand('cortex.reboot', () => {
 		vscode.window.showInformationMessage('Cortex is relaunching...');
@@ -23,9 +39,14 @@ export function activate(context: vscode.ExtensionContext): void
     });
 	const resumeCommand = vscode.commands.registerCommand('cortex.resume', () => {
 		engine.EngineCommand("resume");
-		engine.bootCortex();
     });
 	
+	context.subscriptions.push(rebootCommand,pauseCommand,resumeCommand);
+	
+
+	
+
+
 }
 
 export function deactivate()
