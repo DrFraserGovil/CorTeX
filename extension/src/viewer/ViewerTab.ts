@@ -105,23 +105,17 @@ export class ViewerTab extends Disposable
     {
         this.activeFile = preview;
         this.panel.title = preview.Name;
-        console.log(this.panel.title);
         this.panel.webview.html = this.getHtml();
-        // this.panel.webview.postMessage({
-        //     type: 'load-new-pdf',
-        //     path: this.panel.webview.asWebviewUri(preview.Source).toString()
-        // });
+
     }
     private messageHandler(msg: any)
     {
         if (msg.type === 'did-click-link') 
         {
             const url = this.activeFile.getLink(msg.contents);
-            // console.log(this.activeFile.getLink(msg.contents));
-            // // const targetUri = vscode.Uri.file(path.resolve(path.dirname(this.resource.fsPath), msg.uri));
             if (url)
             {
-                this.manager.handleLinkNavigation(this,url);
+                this.manager.handleLinkNavigation(this,url,msg.leftClick);
             }
         }
 
@@ -458,10 +452,10 @@ export class ViewerTab extends Disposable
 								</div>
 								<span id="scaleSelectContainer" class="dropdownToolbarButton">
 									<select id="scaleSelect" title="Zoom" tabindex="23" data-l10n-id="zoom">
-										<option id="pageAutoOption" title="" value="auto" selected="selected" data-l10n-id="page_scale_auto">Automatic Zoom</option>
+										<option id="pageWidthOption" title="" value="page-width" selected="selected" data-l10n-id="page_scale_width">Page Width</option>
+										<option id="pageAutoOption" title="" value="auto" data-l10n-id="page_scale_auto">Automatic Zoom</option>
 										<option id="pageActualOption" title="" value="page-actual" data-l10n-id="page_scale_actual">Actual Size</option>
 										<option id="pageFitOption" title="" value="page-fit" data-l10n-id="page_scale_fit">Page Fit</option>
-										<option id="pageWidthOption" title="" value="page-width" data-l10n-id="page_scale_width">Page Width</option>
 										<option id="customScaleOption" title="" value="custom" disabled="disabled" hidden="true"></option>
 										<option title="" value="0.5" data-l10n-id="page_scale_percent" data-l10n-args='{ "scale": 50 }'>50%</option>
 										<option title="" value="0.75" data-l10n-id="page_scale_percent" data-l10n-args='{ "scale": 75 }'>75%</option>
@@ -587,7 +581,6 @@ export class ViewerTab extends Disposable
 	</body>`;
 
 		const tail = ['</html>'].join('\n');
-
 		return head + body + tail;
 	}
 };

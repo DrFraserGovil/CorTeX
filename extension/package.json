@@ -114,6 +114,28 @@
 					]
 				}
 			}
+		},
+		"viewsContainers": 
+		{
+			"activitybar": 
+			[
+				{
+					"id": "cortex",
+					"title": "Cortex",
+					"icon": "lib/cortex-icon.svg"
+				}
+			]
+		},
+		"views": 
+		{
+			"cortex": 
+			[
+				{
+					"id": "cortex.files",
+					"name": "Project Explorer",
+					"icon": "lib/cortex-icon.svg"
+				}
+			]
 		}
 	},
 	"devDependencies":

@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CortexEngine } from './core/CortexEngine';
 import { CustomProvider } from './viewer/CustomProvider';
 import { ViewManager } from './viewer/ViewManager';
+import { CortexFileProvider } from './viewer/FileExplorer';
 export function activate(context: vscode.ExtensionContext): void
 {
 	const launchCommand = vscode.commands.registerCommand('cortex.launch', () => {
@@ -42,7 +43,16 @@ export function activate(context: vscode.ExtensionContext): void
     });
 	
 	context.subscriptions.push(rebootCommand,pauseCommand,resumeCommand);
-	
+	const root = vscode.workspace.workspaceFolders;;
+	if (root)
+	{
+		const fileProvider = new CortexFileProvider(root[0].uri.fsPath);
+		vscode.window.registerTreeDataProvider('cortex.files', fileProvider);
+
+		context.subscriptions.push(vscode.commands.registerCommand('cortex.openFile', async (uri: vscode.Uri) => {
+			await manager.flash(uri);
+		}));
+	}
 
 	
 

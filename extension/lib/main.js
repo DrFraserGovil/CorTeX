@@ -2,7 +2,6 @@
 
 (function () {
     const vscode = acquireVsCodeApi();
-    const annotationCache = new Map();
 
     // --- Helper Functions ---
 
@@ -28,8 +27,6 @@
 
     // --- Lifecycle and Initialization ---
 
-    
-
     window.addEventListener('load', async function () {
         const config = loadConfig();
         const loadOpts = {
@@ -43,28 +40,13 @@
         PDFViewerApplication.initializedPromise.then(() => {
             const defaults = config.defaults;
 
-            
-
-            // 1. Setup Link Services
-            PDFViewerApplication.pdfLinkService.externalLinkTarget = 1;
-            PDFViewerApplicationOptions.set('externalLinkTarget', 1);
-            PDFViewerApplicationOptions.set('annotationMode', 2);
-            PDFViewerApplication.pdfLinkService.isExternalLinkTargetSet = true;
-
-            // 2. Cache annotations as pages render
-            PDFViewerApplication.eventBus.on('pagerendered', async (evt) => {
-                const pageNumber = evt.pageNumber;
-                const page = await PDFViewerApplication.pdfDocument.getPage(pageNumber);
-                const annotations = await page.getAnnotations();
-                annotationCache.set(pageNumber, annotations);
-            });
-
             const optsOnLoad = () => {
                 PDFViewerApplication.pdfCursorTools.switchTool(cursorTools(defaults.cursor));
-                PDFViewerApplication.pdfViewer.currentScaleValue = defaults.scale;
                 PDFViewerApplication.pdfViewer.scrollMode = scrollMode(defaults.scrollMode);
                 PDFViewerApplication.pdfViewer.spreadMode = spreadMode(defaults.spreadMode);
-
+                PDFViewerApplication.pdfViewer.currentScaleValue = defaults.scale;
+                PDFViewerApplicationOptions.set('defaultZoomValue', defaults.scale);
+                console.log("ZOOM:",PDFViewerApplication.pdfViewer.currentScaleValue,defaults.scale);
                 if (defaults.sidebar) {
                     PDFViewerApplication.pdfSidebar.open();
                 } else {
@@ -80,36 +62,32 @@
                 const doc = await pdfjsLib.getDocument(loadOpts).promise;
                 doc._pdfInfo.fingerprints = [config.path];
                 
-                // Pre-cache first page to eliminate initial click lag
-                const firstPage = await doc.getPage(1);
-                const annots = await firstPage.getAnnotations();
-                annotationCache.set(1, annots);
                 
                 PDFViewerApplication.load(doc);
             });
 
-            // Create the Back Button
-            const backBtn = document.createElement('button');
-            backBtn.id = 'customBack';
-            backBtn.className = 'toolbarButton';
-            backBtn.title = 'Go Back';
-            backBtn.style.fontWeight = 'bold';
-            backBtn.style.marginRight = '10px';
-            backBtn.innerHTML = `
-        <span class="back-icon"></span>
-        <span class="label">Back</span>
-    `;
+    //         // Create the Back Button
+    //         const backBtn = document.createElement('button');
+    //         backBtn.id = 'customBack';
+    //         backBtn.className = 'toolbarButton';
+    //         backBtn.title = 'Go Back';
+    //         backBtn.style.fontWeight = 'bold';
+    //         backBtn.style.marginRight = '10px';
+    //         backBtn.innerHTML = `
+    //     <span class="back-icon"></span>
+    //     <span class="label">Back</span>z`
+    // `;
 
-            // Inject it into the primary toolbar (before the page number)
-            const toolbar = document.getElementById('toolbarViewerLeft');
-            const numPages = document.getElementById('numPages');
-            if (toolbar && numPages) {
-                toolbar.insertBefore(backBtn, toolbar.firstChild);
-            }
+    //         // Inject it into the primary toolbar (before the page number)
+    //         const toolbar = document.getElementById('toolbarViewerLeft');
+    //         const numPages = document.getElementById('numPages');
+    //         if (toolbar && numPages) {
+    //             toolbar.insertBefore(backBtn, toolbar.firstChild);
+    //         }
 
-            backBtn.addEventListener('click', () => {
-                vscode.postMessage({ type: 'request-back' });
-            });
+    //         backBtn.addEventListener('click', () => {
+    //             vscode.postMessage({ type: 'request-back' });
+    //         });
         });
     }, { once: true });
 
@@ -118,24 +96,24 @@
 
     
     document.addEventListener('mousedown', (event) => {
-        
         const section = event.target.closest('.linkAnnotation');
+        if (event.button != 0 && event.button != 2){return;}
+        const leftClick = (event.button == 0) && !(event.metaKey || event.ctrlKey);
         if (section)
         {
             const target = section.getAttribute('data-annotation-id');
             if (target)
             {
-                console.log("JS link");
                 event.preventDefault(); // prevent default behaviour
     
                 vscode.postMessage({
                     type: 'did-click-link',
                     contents: target,
+                    leftClick: leftClick
                 })
             }
         }
     },true);
-    //     // leftClick : (event.button==0) && !(event.metaKey || event.ctrlKey)
 
 
     //     // Only intercept Left Click
