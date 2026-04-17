@@ -57,7 +57,6 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
 
 std::string Link::Render(std::string & requestingFile)
 {
-    LOG(DEBUG) << "Rendering link with text '" << LinkText;
     auto target = Cortex.Index.GetLink(LinkText,requestingFile);
     if (auto targetPtr = target.lock())
     {

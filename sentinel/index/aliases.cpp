@@ -4,6 +4,7 @@
 
 int path_distancer(fs::path a, fs::path b)
 {
+    if (a == b) return  std::numeric_limits<int>::max(); //if the paths are identical, then we want to ignore this link as a potential target, since it would be a circular reference. Returning max int ensures that it will never be chosen as the closest link
     auto parent_a = a.parent_path().lexically_normal();
     auto parent_b = b.parent_path().lexically_normal();
 
@@ -62,7 +63,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
         if (auto targetPtr = target.lock()) //check weak_ptr still exists (deliberate '='!)
         {
             int distance = path_distancer(requestingFile,targetPtr->Path.Source);
-            if (distance != -1 && distance < closestDistance)
+            if (distance != -1 && distance <= closestDistance)
             {
                 closestDistance = distance;
                 closest = target;

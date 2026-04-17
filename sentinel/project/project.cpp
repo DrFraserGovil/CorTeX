@@ -24,7 +24,6 @@ void Project::SingleCommand()
     Antenna.Status = HeadlessInterface::Mode::Recieve; //force the antenna into recieve mode, as we only want to process one command and then exit, so we don't need to worry about sending signals to other sessions
     WorkerObject worker;
     auto task = ParseCommand(JSL::trim(CachedCommand));
-    LOG(DEBUG) << "Parsed " << CachedCommand;
     
     if (task.Type != Instruction::None)
     {

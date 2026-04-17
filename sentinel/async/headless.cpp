@@ -115,7 +115,7 @@ bool HeadlessInterface::FindSession(bool exitSignal)
         }
         else
         {
-            LOG(ERROR) << "No active cortex session exist: cannot send signal";
+            LOG(INFO) << txt::Yellow << "No active sessions found: starting a new one for this command";
             return false;
         }
     }

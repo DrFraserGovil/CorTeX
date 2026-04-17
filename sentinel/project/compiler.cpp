@@ -140,7 +140,7 @@ void CompilerObject::MoveSuccessful(std::shared_ptr<Note> note,fs::path pdfpath,
     }
     else
     {
-        LOG(DEBUG) <<JSL::Text::Colour(50,80,50) << "Successfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
+        LOG(INFO) <<JSL::Text::Colour(50,80,50) << "Successfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
     }
     note->Buffer.Reset();
 }
