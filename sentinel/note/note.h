@@ -17,14 +17,15 @@ class Note
         Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent);
         FileHeader Header;
         void Build(std::string_view preamble,int Truncation);
-        void Scan(bool saveToBuffer);
+        void Scan(bool saveToBuffer,bool scanLinks=true);
         friend class FileIndex;
         friend class CompilerObject;
+        bool PendingMetaDataChange = false;
     private:
         bool FailedToCompile = false;
         BufferObj Buffer;
         std::weak_ptr<Directory> Parent;
-        void CheckLinks();
+        bool SetLinkConnections();
         LinkSet Links;
         int BodyStartLine;
         void Delete();

@@ -14,6 +14,7 @@ class AliasEntry
         bool Remove(std::weak_ptr<Note> target);
         void Add(std::weak_ptr<Note> target);
         std::weak_ptr<Note> GetClosestLink(fs::path requestingFile);
+        bool Contains(std::weak_ptr<Note> target);
 
 };
 

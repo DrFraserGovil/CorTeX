@@ -55,16 +55,26 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
 
 }
 
+
 std::string Link::Render(std::string & requestingFile)
 {
-    auto target = Cortex.Index.GetLink(LinkText,requestingFile);
-    if (auto targetPtr = target.lock())
+    if (!Target.empty())
     {
-        auto path = targetPtr->Path.Compile;
-        auto relpath = fs::relative(path,requestingFile);
-        return "\\href{" + relpath.string() + "}{" + std::string(RenderText) + "}";
-        // return "\\hyperref[" + std::to_string(targetPtr->ID) + "]{" + std::string(RenderText) + "}";
+        return "\\href{" + Target + "}{" + std::string(RenderText) + "}";
     }
     LOG(WARN) << "Could not resolve link to alias '" << LinkText << "'";
     return "\\textcolor{red}{" + std::string(RenderText) + "}";
+}
+
+bool Link::SetTarget(std::weak_ptr<Note> target, std::string & requestingFile)
+{
+    auto oldTarget = Target;
+    Target = "";
+    if (auto targetPtr = target.lock())
+    {
+        auto path = targetPtr->Path.Compile;
+        auto relpath = fs::relative(path,fs::path(requestingFile).parent_path());
+        Target = relpath.string();
+    }
+    return oldTarget != Target;
 }

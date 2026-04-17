@@ -10,4 +10,5 @@ class FileHeader
         std::string Title;
         std::vector<std::string> Aliases;
         std::vector<std::string> Tags;
+        bool Initialised = false;
 };

@@ -1,6 +1,6 @@
 #include "aliases.h"
 #include "../constants.h"
-
+#include <algorithm>
 
 int path_distancer(fs::path a, fs::path b)
 {
@@ -26,6 +26,18 @@ int path_distancer(fs::path a, fs::path b)
 AliasEntry::AliasEntry(std::string key, std::weak_ptr<Note> target) : Key(key)
 {
     Targets.push_back(target);
+}
+
+bool AliasEntry::Contains(std::weak_ptr<Note> target)
+{
+    for (auto & existing : Targets)
+    {
+        if (existing.lock() == target.lock())
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool AliasEntry::Remove(std::weak_ptr<Note> target)
@@ -55,6 +67,12 @@ void AliasEntry::Add(std::weak_ptr<Note> target)
 
 std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
 {
+    if (Targets.size() == 1)
+    {
+        return Targets[0];
+    }
+
+    LOG(DEBUG) << "Multiple targets found for alias '" << Key << "': calculating closest link to " << requestingFile.string();
     std::weak_ptr<Note> closest;
     int closestDistance = std::numeric_limits<int>::max();
 
@@ -62,7 +80,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
     {
         if (auto targetPtr = target.lock()) //check weak_ptr still exists (deliberate '='!)
         {
-            int distance = path_distancer(requestingFile,targetPtr->Path.Source);
+            int distance = path_distancer(requestingFile,targetPtr->Path.Compile);
             if (distance != -1 && distance <= closestDistance)
             {
                 closestDistance = distance;
@@ -79,20 +97,57 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
 void AliasList::Sync(std::weak_ptr<Note> target)
 {
     LOG(DEBUG) << "Beginning sync for " << target.lock()->Path.Source.string();
-    Remove(target); //remove the old links for this note (if any)
-    LOG(DEBUG) << "Removal complete";
-    for (auto & alias: target.lock()->Header.Aliases)
+    
+    std::set<std::string> existingKeys;
+    for (auto &[key, entry] : Aliases)
     {
-        if (!Aliases.contains(alias))
+        if (entry.Contains(target))
         {
-            Aliases[alias] = AliasEntry(alias,target);
+            existingKeys.insert(key);
         }
-        else
+    }
+    std::set<std::string> newKeys(target.lock()->Header.Aliases.begin(),target.lock()->Header.Aliases.end());
+
+    std::set<std::string> keysNotInIndex;
+    std::set_difference(newKeys.begin(),newKeys.end(),existingKeys.begin(),existingKeys.end(),std::inserter(keysNotInIndex,keysNotInIndex.end()));
+
+    for (auto & alias: keysNotInIndex)
+    {
+        if (Aliases.contains(alias))
         {
             Aliases[alias].Add(target);
         }
+        else
+        {
+            Aliases[alias] = AliasEntry(alias,target);
+        }
     }
-    LOG(DEBUG) << "Sync complete";
+
+    std::set<std::string> deletedKeys;
+    std::set_difference(existingKeys.begin(),existingKeys.end(),newKeys.begin(),newKeys.end(),std::inserter(deletedKeys,deletedKeys.end()));
+    
+    for (auto & alias: deletedKeys)
+    {
+        LOG(DEBUG) << "Removing alias " << alias << " for " << target.lock()->Path.Source.string();
+        if (Aliases.contains(alias))
+        {
+            Aliases[alias].Remove(target);
+            if (Aliases[alias].Targets.size() == 0)
+            {
+                Aliases.erase(alias);
+            }
+        }
+    }
+    //     if (!Aliases.contains(alias))
+    //     {
+    //         Aliases[alias] = AliasEntry(alias,target);
+    //     }
+    //     else
+    //     {
+    //         Aliases[alias].Add(target);
+    //     }
+    // }
+    // LOG(DEBUG) << "Sync complete";
 }
 
 void AliasList::Remove(std::weak_ptr<Note> target)

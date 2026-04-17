@@ -25,6 +25,7 @@ bool fileChange()
             {
                 LOG(DEBUG) << "Dirty notification passed to index";
                 Cortex.Index.NotifyDirty(note.lock()->ID);
+                note.lock()->IsDirty = true;
             }
             else
             {

@@ -7,6 +7,7 @@ void FileIndex::Initialise()
     LOG(DEBUG) << "Index initialising";
     SequentialID = 0;
     RootDir = Directory::MakeFrom(Cortex.Values.SourceRoot);
+    UpdateLinkNetwork();
 }
 
 
@@ -99,7 +100,7 @@ bool FileIndex::IsDirty()
     return !DirtyFiles.empty();
 }
 
-std::weak_ptr<Note> FileIndex::GetLink(std::string_view & keyView, fs::path requestingFile)
+std::weak_ptr<Note> FileIndex::GetLink(std::string_view keyView, fs::path requestingFile)
 {
     const std::string key = (std::string)keyView;
     if (Aliases.Aliases.contains(key))
@@ -110,4 +111,50 @@ std::weak_ptr<Note> FileIndex::GetLink(std::string_view & keyView, fs::path requ
     {
         return std::weak_ptr<Note>{};
     }
+}
+
+
+void FileIndex::UpdateLinkNetwork(bool forceAll)
+{
+    //marks all files as dirty
+    if (forceAll)
+    {
+        LOG(DEBUG) << "Forcing full disk sweep and compile";
+        DirtyFiles.clear();
+        for (auto &[id,note]: Registry)
+        {
+            note->IsDirty = true;
+            DirtyFiles.push_back(id);
+        }
+    }
+
+
+
+    std::deque<int> newDirty;
+    for (auto &[id,note]: Registry)
+    {
+        if (note->IsDirty)
+        {
+            LOG(DEBUG) << note->Path.Source.string() << " is dirty, rescanning to update links";
+            note->Scan(true);
+        }
+        else
+        {
+            LOG(DEBUG) << note->Path.Source.string() << " is not dirty, checking for metadata changes that could affect links";
+        }
+        if (note->PendingMetaDataChange)
+        {
+            note->PendingMetaDataChange = false;
+            Aliases.Sync(note);
+        }
+        if (note->SetLinkConnections() || note->IsDirty)
+        {
+            newDirty.push_back(id);
+            if (!note->IsDirty)
+            {
+                note->Scan(true,false); //if the file isn't already dirty, we need to rescan to load it into memory -- but disable link parsing as we already know where they point
+            }
+        }
+    }
+    std::swap(DirtyFiles,newDirty);
 }

@@ -69,7 +69,8 @@ bool FileHeader::Parse(std::vector<std::string> & bucket)
         std::swap(newTags,Tags);
         dataChange  = true;
     }
-
+    dataChange |= Initialised; //if not initialised, then we don't care about changes - we're just populating for the first time 
+    Initialised = true;
     
     return dataChange;
 }

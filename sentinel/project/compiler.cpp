@@ -66,43 +66,44 @@ void CompilerObject::CheckResources(bool expectWrite)
 
 void CompilerObject::Run(bool forceAll)
 {
+    Cortex.Index.UpdateLinkNetwork(forceAll);
+
     if (Cortex.Settings.System.Pause) return;
-    auto preamble =MakePreamble();
+    
+    
+
+    auto preamble = MakePreamble();
 
     auto & Registry = Cortex.Index.Registry;
     auto & DirtyFiles = Cortex.Index.DirtyFiles;
 
-    if (forceAll)
+
+
+    //the link netwrok update marks all files as dirty if forceAll is true, so we don't need to do anything special here, just compile everything in the dirty list until its empty
+    while (DirtyFiles.size() > 0)
     {
-        for (auto & file : Registry)
+        int fileID = DirtyFiles[0];
+        if (Registry.contains(fileID))
         {
-            CompileFile(file.second,preamble);
+            CompileFile(Registry[fileID],preamble);
         }
-    }
-    else
-    {
-        while (DirtyFiles.size() > 0)
+        else
         {
-            int fileID = DirtyFiles[0];
-            if (Registry.contains(fileID))
-            {
-                CompileFile(Registry[fileID],preamble);
-            }
-            else
-            {
-                LOG(DEBUG) << JSL::Text::Colour(50,80,50) << "Ignoring " << DirtyFiles[0] << " due to file deletion";
-            }
-            DirtyFiles.pop_front();
+            LOG(DEBUG) << JSL::Text::Colour(50,80,50) << "Ignoring " << DirtyFiles[0] << " due to file deletion";
         }
+        DirtyFiles.pop_front();
     }
+    
 
 }
 
 void CompilerObject::CompileFile(std::shared_ptr<Note> note,std::string_view preamble)
 {
     int truncation = 0;
-    note->Scan(true);
-    Cortex.Index.Aliases.Sync(note);
+    if (note->Buffer.Body.size() == 0)
+    {
+        LOG(WARN) << note->Path.Source.string() << " reached compiler without being scanned";
+    }
     int fileSize = note->Buffer.Body.size();
     auto dirPath =  note->Parent.lock()->Path.Build.string();
     int errorLine = -1;

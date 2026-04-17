@@ -22,6 +22,7 @@ void WorkerObject::ProcessInput()
         {
             ProcessHead();
         }
+        LOG(DEBUG) << "Task queue empty, awaiting new tasks";
     }
 }
 
@@ -73,7 +74,6 @@ void WorkerObject::ProcessHead()
     }
 
 
-    LOG(DEBUG) << "Task " << (int)job.Type << " complete";
 
     //bit of manual hackery to get a reprompt
     if (!Cortex.Settings.System.Headless.Active && LocalJobs.size() == 0 && Active)

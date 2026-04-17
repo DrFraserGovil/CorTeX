@@ -51,8 +51,9 @@ bool isDelimiter(std::string_view line)
 }
 
 
-void Note::Scan(bool saveToBuffer)
+void Note::Scan(bool saveToBuffer,bool scanLinks)
 {
+    LOG(DEBUG) << "Scanning " << Path.Source.string();
     std::vector<std::vector<std::string>> fileChunks;
     std::vector<std::string> bucket;
     int i = 1;
@@ -74,7 +75,7 @@ void Note::Scan(bool saveToBuffer)
     fileChunks.push_back(bucket);
 
     //always assume firts block is title + link metadata
-    Header.Parse(fileChunks[0]);
+    PendingMetaDataChange = Header.Parse(fileChunks[0]);
     if (Header.Title.size() == 0)
     {
         Header.Title = Path.Source.stem().string();
@@ -91,14 +92,13 @@ void Note::Scan(bool saveToBuffer)
         std::swap(Buffer.Body,fileChunks[2]);
     }
 
+    
+    if (scanLinks)      Links.Parse(Buffer.Body);
     //don't care about preamble at this stage, just sweep the body for link indicators
-
-    Links.Parse(Buffer.Body);
     if (!saveToBuffer)
     {
         Buffer.Reset();
     }
-
 }
 
 void Note::Build(std::string_view preamble,int Truncation)
@@ -163,4 +163,17 @@ void Note::Delete()
     // tryDelete(SourcePath); // shouldn't risk deleting source code automatically!
     tryDelete(Path.Build);
     tryDelete(Path.Compile);
+}
+
+bool Note::SetLinkConnections()
+{
+    bool changed = false;
+    auto fileSource = Path.Compile.string();
+    for (auto & link : Links.Parsed)
+    {
+        auto target = Cortex.Index.GetLink(link.LinkText,Path.Compile);
+       
+        changed |= link.SetTarget(target,fileSource);
+    }
+    return changed;
 }
