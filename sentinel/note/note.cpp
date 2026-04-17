@@ -120,8 +120,7 @@ void Note::Build(std::string_view preamble,int Truncation)
     for (int i = 0; i < Buffer.Body.size()-Truncation; ++i)
     {
         std::string_view line = Buffer.Body[i];
-
-        if (i == Links.Lines[linkId])
+        if (linkId < Links.Lines.size() && Links.Lines[linkId] == i)
         {
             int pos = 0;
             while (Links.Parsed[linkId].Line == i)

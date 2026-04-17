@@ -28,7 +28,8 @@ void LinkSet::Parse(std::vector<std::string> & content)
 
         if (links.size() > 0)
         {
-            Lines.push_back(i);
+            std::vector<int> spoof(links.size(),i);
+            Lines.insert(Lines.end(),spoof.begin(),spoof.end());
             Parsed.insert(Parsed.end(),links.begin(),links.end());
         }
     }

@@ -4,6 +4,7 @@
 #include <map>
 #include "../note/note.h"
 #include "directory.h"
+#include "aliases.h"
 class FileIndex
 {
     public:
@@ -16,9 +17,10 @@ class FileIndex
 
         friend class CompilerObject;
         bool IsDirty();
+        std::weak_ptr<Note> GetLink(std::string & key, fs::path requestingFile);
     private:
         int SequentialID;
-
+        AliasList Aliases;
         std::map<int, std::shared_ptr<Note>> Registry;
         std::map<fs::path, int> PathRegistry;
         std::deque<int> DirtyFiles;

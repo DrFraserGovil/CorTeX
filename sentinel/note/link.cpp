@@ -44,6 +44,7 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
             {
                 int endIdx = j+2;
                 out.emplace_back(lineNo,beginIdx,endIdx,line);
+                insideLink = false;
             }
         }
 

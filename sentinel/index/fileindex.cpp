@@ -99,3 +99,15 @@ bool FileIndex::IsDirty()
 {
     return !DirtyFiles.empty();
 }
+
+std::weak_ptr<Note> FileIndex::GetLink(std::string & key, fs::path requestingFile)
+{
+    if (Aliases.Aliases.contains(key))
+    {
+        return Aliases.Aliases[key].GetClosestLink(requestingFile);
+    }
+    else
+    {
+        return std::weak_ptr<Note>{};
+    }
+}
