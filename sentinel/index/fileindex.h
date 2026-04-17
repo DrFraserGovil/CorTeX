@@ -17,7 +17,7 @@ class FileIndex
 
         friend class CompilerObject;
         bool IsDirty();
-        std::weak_ptr<Note> GetLink(std::string & key, fs::path requestingFile);
+        std::weak_ptr<Note> GetLink(std::string_view & key, fs::path requestingFile);
     private:
         int SequentialID;
         AliasList Aliases;

@@ -10,13 +10,22 @@ class WorkerObject;
 class WatcherObject;
 
 
+enum Mode
+{
+    Interactive,
+    SingleCommand,
+};
 class Project
 {
     public:
         Project(){};
 
         FileIndex Index;
-        void Initialise(int argc,char**argv);
+        Mode Initialise(int argc,char**argv);
+
+        void BeginInterface();
+        void SingleCommand();
+
         void Connect(WorkerObject * worker, WatcherObject * watcher);
         WorkerObject * Worker = nullptr;
         WatcherObject * Watcher = nullptr;
@@ -34,6 +43,7 @@ class Project
     private:
         SettingsObject CachedSettings;
         void SetMetadata();
-
+        std::string CachedCommand;
+    
 };
 

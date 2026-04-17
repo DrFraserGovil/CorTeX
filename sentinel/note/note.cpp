@@ -117,6 +117,7 @@ void Note::Build(std::string_view preamble,int Truncation)
     output << "\\begin{document}\n";
     int linkId = 0;
     output << "\\title{" << Header.Title << "}\n";
+    std::string fileSource = Path.Source.string();
     for (int i = 0; i < Buffer.Body.size()-Truncation; ++i)
     {
         std::string_view line = Buffer.Body[i];
@@ -127,7 +128,8 @@ void Note::Build(std::string_view preamble,int Truncation)
             {
                 auto & link = Links.Parsed[linkId];
                 output << line.substr(pos,link.Start-pos);
-                output << "\\textcolor{red}{" << link.RenderText <<"}";
+                output << link.Render(fileSource);
+                // output << "\\textcolor{red}{" << link.RenderText <<"}";
                 pos = link.End;
                 ++linkId;
             }

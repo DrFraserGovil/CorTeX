@@ -36,7 +36,7 @@ bool FileHeader::Parse(std::vector<std::string> & bucket)
                 auto vals = JSL::split(value,",");
                 for (auto val : vals)
                 {
-                    newAlias.push_back((std::string)val);
+                    newAlias.push_back((std::string)JSL::trim(val));
                 }
             }
             if (equals(cmd,"tags") | equals(cmd,"tag"))
@@ -44,7 +44,7 @@ bool FileHeader::Parse(std::vector<std::string> & bucket)
                 auto vals = JSL::split(value,",");
                 for (auto val : vals)
                 {
-                    newTags.push_back((std::string)val);
+                    newTags.push_back((std::string)JSL::trim(val));
                 }
             }
         }

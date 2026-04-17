@@ -3,8 +3,37 @@
 #include "../global.h"
 #include "../async/worker.h"
 #include "../async/watcher.h"
+#include "../async/parser.h"
 namespace log = JSL::Log;
 
+
+void Project::BeginInterface()
+{
+    WatcherObject watcher;
+    WorkerObject worker;
+
+    Connect(&worker,&watcher);
+    
+    worker.ProcessInput(); //main loop which waits for an exit signal
+
+    watcher.Exit();
+}
+
+void Project::SingleCommand()
+{
+    Antenna.Status = HeadlessInterface::Mode::Recieve; //force the antenna into recieve mode, as we only want to process one command and then exit, so we don't need to worry about sending signals to other sessions
+    WorkerObject worker;
+    auto task = ParseCommand(JSL::trim(CachedCommand));
+    LOG(DEBUG) << "Parsed " << CachedCommand;
+    
+    if (task.Type != Instruction::None)
+    {
+        worker.InstantTask(task);
+    }
+    auto exit = Task(Instruction::Shutdown);
+    worker.InstantTask(exit); //ensure a shutdown after the command is processed
+    
+}
 
 void WelcomeMessage()
 {
@@ -85,31 +114,47 @@ void Project::SetMetadata()
 
 ////////////////// Linkage function
 
-void Project::Initialise(int argc, char ** argv)
+Mode Project::Initialise(int argc, char ** argv)
 {
+    Mode out = Interactive;
     Settings.Parse(argc,argv);    
     Synchronise(false);
     CheckHeadless();
     Antenna.DetectStatus(argc,argv);
 
-    if (Antenna.Status == HeadlessInterface::Mode::Recieve)
+    if (!(Antenna.Status == HeadlessInterface::Mode::Recieve))
     {
-        WelcomeMessage();
-        Antenna.CreateSession();
-        Info.Initialise();
-        LoadSettings();
-    
-        if (!Info.ExistsOnDisk)    SetMetadata();
-    
-        Index.Initialise();
-        CachedSettings = Settings;
+        bool exitSignal = ((std::string)argv[1] == "shutdown") || ((std::string)argv[1] == "quit");
+        bool found = Antenna.FindSession(exitSignal);
+        LOG(DEBUG) << found;
+        if (found)
+        {
+            LOG(INFO) << "Parent process detected: sending signal";
+            Antenna.Broadcast(argc,argv);
+            exit(0);
+        }
+        out = Mode::SingleCommand;
+        CachedCommand = argv[1];
+        for (int i = 2; i < argc; ++i)
+        {
+            if (argv[i][0] == '-') break;
+            CachedCommand += " " + std::string(argv[i]);
+        }
     }
     else
     {
-        LOG(DEBUG) << "Entering broadcast mode";
-        Antenna.Broadcast(argc,argv);
-        exit(0);
+        WelcomeMessage();
     }
+    
+    Antenna.CreateSession();
+    Info.Initialise();
+    LoadSettings();
+
+    if (!Info.ExistsOnDisk)    SetMetadata();
+
+    Index.Initialise();
+    CachedSettings = Settings;
+    return out;
 }
 
 void Project::Connect(WorkerObject * worker, WatcherObject * watcher) 

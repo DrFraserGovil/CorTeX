@@ -1,6 +1,6 @@
 #include "link.h"
 #include "JSL/modules/Strings/trim.h"
-#include "../constants.h"
+#include "../global.h"
 Link::Link(int lineNo, int startPos, int endPos, std::string_view line) : Line(lineNo), Start(startPos), End(endPos)
 {
     auto capture = line.substr(startPos+2,endPos-startPos-4);
@@ -53,4 +53,19 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
     }
     return out;
 
+}
+
+std::string Link::Render(std::string & requestingFile)
+{
+    LOG(DEBUG) << "Rendering link with text '" << LinkText;
+    auto target = Cortex.Index.GetLink(LinkText,requestingFile);
+    if (auto targetPtr = target.lock())
+    {
+        auto path = targetPtr->Path.Compile;
+        auto relpath = fs::relative(path,requestingFile);
+        return "\\href{" + relpath.string() + "}{" + std::string(RenderText) + "}";
+        // return "\\hyperref[" + std::to_string(targetPtr->ID) + "]{" + std::string(RenderText) + "}";
+    }
+    LOG(WARN) << "Could not resolve link to alias '" << LinkText << "'";
+    return "\\textcolor{red}{" + std::string(RenderText) + "}";
 }

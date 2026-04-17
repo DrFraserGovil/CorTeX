@@ -15,4 +15,5 @@ class Link
     Link(){};
     Link(int lineNo, int startPos, int endPos, std::string_view line);
     static std::vector<Link> GetLinks(std::string_view line,int lineNo);
+    std::string Render(std::string & requestingFile);
 };

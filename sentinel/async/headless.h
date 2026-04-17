@@ -25,8 +25,8 @@ class HeadlessInterface
         void Broadcast(int argc, char**argv);
         Task Ping();
         int ID;
+        bool FindSession(bool allowFailure=false);
     private:
-        void FindSession(bool allowFailure=false);
 
         std::filesystem::path LockFile;
         std::filesystem::path MessageFile;

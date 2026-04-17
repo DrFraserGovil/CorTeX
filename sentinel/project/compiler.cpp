@@ -8,14 +8,27 @@ std::string CompilerObject::MakePreamble()
     std::ostringstream preamble;
     preamble << "\\documentclass[width =" << Cortex.Settings.Document.Width << "cm, " <<  Cortex.Settings.Document.FontSize << "pt]{cortex}\n";
 
+    bool includeHyperref = false;
     for (auto & package: Cortex.Settings.Document.Packages)
     {
-        preamble << "\\usepackage{" << package << "}\n";
+        if (package == "hyperref")
+        {
+            includeHyperref = true;
+        }
+        else
+        {
+            preamble << "\\usepackage{" << package << "}\n";
+        }
     }
 
     //compile the global settings
     preamble << "\\def\\titleFontSize{" << Cortex.Settings.Document.TitleSize << "}\n";
     preamble << "\\def\\titleCentered{" << (int)Cortex.Settings.Document.TitleCentered << "}\n";
+
+    if (includeHyperref)
+    {
+        preamble << "\\usepackage{hyperref}\\hypersetup{colorlinks=true,linkcolor=blue,filecolor=blue,urlcolor=cyan}\n";
+    }
 
     //now insert the macros file
     JSL::forLineIn(Cortex.Values.MacroFile,[&](std::string_view line)
@@ -89,6 +102,7 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note,std::string_view pre
 {
     int truncation = 0;
     note->Scan(true);
+    Cortex.Index.Aliases.Sync(note);
     int fileSize = note->Buffer.Body.size();
     auto dirPath =  note->Parent.lock()->Path.Build.string();
     int errorLine = -1;

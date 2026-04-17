@@ -82,6 +82,17 @@ void WorkerObject::ProcessHead()
     }
 }
 
+
+void WorkerObject::InstantTask(Task & job)
+{
+    LocalJobs.push(job);
+    while (LocalJobs.size() > 0)
+    {
+        ProcessHead();
+    }
+}
+
+
 void WorkerObject::SetHandlers()
 {
     Handlers[Instruction::Shutdown] = [&](auto & data){

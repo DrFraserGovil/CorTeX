@@ -15,6 +15,7 @@ class WorkerObject
 
         void AddTask(Task & newjob);
         void AddTask(Instruction cmd);
+        void InstantTask(Task & job);
         void Prod();
         std::condition_variable Notify;
     private:

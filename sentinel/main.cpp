@@ -9,17 +9,6 @@ Initialise_JSL_Log()
 #include "async/worker.h"
 
 
-void InterfaceMain()
-{
-    WatcherObject watcher;
-    WorkerObject worker;
-
-    Cortex.Connect(&worker,&watcher);
-    
-    worker.ProcessInput(); //main loop which waits for an exit signal
-
-    watcher.Exit();
-};
 
 
 void InterruptShutdown(int signal)
@@ -37,12 +26,24 @@ Project Cortex;
 
 int main(int argc, char**argv)
 {
-    setvbuf(stdout, NULL, _IONBF, 0);
-    Cortex.Initialise(argc,argv);
- 
-    std::signal(SIGINT, InterruptShutdown);
+    // setvbuf(stdout, NULL, _IONBF, 0); //uncomment this line to disable output buffering, which can cause logs to not appear until the program has finished (e.g. after a crash)
 
-    InterfaceMain();
+    std::signal(SIGINT, InterruptShutdown);
+    auto type = Cortex.Initialise(argc,argv);
+ 
+    if (type == Mode::Interactive)
+    {
+        Cortex.BeginInterface();
+    }
+    else if (type == Mode::SingleCommand)
+    {
+        Cortex.SingleCommand();
+    }
+    else
+    {
+        LOG(ERROR) << "Invalid mode detected, shutting down";
+    }
+
 
     Cortex.Shutdown();
 }

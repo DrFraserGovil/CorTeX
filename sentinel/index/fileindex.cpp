@@ -51,10 +51,9 @@ std::weak_ptr<Note> FileIndex::Register(std::shared_ptr<Note> note)
 
     auto relpath = fs::relative(note->Path.Source,Cortex.Values.SourceRoot);
     PathRegistry[relpath] = id;
-    // for (auto & alias: Registry[id]->Header.Aliases)
-    // {
-    //     Aliases[alias].Add(newNote);
-    // }
+    
+    Aliases.Sync(note);
+    
 
     if (note->IsDirty)
     {
@@ -100,8 +99,9 @@ bool FileIndex::IsDirty()
     return !DirtyFiles.empty();
 }
 
-std::weak_ptr<Note> FileIndex::GetLink(std::string & key, fs::path requestingFile)
+std::weak_ptr<Note> FileIndex::GetLink(std::string_view & keyView, fs::path requestingFile)
 {
+    const std::string key = (std::string)keyView;
     if (Aliases.Aliases.contains(key))
     {
         return Aliases.Aliases[key].GetClosestLink(requestingFile);
