@@ -123,6 +123,17 @@ export class ViewerTab extends Disposable
         {
             this.activeFile.addAnnotation(msg.annotations);
         }
+
+		if (msg.type === 'fetch-link-destination')
+		{
+			const file = "Title metadata for " + this.activeFile.getLink(msg.annotationId);
+			console.log("Sending back",file)
+			this.panel.webview.postMessage({
+					type: 'annotation-data',
+					annotations: file,
+					annotationId: msg.annotationId
+			});
+		}
     }
 
     public override dispose() 

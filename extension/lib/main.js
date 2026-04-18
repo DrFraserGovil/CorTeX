@@ -26,6 +26,7 @@
     }
 
     // --- Lifecycle and Initialization ---
+   
 
     window.addEventListener('load', async function () {
         const config = loadConfig();
@@ -93,7 +94,6 @@
 
     // --- Interceptor ---
 
-
     
     document.addEventListener('mousedown', (event) => {
         const section = event.target.closest('.linkAnnotation');
@@ -115,40 +115,87 @@
         }
     },true);
 
-
-    //     // Only intercept Left Click
-    //     // const normalClick = (event.button==0) && !(event.metaKey || event.ctrlKey) 
-    //     // console.log(event.button,event.metaKey,normalClick)
-    //     // if (!section) return;
-
-    //     // const annotationId = section.getAttribute('data-annotation-id');
-    //     // const pageNumber = PDFViewerApplication.page;
-    //     // const annotations = annotationCache.get(pageNumber);
-
-    //     // if (!annotations) return;
-
-    //     // const data = annotations.find(a => a.id === annotationId);
-    //     // if (!data) return;
-
-    //     // // Extract URI
-    //     // const rawUri = data.url || data.unsafeUrl || data.file;
-    //     // if (rawUri) {
-    //     //     event.preventDefault();
-    //     //     event.stopPropagation();
-
-    //     //     vscode.postMessage({
-    //     //         type: 'did-click-link',
-    //     //         uri: rawUri.split('#')[0],
-    //     //           leftClick: normalClick 
-    //     //     });
-    //     // }
-    // }, true);
-
-
     // main.js
+
+function setupTooltip() {
+    console.log("Setting up tooltip");
+    const tooltip = document.createElement('div');
+    tooltip.id = 'cortex-link-tooltip';
+    document.body.appendChild(tooltip);
+
+    const QueriedMetadata = new Map();
+
+    async function fetchLinkDestination(annotationId)
+    {
+        if (QueriedMetadata.has(annotationId))
+        {
+            return QueriedMetadata.get(annotationId);
+        }
+        //else
+        return new Promise((resolve) => 
+        {
+            const handler = (event) =>
+            {
+                const message = event.data;
+                // Ensure this message is the response to our specific ID
+                if (message.type === 'annotation-data' && message.annotationId === annotationId)
+                {
+                    window.removeEventListener('message', handler); // Clean up
+                    QueriedMetadata.set(annotationId, message.annotations); // Cache it
+                    console.log("Received metadata for annotation", annotationId, message.annotations);
+                    resolve(message.annotations);
+                }
+            };
+
+            window.addEventListener('message', handler);
+
+            vscode.postMessage({
+                type: 'fetch-link-destination',
+                annotationId: annotationId
+            });
+
+            setTimeout(() => {
+                window.removeEventListener('message', handler);
+                resolve(null);
+            }, 250); 
+        });
+    }
+
+    document.addEventListener('mouseover', async (e) =>
+    {
+        const section = event.target.closest('.linkAnnotation');
+        const link =  section?.getAttribute('data-annotation-id');
+        console.log("Hovering over link:", link);
+        if (link)
+        {
+            const dest = await fetchLinkDestination(link);
+            tooltip.textContent = `${dest}`;
+            tooltip.style.display = 'block';
+        }
+    });
+
+    document.addEventListener('mousemove', (e) =>
+    {
+        if (tooltip.style.display === 'block')
+        {
+            tooltip.style.left = `${e.clientX + 10}px`;
+            tooltip.style.top = `${e.clientY + 25}px`;
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        if (e.target.closest('.linkAnnotation')) {
+            tooltip.style.display = 'none';
+        }
+    });
+}
+
+
 
 async function initializeAnnotationListener() {
     // 1. Wait for the application to be ready
+    
+
     if (!window.PDFViewerApplication || !window.PDFViewerApplication.initializedPromise) {
         console.warn("Cortex: Viewer not ready yet, retrying...");
         setTimeout(initializeAnnotationListener, 50);
@@ -186,13 +233,16 @@ async function initializeAnnotationListener() {
 }
 
 // Kick off the initialization
-if (document.readyState === 'loading') {
+if (document.readyState === 'loading')
+{
     document.addEventListener('DOMContentLoaded', initializeAnnotationListener);
+    document.addEventListener('DOMContentLoaded', setupTooltip);
 } else {
     initializeAnnotationListener();
-}
-    
-    window.onerror = function () {
+    setupTooltip();
+}   
+    window.onerror = function ()
+    {
         const msg = document.createElement('body');
         msg.innerText = 'An error occurred while loading the file.';
         document.body = msg;

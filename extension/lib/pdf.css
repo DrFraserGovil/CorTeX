@@ -109,3 +109,18 @@ html, body {
         font-size: 12px;
         font-family: sans-serif;
     }
+
+#cortex-link-tooltip {
+    position: fixed;
+    z-index: 1000;
+    padding: 4px 8px;
+    background: var(--vscode-editorHoverWidget-background);
+    color: var(--vscode-editorHoverWidget-foreground);
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    border-radius: 3px;
+    font-size: 11px;
+    pointer-events: none; /* Don't interfere with clicks */
+    display: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
