@@ -50,13 +50,10 @@ export class ViewManager extends Disposable
 	 */
 	public async open(uri: vscode.Uri, panel: vscode.WebviewPanel)
 	{
-		// console.log("New open called",this._tabs.size);
 		const activeTab = this.getActiveTab();
 		const file = this.getPreview(uri);
 		const name= uri.toString();
 	
-		
-		console.log("Creating a new tab with id", this.sequentialID);
 		const tab = new ViewerTab(this.extensionUri, file, panel,this,this.sequentialID);
 		this._tabs.set(this.sequentialID,tab);
 		this._tabRegistry.set(name,this.sequentialID);
@@ -85,7 +82,7 @@ export class ViewManager extends Disposable
 		const activeTab = this.getActiveTab();
 		if (!activeTab)
 		{
-			await vscode.commands.executeCommand('vscode.open', uri, {
+			await vscode.commands.executeCommand('vscode.openWith', uri,'cortex.preview', {
        			viewColumn: vscode.ViewColumn.Active,
         		preserveFocus: false,
     		});

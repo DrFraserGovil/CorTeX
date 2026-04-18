@@ -56,7 +56,8 @@
 					{
 						"filenamePattern": "*.pdf"
 					}
-				]
+				],
+				"priority": "default"
 			}
 		],
 	 	"configuration":
