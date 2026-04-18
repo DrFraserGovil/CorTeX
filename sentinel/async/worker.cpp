@@ -105,7 +105,8 @@ void WorkerObject::SetHandlers()
     };
 
     Handlers[Instruction::SettingChange] = [&](auto & data){
-        Cascade = ChangeSetting(data);
+        TotalCascade = ChangeSetting(data);
+        Cascade |= TotalCascade;
     };
     Handlers[Instruction::SettingVectorAdd] = [&](auto & data){
         Cascade = ProcessVector<TryPush>(data);

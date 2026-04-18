@@ -2,14 +2,16 @@
 #include <sstream>
 #include "../global.h"
 #include "../resources/resources.h"
-std::string CompilerObject::MakePreamble()
+void CompilerObject::MakePreamble()
 {
     CheckResources();
-    std::ostringstream preamble;
-    preamble << "\\documentclass[width =" << Cortex.Settings.Document.Width << "cm, " <<  Cortex.Settings.Document.FontSize << "pt]{cortex}\n";
+    std::ostringstream preamble_head;
+    std::ostringstream preamble_tail;
+    preamble_head << "\\documentclass[width =" << Cortex.Settings.Document.Width << "cm, " <<  Cortex.Settings.Document.FontSize << "pt]{";
+    preamble_tail << "}\n";
 
     bool includeHyperref = false;
-    for (auto & package: Cortex.Settings.Document.Packages)
+    for (auto & package: Cortex.Settings.Compiler.Packages)
     {
         if (package == "hyperref")
         {
@@ -17,17 +19,17 @@ std::string CompilerObject::MakePreamble()
         }
         else
         {
-            preamble << "\\usepackage{" << package << "}\n";
+            preamble_tail << "\\usepackage{" << package << "}\n";
         }
     }
 
     //compile the global settings
-    preamble << "\\def\\titleFontSize{" << Cortex.Settings.Document.TitleSize << "}\n";
-    preamble << "\\def\\titleCentered{" << (int)Cortex.Settings.Document.TitleCentered << "}\n";
+    preamble_tail << "\\def\\titleFontSize{" << Cortex.Settings.Document.TitleSize << "}\n";
+    preamble_tail << "\\def\\titleCentered{" << (int)Cortex.Settings.Document.TitleCentered << "}\n";
 
     if (includeHyperref)
     {
-        preamble << "\\usepackage{hyperref}\\hypersetup{colorlinks=true,linkcolor=blue,filecolor=blue,urlcolor=cyan}\n";
+        preamble_tail << "\\usepackage{hyperref}\\hypersetup{colorlinks=true,linkcolor=blue,filecolor=blue,urlcolor=cyan}\n";
     }
 
     //now insert the macros file
@@ -35,11 +37,11 @@ std::string CompilerObject::MakePreamble()
     {
         if (line[0] != '%') // omit comment lines
         {
-            preamble << line << "\n";
+            preamble_tail << line << "\n";
         }
     });
-
-    return preamble.str();
+    PreambleHead = preamble_head.str();
+    PreambleTail = preamble_tail.str();
 }
 
 
@@ -72,7 +74,7 @@ void CompilerObject::Run(bool forceAll)
     
     
 
-    auto preamble = MakePreamble();
+    MakePreamble();
 
     auto & Registry = Cortex.Index.Registry;
     auto & DirtyFiles = Cortex.Index.DirtyFiles;
@@ -85,7 +87,7 @@ void CompilerObject::Run(bool forceAll)
         int fileID = DirtyFiles[0];
         if (Registry.contains(fileID))
         {
-            CompileFile(Registry[fileID],preamble);
+            CompileFile(Registry[fileID]);
         }
         else
         {
@@ -97,7 +99,7 @@ void CompilerObject::Run(bool forceAll)
 
 }
 
-void CompilerObject::CompileFile(std::shared_ptr<Note> note,std::string_view preamble)
+void CompilerObject::CompileFile(std::shared_ptr<Note> note)
 {
     int truncation = 0;
     if (note->Buffer.Body.size() == 0)
@@ -106,14 +108,19 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note,std::string_view pre
     }
     int fileSize = note->Buffer.Body.size();
     auto dirPath =  note->Parent.lock()->Path.Build.string();
+
+    auto rel = fs::relative(Cortex.Values.ClassFile_Compiler,dirPath);    
+    rel.replace_extension("");
+    std::string preamble = PreambleHead + rel.string() + PreambleTail;
+
     int errorLine = -1;
     auto buildpdf = note->Path.Build;
     buildpdf.replace_extension(".pdf");
-    while (truncation < fileSize)
+    while (truncation == 0)
     {
         note->Build(preamble,truncation);
 
-        std::string cmd = "pdflatex -interaction=nonstopmode -halt-on-error -output-directory=" +dirPath;
+        std::string cmd = Cortex.Settings.Compiler.CompilerCommand + " -interaction=nonstopmode -halt-on-error -output-directory=" +dirPath;
         cmd += " " + note->Path.Build.string() + "> /dev/null 2>&1";
         int status = std::system(cmd.c_str());
         int exitCode = WEXITSTATUS(status);

@@ -42,9 +42,33 @@ void ConfigureLogging(SettingsObject & Settings)
         log.SetLevel(DEBUG);
     }
     log.DebugColour= JSL::Text::Colour(80,80,60);
-    log.ForceClear = true;
-    
+    log.ForceClear = true;    
 }
+
+
+inline bool equal(std::string_view a, std::vector<std::string_view> b)
+{
+    for (auto & elem : b)
+    {
+        bool test = JSL::insensitiveEquals(a,elem);
+        if (test) return true;
+    }
+    return false;
+}
+
+using vsv = std::vector<std::string_view>;
+#define MATCH(cmd,arg...) if(equal(compilerSettings.CompilerCommand,(vsv){arg})){compilerSettings.CompilerCommand = cmd; return;}
+
+void SetCompiler(SettingsObject_Compiler & compilerSettings)
+{
+    MATCH("pdflatex","pdflatex","pdf");
+    MATCH("xelatex","xelatex","xe","x");
+    MATCH("lualatex","lualatex","lua","l");
+
+    LOG(WARN) << "Unrecognised compiler command '" << compilerSettings.CompilerCommand << "'.\nDefaulting to pdflatex";
+    compilerSettings.CompilerCommand = "pdflatex";
+}
+
 
 bool firstLoop = true;
 bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
@@ -62,11 +86,12 @@ bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
         tmp.push_back(ignore);
     }
 
-     FixFontSize("body text",Settings.Document.FontSize);
-   
+    FixFontSize("body text",Settings.Document.FontSize);
+    SetCompiler(Settings.Compiler);
     if (!firstLoop)
+    
     {
-        if (CachedSettings.Document != Settings.Document)
+        if (CachedSettings.Document != Settings.Document || CachedSettings.Compiler != Settings.Compiler)
         {   
             LOG(DEBUG) << "Detected a change in compiler settings\nTriggering recompile";
             return true;

@@ -219,6 +219,48 @@ class SettingsObject_Files
 			JSL::ParameterDescription("StructureDelimiterRepeatCount","size_t","delimiter-repeat",StructureDelimiterRepeatCount,(size_t)3,"The number of sequential, identical characters required to indicate that a line is a structural delimiter for note metadat").Query(parameter,found);
 		}
 };
+class SettingsObject_Compiler
+{
+	public:
+		SettingsObject_Compiler(){}
+		SettingsObject_Compiler(int argc,char** argv){Parse(argc,argv);}
+
+		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath","lmodern","hyperref"};
+		std::string CompilerCommand = "pdflatex";
+		void Parse(int argc, char** argv)
+		{
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",argc,argv).Value();
+			CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",argc,argv).Value();
+		}
+		void Configure(const std::string & configFile, std::string configDelimiter)
+		{
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",configFile,configDelimiter).Value();
+			CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",configFile,configDelimiter).Value();
+		}
+		void ParseLine(const std::vector<std::string> & linevec)
+		{
+			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",linevec).Value();
+			CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",linevec).Value();
+		}
+		auto operator<=>(const SettingsObject_Compiler&) const = default;
+		std::string ToText()
+		{
+			std::ostringstream s;
+			s << "package " << JSL::MakeString(Packages) << "\n";
+			s << "compiler " << JSL::MakeString(CompilerCommand) << "\n";
+			return s.str();
+		}
+		void Help(JSL::HelpMessages & help)
+		{
+			help.AddMessage("SettingsObject_Compiler","package",(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern","hyperref"},"Packages","Latex packages which are included in the global shared preamble");
+			help.AddMessage("SettingsObject_Compiler","compiler","pdflatex","CompilerCommand","The latex compiler used to generate files. Valid choices are 'pdflatex', 'xelatex', and 'lualatex'");
+		}
+		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
+		{
+			JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern","hyperref"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
+			JSL::ParameterDescription("CompilerCommand","std::string","compiler",CompilerCommand,(std::string)"pdflatex","The latex compiler used to generate files. Valid choices are 'pdflatex', 'xelatex', and 'lualatex'").Query(parameter,found);
+		}
+};
 class SettingsObject_Document
 {
 	public:
@@ -229,14 +271,12 @@ class SettingsObject_Document
 		size_t TitleSize = 18;
 		bool TitleCentered = false;
 		size_t FontSize = 10;
-		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath","lmodern"};
 		void Parse(int argc, char** argv)
 		{
 			Width = JSL::Parameter<size_t>(Width,"width",argc,argv).Value();
 			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",argc,argv).Value();
 			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",argc,argv).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",argc,argv).Value();
-			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",argc,argv).Value();
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
@@ -244,7 +284,6 @@ class SettingsObject_Document
 			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",configFile,configDelimiter).Value();
 			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",configFile,configDelimiter).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",configFile,configDelimiter).Value();
-			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",configFile,configDelimiter).Value();
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
@@ -252,7 +291,6 @@ class SettingsObject_Document
 			TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",linevec).Value();
 			TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",linevec).Value();
 			FontSize = JSL::Parameter<size_t>(FontSize,"text-size",linevec).Value();
-			Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",linevec).Value();
 		}
 		auto operator<=>(const SettingsObject_Document&) const = default;
 		std::string ToText()
@@ -262,7 +300,6 @@ class SettingsObject_Document
 			s << "title-size " << JSL::MakeString(TitleSize) << "\n";
 			s << "title-center " << JSL::MakeString(TitleCentered) << "\n";
 			s << "text-size " << JSL::MakeString(FontSize) << "\n";
-			s << "package " << JSL::MakeString(Packages) << "\n";
 			return s.str();
 		}
 		void Help(JSL::HelpMessages & help)
@@ -271,7 +308,6 @@ class SettingsObject_Document
 			help.AddMessage("SettingsObject_Document","title-size",18,"TitleSize","The font size (in pt) of the title text of the documents");
 			help.AddMessage("SettingsObject_Document","title-center",false,"TitleCentered","If true, the title of all notes are centered on the page");
 			help.AddMessage("SettingsObject_Document","text-size",10,"FontSize","The font size (in pt) of the body text of the documents");
-			help.AddMessage("SettingsObject_Document","package",(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern"},"Packages","Latex packages which are included in the global shared preamble");
 		}
 		void GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 		{
@@ -279,7 +315,6 @@ class SettingsObject_Document
 			JSL::ParameterDescription("TitleSize","size_t","title-size",TitleSize,(size_t)18,"The font size (in pt) of the title text of the documents").Query(parameter,found);
 			JSL::ParameterDescription("TitleCentered","bool","title-center",TitleCentered,(bool)false,"If true, the title of all notes are centered on the page").Query(parameter,found);
 			JSL::ParameterDescription("FontSize","size_t","text-size",FontSize,(size_t)10,"The font size (in pt) of the body text of the documents").Query(parameter,found);
-			JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
 		}
 };
 class SettingsObject
@@ -290,6 +325,7 @@ class SettingsObject
 
 		SettingsObject_System System;
 		SettingsObject_Files Files;
+		SettingsObject_Compiler Compiler;
 		SettingsObject_Document Document;
 		void Parse(int argc, char** argv)
 		{
@@ -308,18 +344,21 @@ class SettingsObject
 			}
 			System.Parse(argc,argv);
 			Files.Parse(argc,argv);
+			Compiler.Parse(argc,argv);
 			Document.Parse(argc,argv);
 		}
 		void Configure(const std::string & configFile, std::string configDelimiter)
 		{
 			System.Configure(configFile,configDelimiter);
 			Files.Configure(configFile,configDelimiter);
+			Compiler.Configure(configFile,configDelimiter);
 			Document.Configure(configFile,configDelimiter);
 		}
 		void ParseLine(const std::vector<std::string> & linevec)
 		{
 			System.ParseLine(linevec);
 			Files.ParseLine(linevec);
+			Compiler.ParseLine(linevec);
 			Document.ParseLine(linevec);
 		}
 		auto operator<=>(const SettingsObject&) const = default;
@@ -328,6 +367,7 @@ class SettingsObject
 			std::ostringstream s;
 			s << System.ToText();
 			s << Files.ToText();
+			s << Compiler.ToText();
 			s << Document.ToText();
 			return s.str();
 		}
@@ -335,6 +375,7 @@ class SettingsObject
 		{
 			System.Help(help);
 			Files.Help(help);
+			Compiler.Help(help);
 			Document.Help(help);
 		}
 		std::vector<JSL::ParameterDescription>  GetDescription(std::string parameter)
@@ -351,6 +392,7 @@ class SettingsObject
 			
 			System.GetDescription(parameter,found);
 			Files.GetDescription(parameter,found);
+			Compiler.GetDescription(parameter,found);
 			Document.GetDescription(parameter,found);
 			return found;
 		}

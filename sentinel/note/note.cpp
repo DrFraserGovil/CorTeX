@@ -53,7 +53,6 @@ bool isDelimiter(std::string_view line)
 
 void Note::Scan(bool saveToBuffer,bool scanLinks)
 {
-    LOG(DEBUG) << "Scanning " << Path.Source.string();
     std::vector<std::vector<std::string>> fileChunks;
     std::vector<std::string> bucket;
     int i = 1;

@@ -96,8 +96,6 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
 
 void AliasList::Sync(std::weak_ptr<Note> target)
 {
-    LOG(DEBUG) << "Beginning sync for " << target.lock()->Path.Source.string();
-    
     std::set<std::string> existingKeys;
     for (auto &[key, entry] : Aliases)
     {
