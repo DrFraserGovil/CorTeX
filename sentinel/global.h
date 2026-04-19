@@ -8,6 +8,6 @@ namespace fs = std::filesystem;
 namespace txt = JSL::Text;
 extern Project Cortex;
 
-using colour = JSL::detail::ColourConstructor;
+using colour = JSL::TerminalFormat;
 extern colour DebugTitleColour;
 extern colour DebugBlue;

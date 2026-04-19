@@ -117,7 +117,7 @@ std::weak_ptr<Note> FileIndex::GetLink(std::string_view keyView, fs::path reques
 void FileIndex::UpdateLinkNetwork(bool forceAll)
 {
     //marks all files as dirty
-    LOG(DEBUG) << DebugTitleColour << "Updating link network";
+    LOG(DEBUG) << DebugTitleColour << txt::Bold << "Updating link network";
     if (forceAll)
     {
         LOG(DEBUG) << "\tForcing full disk sweep and compile";

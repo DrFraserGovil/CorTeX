@@ -24,6 +24,12 @@ SettingsObject
 					default=false
 					note="Adds additional context to debugging error messages."
 				}
+				size_t VeryVerboseWidth
+				{
+					trigger="v-width"
+					default= 40
+					note = "The width (in characters) of the debugging visualisation window"
+				}
 				bool Quiet
 				{
 					trigger="q"

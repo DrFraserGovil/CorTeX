@@ -5,7 +5,7 @@
 #include "../global.h"
 #include "../index/directory.h"
 
-std::vector<JSL::detail::ColourConstructor> colorArray = {
+std::vector<JSL::TerminalFormat> colorArray = {
     txt::Colour(255, 99, 132),   // red
     txt::Colour(54, 162, 235),   // blue
     txt::Colour(255, 205, 86),   // yellow

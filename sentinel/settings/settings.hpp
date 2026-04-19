@@ -81,6 +81,7 @@ class SettingsObject_System
 		int DispatchDelay = 10;
 		bool Verbose = false;
 		bool VeryVerbose = false;
+		size_t VeryVerboseWidth = 40;
 		bool Quiet = false;
 		std::string TerminationFileName = "cortex_disable_message";
 		size_t PollingDelay = 100;
@@ -91,6 +92,7 @@ class SettingsObject_System
 			DispatchDelay = JSL::Parameter<int>(DispatchDelay,"delay",argc,argv).Value();
 			Verbose = JSL::Parameter<bool>(Verbose,"v",argc,argv).Value();
 			VeryVerbose = JSL::Parameter<bool>(VeryVerbose,"vv",argc,argv).Value();
+			VeryVerboseWidth = JSL::Parameter<size_t>(VeryVerboseWidth,"v-width",argc,argv).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",argc,argv).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",argc,argv).Value();
 			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",argc,argv).Value();
@@ -102,6 +104,7 @@ class SettingsObject_System
 			DispatchDelay = JSL::Parameter<int>(DispatchDelay,"delay",configFile,configDelimiter).Value();
 			Verbose = JSL::Parameter<bool>(Verbose,"v",configFile,configDelimiter).Value();
 			VeryVerbose = JSL::Parameter<bool>(VeryVerbose,"vv",configFile,configDelimiter).Value();
+			VeryVerboseWidth = JSL::Parameter<size_t>(VeryVerboseWidth,"v-width",configFile,configDelimiter).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",configFile,configDelimiter).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",configFile,configDelimiter).Value();
 			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",configFile,configDelimiter).Value();
@@ -113,6 +116,7 @@ class SettingsObject_System
 			DispatchDelay = JSL::Parameter<int>(DispatchDelay,"delay",linevec).Value();
 			Verbose = JSL::Parameter<bool>(Verbose,"v",linevec).Value();
 			VeryVerbose = JSL::Parameter<bool>(VeryVerbose,"vv",linevec).Value();
+			VeryVerboseWidth = JSL::Parameter<size_t>(VeryVerboseWidth,"v-width",linevec).Value();
 			Quiet = JSL::Parameter<bool>(Quiet,"q",linevec).Value();
 			TerminationFileName = JSL::Parameter<std::string>(TerminationFileName,"terminate",linevec).Value();
 			PollingDelay = JSL::Parameter<size_t>(PollingDelay,"poll-delay",linevec).Value();
@@ -126,6 +130,7 @@ class SettingsObject_System
 			s << "delay " << JSL::MakeString(DispatchDelay) << "\n";
 			s << "v " << JSL::MakeString(Verbose) << "\n";
 			s << "vv " << JSL::MakeString(VeryVerbose) << "\n";
+			s << "v-width " << JSL::MakeString(VeryVerboseWidth) << "\n";
 			s << "q " << JSL::MakeString(Quiet) << "\n";
 			s << "terminate " << JSL::MakeString(TerminationFileName) << "\n";
 			s << "poll-delay " << JSL::MakeString(PollingDelay) << "\n";
@@ -138,6 +143,7 @@ class SettingsObject_System
 			help.AddMessage("SettingsObject_System","delay",10,"DispatchDelay","The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.");
 			help.AddMessage("SettingsObject_System","v",false,"Verbose","Inlcudes debugging error messages. Overrides quiet");
 			help.AddMessage("SettingsObject_System","vv",false,"VeryVerbose","Adds additional context to debugging error messages.");
+			help.AddMessage("SettingsObject_System","v-width",40,"VeryVerboseWidth","The width (in characters) of the debugging visualisation window");
 			help.AddMessage("SettingsObject_System","q",false,"Quiet","Suppresses all outputs except errors.");
 			help.AddMessage("SettingsObject_System","terminate","cortex_disable_message","TerminationFileName","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.");
 			help.AddMessage("SettingsObject_System","poll-delay",100,"PollingDelay","The responsiveness delay (in ms) in the menu polling interface");
@@ -149,6 +155,7 @@ class SettingsObject_System
 			JSL::ParameterDescription("DispatchDelay","int","delay",DispatchDelay,(int)10,"The delay time (in ms) between detecting a filechange and dispatching the calls to the manager.").Query(parameter,found);
 			JSL::ParameterDescription("Verbose","bool","v",Verbose,(bool)false,"Inlcudes debugging error messages. Overrides quiet").Query(parameter,found);
 			JSL::ParameterDescription("VeryVerbose","bool","vv",VeryVerbose,(bool)false,"Adds additional context to debugging error messages.").Query(parameter,found);
+			JSL::ParameterDescription("VeryVerboseWidth","size_t","v-width",VeryVerboseWidth,(size_t)40,"The width (in characters) of the debugging visualisation window").Query(parameter,found);
 			JSL::ParameterDescription("Quiet","bool","q",Quiet,(bool)false,"Suppresses all outputs except errors.").Query(parameter,found);
 			JSL::ParameterDescription("TerminationFileName","std::string","terminate",TerminationFileName,(std::string)"cortex_disable_message","If a file with this name appears in a watched directory, cortex will take this as a signal to exit. The file is deleted.").Query(parameter,found);
 			JSL::ParameterDescription("PollingDelay","size_t","poll-delay",PollingDelay,(size_t)100,"The responsiveness delay (in ms) in the menu polling interface").Query(parameter,found);

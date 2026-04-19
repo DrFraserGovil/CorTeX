@@ -34,6 +34,8 @@ void ConfigureLogging(SettingsObject & Settings)
     log.ShowHeaders = false;
     log.DebugBoxing = false;
     // log.DebugLint = 20;
+    log.DebugLineSize = Settings.System.VeryVerboseWidth;
+    LOG(WARN) << log.DebugLineSize;
     log.SetLevel(INFO);
     if (Settings.System.Quiet)
     {
