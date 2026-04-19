@@ -7,3 +7,7 @@
 namespace fs = std::filesystem;
 namespace txt = JSL::Text;
 extern Project Cortex;
+
+using colour = JSL::detail::ColourConstructor;
+extern colour DebugTitleColour;
+extern colour DebugBlue;

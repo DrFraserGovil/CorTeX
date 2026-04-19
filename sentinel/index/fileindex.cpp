@@ -117,9 +117,10 @@ std::weak_ptr<Note> FileIndex::GetLink(std::string_view keyView, fs::path reques
 void FileIndex::UpdateLinkNetwork(bool forceAll)
 {
     //marks all files as dirty
+    LOG(DEBUG) << DebugTitleColour << "Updating link network";
     if (forceAll)
     {
-        LOG(DEBUG) << "Forcing full disk sweep and compile";
+        LOG(DEBUG) << "\tForcing full disk sweep and compile";
         DirtyFiles.clear();
         for (auto &[id,note]: Registry)
         {
@@ -135,13 +136,10 @@ void FileIndex::UpdateLinkNetwork(bool forceAll)
     {
         if (note->IsDirty)
         {
-            LOG(DEBUG) << note->Path.Source.string() << " is dirty, rescanning to update links";
+            LOG(DEBUG) << "\tScanning file " << note->Path.Source.string();
             note->Scan(true);
         }
-        else
-        {
-            LOG(DEBUG) << note->Path.Source.string() << " is not dirty, checking for metadata changes that could affect links";
-        }
+
         if (note->PendingMetaDataChange)
         {
             note->PendingMetaDataChange = false;

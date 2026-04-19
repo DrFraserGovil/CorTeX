@@ -18,6 +18,12 @@ SettingsObject
 					default=false
 					note="Inlcudes debugging error messages. Overrides quiet"
 				}
+				bool VeryVerbose
+				{
+					trigger="vv"
+					default=false
+					note="Adds additional context to debugging error messages."
+				}
 				bool Quiet
 				{
 					trigger="q"

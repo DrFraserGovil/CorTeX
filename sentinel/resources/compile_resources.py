@@ -21,7 +21,7 @@ def generate_resources(resource_dir, output_path,ignore):
 
     # Iterate through all files in the directory
     for file in res_path.iterdir():
-        if file.is_file() and file.name != script_name and ".h" not in file.name:
+        if file.is_file() and file.name != script_name and ".h" not in file.name and ".cpp" not in file.name:
             print("Spooling ",file,ignore)
             var_name = sanitize_name(file.name)
             content = file.read_text()

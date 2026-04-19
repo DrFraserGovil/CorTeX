@@ -32,6 +32,8 @@ void ConfigureLogging(SettingsObject & Settings)
 {
     auto & log = JSL::Log::Config;
     log.ShowHeaders = false;
+    log.DebugBoxing = false;
+    // log.DebugLint = 20;
     log.SetLevel(INFO);
     if (Settings.System.Quiet)
     {
@@ -40,6 +42,11 @@ void ConfigureLogging(SettingsObject & Settings)
     if (Settings.System.Verbose)
     {
         log.SetLevel(DEBUG);
+    }
+    if (Settings.System.VeryVerbose)
+    {
+        log.SetLevel(DEBUG);
+        log.DebugBoxing = true;
     }
     log.DebugColour= JSL::Text::Colour(80,80,60);
     log.ForceClear = true;    

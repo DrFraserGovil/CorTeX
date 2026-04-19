@@ -46,7 +46,7 @@ void LoadSettings()
 {
     if (fs::exists(Cortex.Values.SettingsFile))
     {
-        LOG(DEBUG) << "Loading settings from file";
+        LOG(INFO) << "Loading settings from file";
         auto system = Cortex.Settings.System;
         Cortex.Settings.Configure(Cortex.Values.SettingsFile," ");
         Cortex.Settings.System = system; //system settings are per-instance and shouldn't be cached!
