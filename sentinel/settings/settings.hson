@@ -1,4 +1,4 @@
-SettingsObject
+SettingsObject 
 {
 	Categories
 	{
@@ -27,7 +27,7 @@ SettingsObject
 				size_t VeryVerboseWidth
 				{
 					trigger="v-width"
-					default= 40
+					default= 60
 					note = "The width (in characters) of the debugging visualisation window"
 				}
 				bool Quiet

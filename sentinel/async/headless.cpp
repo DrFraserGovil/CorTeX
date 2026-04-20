@@ -1,5 +1,6 @@
 #include "headless.h"
 #include "../global.h"
+#include "JSL/modules/FileIO/FileIO.h"
 #include <unordered_map>
 #include <sstream>
 #include <thread>

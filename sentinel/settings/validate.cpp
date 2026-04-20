@@ -1,6 +1,5 @@
 #include "validate.h"
-#include "../constants.h"
-
+#include "../global.h"
 
 
 
@@ -50,7 +49,7 @@ void ConfigureLogging(SettingsObject & Settings)
         log.SetLevel(DEBUG);
         log.DebugBoxing = true;
     }
-    log.DebugColour= JSL::Text::Colour(80,80,60);
+    log.DebugColour= Cortex.Colours.DebugDefault;
     log.ForceClear = true;    
 }
 

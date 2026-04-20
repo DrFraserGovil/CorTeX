@@ -5,6 +5,7 @@
 #include "../settings/derived.h"
 #include "compiler.h"
 #include "../async/headless.h"
+#include "../resources/colours.h"
 //forward declarations
 class WorkerObject;
 class WatcherObject;
@@ -33,6 +34,7 @@ class Project
         CompilerObject Compiler;
         SettingsObject Settings;
         DerivedSettings Values;
+        ColourHolder Colours;
         HeadlessInterface Antenna;
 
         bool Synchronise(bool save=true);

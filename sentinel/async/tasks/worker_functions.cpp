@@ -1,6 +1,6 @@
 #include "worker_functions.h"
 #include "../global.h"
-
+#include <regex>
 namespace txt = JSL::Text;
 
 void NicePrint(std::string_view key, std::string_view value)

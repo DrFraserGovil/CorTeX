@@ -1,5 +1,6 @@
 #include "compiler.h"
 #include <sstream>
+#include "JSL/modules/FileIO/FileIO.h"
 #include "../global.h"
 #include "../resources/resources.h"
 void CompilerObject::MakePreamble()
@@ -91,7 +92,7 @@ void CompilerObject::Run(bool forceAll)
         }
         else
         {
-            LOG(DEBUG) << JSL::Text::Colour(50,80,50) << "Ignoring " << DirtyFiles[0] << " due to file deletion";
+            LOG(DEBUG)  << "Ignoring " << DirtyFiles[0] << " due to file deletion";
         }
         DirtyFiles.pop_front();
     }
@@ -134,7 +135,7 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
         errorLine = fileSize - truncation;
     }
 
-    LOG(WARN) << txt::Red << "Could not compile " << note->Path.Source << ", or generate a MCD";
+    LOG(WARN) << Cortex.Colours.CompileError << "Could not compile " << note->Path.Source << ", or generate a MCD";
     note->Buffer.Reset();
 }
 
@@ -144,11 +145,11 @@ void CompilerObject::MoveSuccessful(std::shared_ptr<Note> note,fs::path pdfpath,
     fs::rename(pdfpath,note->Path.Compile);
     if (errorLine != -1)
     {
-       LOG(WARN) << txt::Red<< "Compiler Error: " << note->Path.Source.string() << "\n\tCould not compile further than line " << errorLine; 
+       LOG(WARN) << Cortex.Colours.CompileError<< "Compiler Error: " << note->Path.Source.string() << "\n\tCould not compile further than line " << errorLine; 
     }
     else
     {
-        LOG(INFO) <<JSL::Text::Colour(50,80,50) << "Successfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
+        LOG(INFO) << Cortex.Colours.CompileSuccess << "Successfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
     }
     note->Buffer.Reset();
 }

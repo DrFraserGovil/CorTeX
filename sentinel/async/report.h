@@ -1,5 +1,4 @@
 #pragma once
-#include "../constants.h"
 #include <sys/inotify.h>
 #include "../index/directory.h"
 struct FileReport

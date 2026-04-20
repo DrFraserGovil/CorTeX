@@ -49,7 +49,7 @@ void WorkerObject::ProcessHead()
 {
     auto job = LocalJobs.front();
     LocalJobs.pop();
-    LOG(DEBUG) << JSL::Text::Colour(50,50,80) << "Processing job (type " << (int)job.Type <<")";
+    LOG(DEBUG) << Cortex.Colours.DebugBlue << "Processing job (type " << (int)job.Type <<")";
     Cascade=false;
     TotalCascade = false;
     if (Handlers.contains(job.Type))

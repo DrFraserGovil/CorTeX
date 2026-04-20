@@ -1,6 +1,6 @@
 #include "aliases.h"
-#include "../constants.h"
 #include <algorithm>
+#include "../global.h"
 
 int path_distancer(fs::path a, fs::path b)
 {

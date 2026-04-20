@@ -1,6 +1,6 @@
 #include "fileHeader.h"
 #include "JSL/modules/Strings/Strings.h"
-#include "../constants.h"
+#include "../global.h"
 FileHeader::FileHeader()
 {
     

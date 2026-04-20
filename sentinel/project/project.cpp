@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include "project.h"
 #include "../global.h"
+#include "JSL/modules/FileIO/FileIO.h"
 #include "../async/worker.h"
 #include "../async/watcher.h"
 #include "../async/parser.h"

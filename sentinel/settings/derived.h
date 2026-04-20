@@ -1,6 +1,6 @@
 #pragma once
 #include "settings.hpp"
-
+#include <filesystem>
 /*
     The derived settings are values which are inferred automatically from the Settings
     Whenever the settings are updated, Synchronise should be called

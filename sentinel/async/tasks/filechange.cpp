@@ -14,7 +14,7 @@ bool fileChange()
         auto testPath = Cortex.Values.SourceRoot / report.Path;
         if ((fs::is_directory(testPath) || !fs::exists(testPath) )&& !dirSweepDone)
         {
-            LOG(DEBUG) << txt::Colour(100,40,40) << "Initialising full resweep";
+            LOG(DEBUG) << Cortex.Colours.DebugRed<< "Initialising full resweep";
             Cortex.Index.RootDir->Walk();
             dirSweepDone = true;// ensure we only do this once per report - its a clean slate wipe
         }
