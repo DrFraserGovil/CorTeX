@@ -4,19 +4,34 @@
 #include <string_view>
 enum class Instruction
 {
-    Shutdown,
-    SettingView,
-    SettingChange,
-    SettingVectorAdd,
-    SettingVectorRemove,
-    FileChange,
-    Compile,
-    IncrementalCompile,
-    List,
-    Reset,
-    Clean,
-    PauseSignal,
-    None,
+    Shutdown=0,
+    SettingView=1,
+    SettingChange=2,
+    SettingVectorAdd=3,
+    SettingVectorRemove=4,
+    FileChange=5,
+    Compile=6,
+    IncrementalCompile=7,
+    List=8,
+    Reset=9,
+    Clean=10,
+    PauseSignal=11,
+    None=12,
+};
+
+const std::vector<std::string_view> InstructionNames{
+    "Shutdown",
+    "View Setting",
+    "Change Setting",
+    "Setting Insert",
+    "Setting Remove",
+    "File Change",
+    "Full Recompile",
+    "Incremental Recompile",
+    "Show Directory",
+    "Reset",
+    "Clean",
+    "Pause"
 };
 
 class Task

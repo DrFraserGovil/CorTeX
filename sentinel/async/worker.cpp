@@ -3,13 +3,7 @@
 #include "tasks/worker_functions.h"
 void WorkerObject::ProcessInput()
 {
-    if (Cortex.Index.IsDirty())
-    {
-        LOG(DEBUG) << "Initial compilation sweep required";
-        Cortex.Compiler.Run(false);
-        Cortex.Prompt();
-    }
-
+   
     Active = true;
     while (Active)
     {
@@ -23,6 +17,7 @@ void WorkerObject::ProcessInput()
             ProcessHead();
         }
         LOG(DEBUG) << "Task queue empty, awaiting new tasks";
+        std::cout << JSL::Cursor::ClearLine <<  JSL::Text::Blue << ">> " << JSL::Text::Cyan << std::flush; 
     }
 }
 
@@ -32,7 +27,7 @@ void WorkerObject::AddTask(Task & newjob)
     {
         std::lock_guard<std::mutex> lock(JobLock);
         
-        LOG(DEBUG) << "A new task of id " << (int)newjob.Type << " added.";
+        LOG(DEBUG) << "A new task of `" << InstructionNames[(int)newjob.Type] << "' added.";
         Jobs.push(newjob);
         Notify.notify_one();
     }
@@ -49,7 +44,7 @@ void WorkerObject::ProcessHead()
 {
     auto job = LocalJobs.front();
     LocalJobs.pop();
-    LOG(DEBUG) << Cortex.Colours.DebugBlue << "Processing job (type " << (int)job.Type <<")";
+    LOG(DEBUG) << Cortex.Colours.DebugBlue << "Processing job (" << InstructionNames[(int)job.Type] <<")";
     Cascade=false;
     TotalCascade = false;
     if (Handlers.contains(job.Type))
@@ -75,11 +70,7 @@ void WorkerObject::ProcessHead()
 
 
 
-    //bit of manual hackery to get a reprompt
-    if (!Cortex.Settings.System.Headless.Active && LocalJobs.size() == 0 && Active)
-    {
-        std::cout << JSL::Cursor::ClearLine <<  JSL::Text::Blue << ">> " << JSL::Text::Cyan << std::flush; 
-    }
+
 }
 
 

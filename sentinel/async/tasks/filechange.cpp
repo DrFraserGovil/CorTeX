@@ -23,12 +23,13 @@ bool fileChange()
             auto note = Cortex.Index.GetNote(report.Path);
             if (note.use_count() > 0)
             {
-                LOG(DEBUG) << "Dirty notification passed to index";
+                LOG(DEBUG) << "\t\tFile " << note.lock()->ID << " marked as dirty";
                 Cortex.Index.NotifyDirty(note.lock()->ID);
                 note.lock()->IsDirty = true;
             }
             else
             {
+                LOG(DEBUG) << "\t\tCreating a new file";
                 //tries to add a new note into the index, if it meets the criteria
                 report.Parent.lock()->NewNote(testPath);
             }

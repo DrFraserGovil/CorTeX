@@ -13,8 +13,19 @@ void Project::BeginInterface()
     WatcherObject watcher;
     WorkerObject worker;
 
-    Connect(&worker,&watcher);
     
+    if (Index.IsDirty())
+    {
+        LOG(DEBUG) << Colours.DebugRed << "Out-of-sync on initialisation\n\tBeginning compilation sweep";
+        worker.LocalJobs.emplace(Instruction::IncrementalCompile);
+        worker.ProcessHead();
+    }
+    else
+    {
+        LOG(DEBUG) << Colours.DebugGreen << "Index reports synchronisation is good.";
+    }
+    Connect(&worker,&watcher);
+
     worker.ProcessInput(); //main loop which waits for an exit signal
 
     watcher.Exit();

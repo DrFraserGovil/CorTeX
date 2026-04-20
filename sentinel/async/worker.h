@@ -18,6 +18,7 @@ class WorkerObject
         void InstantTask(Task & job);
         void Prod();
         std::condition_variable Notify;
+        friend class Project;
     private:
         bool Active;
         std::queue<Task> Jobs;

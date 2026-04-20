@@ -55,13 +55,6 @@ bool AliasEntry::Remove(std::weak_ptr<Note> target)
 
 void AliasEntry::Add(std::weak_ptr<Note> target)
 {
-    // for (auto & existing : Targets)
-    // {
-    //     if (existing.lock() == target.lock())
-    //     {
-    //         return;
-    //     }
-    // }
     Targets.push_back(target);
 }
 
@@ -69,6 +62,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
 {
     if (Targets.size() == 1)
     {
+        // LOG(DEBUG) << "\tMatched " << Key << " to " << Targets[0].lock()->Header.Title << " for " << requestingFile.string();
         return Targets[0];
     }
 
@@ -87,7 +81,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
             }
         }
     }
-    LOG(DEBUG) << Cortex.Colours.DebugRed << "Alias clash for '" << Key << Cortex.Colours.DebugDefault << "'\n\tLink Origin: " << requestingFile.string() << "\n\tResolved to: " << closest.lock()->Path.Compile.string();
+    LOG(DEBUG) << Cortex.Colours.DebugRed << "\tAlias clash for '" << Key << Cortex.Colours.DebugDefault << "'\n\t\tLink Origin: " << requestingFile.string() << "\n\t\tResolved to: " << closest.lock()->Path.Compile.string();
 
     return closest;
 }

@@ -138,24 +138,25 @@ void FileIndex::UpdateLinkNetwork(bool forceAll,bool initialSweep)
     }
 
 
+    //scan through the actual dirty files to gather the new metadata
+    for (int dirty : DirtyFiles)
+    {
+        auto & note = Registry[dirty];
+        LOG(DEBUG) << "\tScanning file " << note->Path.Source.string();
+        note->Scan(true);
+        if (note->PendingMetaDataChange)
+        {
+            Aliases.Sync(note);
+        }
+    }
+
 
     std::deque<int> newDirty;
     for (auto &[id,note]: Registry)
     {
-        if (note->IsDirty)
-        {
-            LOG(DEBUG) << "\tScanning file " << note->Path.Source.string();
-            note->Scan(true);
-        }
-
-        if (note->PendingMetaDataChange)
-        {
-            note->PendingMetaDataChange = false;
-            Aliases.Sync(note);
-        }
         if (note->SetLinkConnections() || note->IsDirty)
         {
-            if (!initialSweep)
+            if (!initialSweep || note->IsDirty)
             {
                 newDirty.push_back(id);
                 if (!note->IsDirty)

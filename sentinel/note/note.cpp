@@ -7,6 +7,11 @@ Note::Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent) 
     IsDirty = false;
     Scan(false);
     DiskCheck();
+    LOG(DEBUG) << txt::Italics<< "\tNote " << id << " (" << Path.Source.filename().string() << ": " << Header.Title <<")";
+    if (IsDirty)
+    {
+        LOG(DEBUG) << "\t\t" << Cortex.Colours.DebugRed << "Out of sync with compiled output";
+    }
 }
 
 void Note::DiskCheck()
