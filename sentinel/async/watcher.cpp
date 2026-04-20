@@ -26,6 +26,10 @@ WatcherObject::WatcherObject() : Callbacks({})
 
 void WatcherObject::Start()
 {
+    if (!Cortex.Settings.System.Headless.Active)
+    {
+        LOG(INFO) << "Launching interactive mode";
+    }
     Thread = std::thread(&WatcherObject::Loop,this);
 }
 void WatcherObject::Loop()
@@ -75,7 +79,7 @@ void WatcherObject::Exit()
 
 void WatcherObject::AddMenu()
 {
-    LOG(INFO) << "Initialising interactive mode";
+    
     pollfd w;
     w.fd = STDIN_FILENO;
     w.events = POLLIN;
@@ -113,7 +117,7 @@ void WatcherObject::AddFileWatch()
         LOG(ERROR) << "Could not establish inotify process\nReason: " << std::strerror(errno);
         exit(1);
     }
-   
+    LOG(DEBUG) << "Creating filewatch system";
 
     pollfd w;
     w.fd = WatcherID;
@@ -190,13 +194,14 @@ void WatcherObject::AddFileWatch()
 
 void WatcherObject::AddHeadlessWatch()
 {
+    LOG(DEBUG) << "Creating signal interceptor";
     Cortex.Antenna.ID = inotify_add_watch(WatcherID,Cortex.Values.SharedSessionDirectory.c_str(),IN_CREATE|IN_DELETE);
 }
 
 int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)
 {
     auto dir = dirPtr.lock();
-    LOG(DEBUG) << "Initialising connection to " << dir->Path.Source.string();
+    LOG(DEBUG) << "\tWatching directory " << dir->Path.Source.string();
     int id = inotify_add_watch(WatcherID,dir->Path.Source.c_str(),IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE);
     WatchMap[id] = dirPtr;
     return id;

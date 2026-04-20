@@ -4,10 +4,10 @@
 #include <algorithm>
 void FileIndex::Initialise()
 {
-    LOG(DEBUG) << "Index initialising";
+    LOG(INFO) << Cortex.Colours.ScanStart << "Index initialising";
     SequentialID = 0;
     RootDir = Directory::MakeFrom(Cortex.Values.SourceRoot);
-    UpdateLinkNetwork();
+    UpdateLinkNetwork(false,true);
 }
 
 
@@ -97,6 +97,14 @@ void FileIndex::Delete(std::weak_ptr<Note> note)
 
 bool FileIndex::IsDirty()
 {
+    if (!DirtyFiles.empty())
+    {
+        LOG(DEBUG) << "The following files are marked as dirty";
+        for (auto i : DirtyFiles)
+        {
+            LOG(DEBUG) << "\t" << i << Registry[i]->Path.Source.string();
+        }
+    }
     return !DirtyFiles.empty();
 }
 
@@ -114,10 +122,10 @@ std::weak_ptr<Note> FileIndex::GetLink(std::string_view keyView, fs::path reques
 }
 
 
-void FileIndex::UpdateLinkNetwork(bool forceAll)
+void FileIndex::UpdateLinkNetwork(bool forceAll,bool initialSweep)
 {
     //marks all files as dirty
-    LOG(DEBUG) << Cortex.Colours.DebugYellow << txt::Bold << "Updating link network";
+    LOG(INFO) << Cortex.Colours.ScanStart << txt::Italics << "Updating link network";
     if (forceAll)
     {
         LOG(DEBUG) << "\tForcing full disk sweep and compile";
@@ -147,10 +155,13 @@ void FileIndex::UpdateLinkNetwork(bool forceAll)
         }
         if (note->SetLinkConnections() || note->IsDirty)
         {
-            newDirty.push_back(id);
-            if (!note->IsDirty)
+            if (!initialSweep)
             {
-                note->Scan(true,false); //if the file isn't already dirty, we need to rescan to load it into memory -- but disable link parsing as we already know where they point
+                newDirty.push_back(id);
+                if (!note->IsDirty)
+                {
+                    note->Scan(true,false); //if the file isn't already dirty, we need to rescan to load it into memory -- but disable link parsing as we already know where they point
+                }
             }
         }
     }

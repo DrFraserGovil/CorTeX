@@ -14,7 +14,6 @@ void Metadata::SetDefaults()
 
 void Metadata::Initialise()
 {
-    LOG(DEBUG) << "Checking existence of " << Cortex.Values.MetaRoot; 
 
 
     bool dirExists = fs::exists(Cortex.Values.MetaRoot);
@@ -22,7 +21,7 @@ void Metadata::Initialise()
 
     if (!dirExists)
     {
-        LOG(DEBUG) << "Initialising cortex metadata directory";
+        LOG(INFO) << "No existing cortex directory found\nInitialising...";
         fs::create_directories(Cortex.Values.MetaRoot);
     }
     if (dirExists && !fileExists)
@@ -61,6 +60,7 @@ void Metadata::Load()
         Name = joinTail(line,1);
     }
     });
+    LOG(INFO) << "Loading repository '" << Name;
 }
 
 void Metadata::Save()

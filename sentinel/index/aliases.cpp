@@ -72,7 +72,6 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
         return Targets[0];
     }
 
-    LOG(DEBUG) << "Multiple targets found for alias '" << Key << "': calculating closest link to " << requestingFile.string();
     std::weak_ptr<Note> closest;
     int closestDistance = std::numeric_limits<int>::max();
 
@@ -88,6 +87,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
             }
         }
     }
+    LOG(DEBUG) << Cortex.Colours.DebugRed << "Alias clash for '" << Key << Cortex.Colours.DebugDefault << "'\n\tLink Origin: " << requestingFile.string() << "\n\tResolved to: " << closest.lock()->Path.Compile.string();
 
     return closest;
 }
