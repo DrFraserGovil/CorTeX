@@ -107,6 +107,7 @@ void Note::Scan(bool saveToBuffer,bool scanLinks)
 
 void Note::Build(std::string_view preamble,int Truncation)
 {
+    IsDirty = false;
     std::fstream output(Path.Build,std::ios::out);
     //global preamble & documentclass
     output << preamble;
