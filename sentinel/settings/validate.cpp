@@ -98,7 +98,6 @@ bool SetProtected(std::vector<std::string> custom)
             }
         }
     }
-    LOG(DEBUG) << "The following environments are protected: " << JSL::MakeString(env);
     return env!=cached;
 }
 

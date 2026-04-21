@@ -81,7 +81,7 @@ std::weak_ptr<Note> AliasEntry::GetClosestLink(fs::path requestingFile)
             }
         }
     }
-    LOG(DEBUG) << Cortex.Colours.DebugRed << "\tAlias clash for '" << Key << Cortex.Colours.DebugDefault << "'\n\t\tLink Origin: " << requestingFile.string() << "\n\t\tResolved to: " << closest.lock()->Path.Compile.string();
+    LOG(DEBUG) << Cortex.Colours.DebugRed << "\tAlias clash for '" << Key << Cortex.Colours.DebugDefault << "'\n\t\tLink Origin: " << fs::relative(requestingFile,Cortex.Values.CompileRoot).string() << "\n\t\tResolved to: " << fs::relative(closest.lock()->Path.Compile,Cortex.Values.CompileRoot).string();
 
     return closest;
 }

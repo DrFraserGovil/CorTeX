@@ -201,7 +201,7 @@ void WatcherObject::AddHeadlessWatch()
 int WatcherObject::WatchDir(std::weak_ptr<Directory> dirPtr)
 {
     auto dir = dirPtr.lock();
-    LOG(DEBUG) << "\tWatching directory " << dir->Path.Source.string();
+    LOG(DEBUG) << "\tWatching directory " << fs::relative(dir->Path.Source,Cortex.Values.SourceRoot).string();
     int id = inotify_add_watch(WatcherID,dir->Path.Source.c_str(),IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE);
     WatchMap[id] = dirPtr;
     return id;
