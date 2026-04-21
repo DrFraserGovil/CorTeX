@@ -92,6 +92,7 @@ class SettingsObject_Compiler
 
 		std::vector<std::string> Packages = {"xcolor","amssymb","amsmath","lmodern","hyperref"};
 		std::string CompilerCommand = "pdflatex";
+		std::vector<std::string> CustomProtectedEnvironments = {};
 
 		//default spaceship operator
 		auto operator<=>(const SettingsObject_Compiler&) const = default;

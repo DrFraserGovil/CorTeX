@@ -155,6 +155,12 @@ SettingsObject
 					trigger="compiler"
 					note="The latex compiler used to generate files. Valid choices are 'pdflatex', 'xelatex', and 'lualatex'"
 				}
+				std::vector<std::string> CustomProtectedEnvironments
+				{
+					default = {}
+					trigger="protect-env"
+					note = "Additional environments inside which the extended syntax is disabled (includes starred versions)."
+				}
 			}
 		}
 		Document

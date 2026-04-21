@@ -19,6 +19,8 @@ class DerivedSettings
         std::filesystem::path ClassFile_User;
         std::filesystem::path ClassFile_Compiler;
         std::filesystem::path SharedSessionDirectory;
+
+        std::vector<std::string> ProtectedEnvironments;
         bool Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings);
 
 };

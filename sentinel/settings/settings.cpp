@@ -184,32 +184,38 @@ void SettingsObject_Compiler::Parse(int argc, char** argv)
 {
 	Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",argc,argv).Value();
 	CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",argc,argv).Value();
+	CustomProtectedEnvironments = JSL::Parameter<std::vector<std::string>>(CustomProtectedEnvironments,"protect-env",argc,argv).Value();
 }
 void SettingsObject_Compiler::Configure(const std::string & configFile, std::string configDelimiter)
 {
 	Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",configFile,configDelimiter).Value();
 	CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",configFile,configDelimiter).Value();
+	CustomProtectedEnvironments = JSL::Parameter<std::vector<std::string>>(CustomProtectedEnvironments,"protect-env",configFile,configDelimiter).Value();
 }
 void SettingsObject_Compiler::ParseLine(const std::vector<std::string> & linevec)
 {
 	Packages = JSL::Parameter<std::vector<std::string>>(Packages,"package",linevec).Value();
 	CompilerCommand = JSL::Parameter<std::string>(CompilerCommand,"compiler",linevec).Value();
+	CustomProtectedEnvironments = JSL::Parameter<std::vector<std::string>>(CustomProtectedEnvironments,"protect-env",linevec).Value();
 }
 std::string SettingsObject_Compiler::ToText()
 {
 	std::ostringstream s;
 	s << "package " << JSL::MakeString(Packages) << "\n";
 	s << "compiler " << JSL::MakeString(CompilerCommand) << "\n";
+	s << "protect-env " << JSL::MakeString(CustomProtectedEnvironments) << "\n";
 	return s.str();}
 void SettingsObject_Compiler::Help(JSL::HelpMessages & help)
 {
 	help.AddMessage("SettingsObject_Compiler","package",(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern","hyperref"},"Packages","Latex packages which are included in the global shared preamble");
 	help.AddMessage("SettingsObject_Compiler","compiler","pdflatex","CompilerCommand","The latex compiler used to generate files. Valid choices are 'pdflatex', 'xelatex', and 'lualatex'");
+	help.AddMessage("SettingsObject_Compiler","protect-env",(std::vector<std::string>){},"CustomProtectedEnvironments","Additional environments inside which the extended syntax is disabled (includes starred versions).");
 }
 void SettingsObject_Compiler::GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 {
 	JSL::ParameterDescription("Packages","std::vector<std::string>","package",Packages,(std::vector<std::string>){"xcolor","amssymb","amsmath","lmodern","hyperref"},"Latex packages which are included in the global shared preamble").Query(parameter,found);
 	JSL::ParameterDescription("CompilerCommand","std::string","compiler",CompilerCommand,(std::string)"pdflatex","The latex compiler used to generate files. Valid choices are 'pdflatex', 'xelatex', and 'lualatex'").Query(parameter,found);
+	JSL::ParameterDescription("CustomProtectedEnvironments","std::vector<std::string>","protect-env",CustomProtectedEnvironments,(std::vector<std::string>){},"Additional environments inside which the extended syntax is disabled (includes starred versions).").Query(parameter,found);
  }
 void SettingsObject_Document::Parse(int argc, char** argv)
 {

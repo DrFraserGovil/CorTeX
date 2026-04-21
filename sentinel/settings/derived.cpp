@@ -1,5 +1,6 @@
 #include "derived.h"
 #include "validate.h"
+#include "../global.h"
 namespace fs = std::filesystem;
 
 bool DerivedSettings::Synchronise(SettingsObject & Settings,SettingsObject & CachedSettings)
@@ -19,5 +20,11 @@ bool DerivedSettings::Synchronise(SettingsObject & Settings,SettingsObject & Cac
     MacroFile = SourceRoot/ "macros.sty";
     SharedSessionDirectory = fs::temp_directory_path() / "cortex";
     if (!fs::exists(SharedSessionDirectory)) fs::create_directories(SharedSessionDirectory);
+
+   
+
+
+
+
     return requiresRecompile;
 }

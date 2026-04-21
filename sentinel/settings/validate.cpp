@@ -76,6 +76,32 @@ void SetCompiler(SettingsObject_Compiler & compilerSettings)
     compilerSettings.CompilerCommand = "pdflatex";
 }
 
+bool SetProtected(std::vector<std::string> custom)
+{
+    auto & env =  Cortex.Values.ProtectedEnvironments;
+    auto cached = env; //make a copy
+
+    env = {"equation","align","alignat","verbatim","inline-math","display-math","comment"}; //these are hardcoded defaults
+    env.insert(env.end(),custom.begin(),custom.end());
+    
+    int N = env.size();
+    for (int i = 0; i < N; ++i)
+    {
+        auto & test = env[i];
+        if (!test.empty() && *(test.end()-1) != '*')
+        {
+            bool starredNeeded = (std::find(env.begin(),env.end(),test+"*")==env.end());
+
+            if (starredNeeded)
+            {
+                env.push_back(test+"*");
+            }
+        }
+    }
+    LOG(DEBUG) << "The following environments are protected: " << JSL::MakeString(env);
+    return env!=cached;
+}
+
 
 bool firstLoop = true;
 bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
@@ -95,10 +121,11 @@ bool ValidateSettings(SettingsObject & Settings,SettingsObject & CachedSettings)
 
     FixFontSize("body text",Settings.Document.FontSize);
     SetCompiler(Settings.Compiler);
+    bool changedEnvironments = SetProtected(Settings.Compiler.CustomProtectedEnvironments);
     if (!firstLoop)
     
     {
-        if (CachedSettings.Document != Settings.Document || CachedSettings.Compiler != Settings.Compiler)
+        if (CachedSettings.Document != Settings.Document || CachedSettings.Compiler != Settings.Compiler || changedEnvironments)
         {   
             LOG(DEBUG) << "Detected a change in compiler settings\nTriggering recompile";
             return true;

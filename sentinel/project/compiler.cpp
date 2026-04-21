@@ -1,8 +1,10 @@
 #include "compiler.h"
 #include <sstream>
+#include <array>
 #include "JSL/modules/FileIO/FileIO.h"
 #include "../global.h"
 #include "../resources/resources.h"
+#include "../note/builder/stateStack.h"
 void CompilerObject::MakePreamble()
 {
     CheckResources();
@@ -100,13 +102,86 @@ void CompilerObject::Run(bool forceAll)
 
 }
 
+struct CompileReturn
+{
+    bool Success;
+    std::string ErrorMessage;
+};
+
+CompileReturn ExternalCall(std::string cmd,std::shared_ptr<Note> note, std::string_view preamble, int truncation,fs::path expectedOut)
+{
+    note->Build(preamble,truncation);
+ 
+    std::array<char, 256> buffer;
+    std::string result;
+    
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe)
+    {
+        throw std::runtime_error("popen() failed!");
+    }
+
+    // Read the output line by line
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr)
+    {
+        result += buffer.data();
+    }
+
+    // pclose returns the termination status of the command
+    int status = pclose(pipe);
+    int exitCode = WEXITSTATUS(status);
+    if (exitCode == 0 && fs::exists(expectedOut))
+    {
+        LOG(DEBUG) << "Success";
+        return {true,""};
+    }
+    else
+    {
+        return {false,result};
+    }
+}
+
 void CompilerObject::CompileFile(std::shared_ptr<Note> note)
 {
+    LOG(DEBUG) << "Compiling " << note->Header.Title;
     int truncation = 0;
     if (note->Buffer.Body.size() == 0)
     {
         LOG(WARN) << note->Path.Source.string() << " reached compiler without being scanned";
     }
+
+    auto & body = note->Buffer.Body;
+    auto State = StateStack();
+    State.Scan(body);
+
+    for (int i = 0; i < body.size(); ++i)
+    {
+        std::string_view line = body[i];
+        auto state = State.LineStatus[i];
+        if (state.Type==state.Full)
+        {
+            auto col = (state.Enabled) ? txt::Green : txt::Red;
+            std::cout << col << body[i] << std::endl;
+        }
+        else
+        {
+            int prev = 0;
+            bool type = !state.PartialArray[0].second;
+            auto col = (type)? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
+            for (int i = 0; i < state.PartialArray.size(); ++i)
+            {
+                int idx = state.PartialArray[i].first;
+                std::cout << col << line.substr(prev,idx-prev);
+                prev = idx;
+                col = ( state.PartialArray[i].second) ? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
+            }
+            std::cout << col << line.substr(prev,std::string_view::npos) <<std::endl;
+        }
+    }
+
+
+    if (State.Error.found) return;
+
     int fileSize = note->Buffer.Body.size();
     auto dirPath =  note->Parent.lock()->Path.Build.string();
 
@@ -114,25 +189,30 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
     rel.replace_extension("");
     std::string preamble = PreambleHead + rel.string() + PreambleTail;
 
+    std::string cmd = Cortex.Settings.Compiler.CompilerCommand + " -interaction=nonstopmode -halt-on-error -output-directory=" +dirPath;
+    cmd += " " + note->Path.Build.string();
+
     int errorLine = -1;
     auto buildpdf = note->Path.Build;
     buildpdf.replace_extension(".pdf");
+
     while (truncation == 0)
     {
         note->Build(preamble,truncation);
+        auto result = ExternalCall(cmd,note,preamble,truncation,buildpdf);
+       
 
-        std::string cmd = Cortex.Settings.Compiler.CompilerCommand + " -interaction=nonstopmode -halt-on-error -output-directory=" +dirPath;
-        cmd += " " + note->Path.Build.string() + "> /dev/null 2>&1";
-        int status = std::system(cmd.c_str());
-        int exitCode = WEXITSTATUS(status);
-        
-        if (exitCode == 0 && fs::exists(buildpdf))
+        if (result.Success)
         {
             MoveSuccessful(note,buildpdf,errorLine);
             return;
         } 
+        else
+        {
+            LOG(INFO) << result.ErrorMessage;
+        }
         ++truncation;
-        errorLine = fileSize - truncation;
+        errorLine = fileSize - truncation + note->BodyStartLine;
     }
 
     LOG(WARN) << Cortex.Colours.CompileError << "Could not compile " << note->Path.Source << ", or generate a MCD";
@@ -153,3 +233,5 @@ void CompilerObject::MoveSuccessful(std::shared_ptr<Note> note,fs::path pdfpath,
     }
     note->Buffer.Reset();
 }
+
+
