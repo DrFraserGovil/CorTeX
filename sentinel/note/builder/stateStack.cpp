@@ -36,6 +36,7 @@ bool StateStack::Pop(std::string name, int idx)
                 {
                     CachedFormatable = true;
                     FormatBlockDepth = -1;
+                    CurrentFormat.Enabled = true;
                     CurrentFormat.Type = FormatStatus::Partial;
                     CurrentFormat.PartialArray.emplace_back(idx,true);
                 }
@@ -119,6 +120,7 @@ bool StateStack::Scan(std::string_view line, int lineNo)
         }
 
         int step = CheckEnv(Begin,i) + CheckEnv(End,i);
+        ERRORCHECK;
         if (step > 0)
         {
             i += step;
@@ -135,6 +137,9 @@ bool StateStack::Scan(std::string_view line, int lineNo)
 
 bool StateStack::Scan(std::vector<std::string> & input)
 {
+    LineStatus.resize(0);
+    CurrentFormat.Reset(true);
+    Error.found= false;
     CachedFormatable = true;
     FormatBlockDepth = -1;
     for (int i = 0; i < input.size(); ++i)
@@ -288,6 +293,7 @@ int StateStack::CheckEnv(EnvironmentDirection dir, int i)
 
 void StateStack::SetError(std::string msg)
 {
+    LOG(ERROR) << "Setting " << msg;
     Error = {true,LineNoCache,msg};
 }
 

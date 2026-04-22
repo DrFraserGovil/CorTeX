@@ -41,13 +41,15 @@ void Note::DiskCheck()
 
 }
 
-bool isDelimiter(std::string_view line)
+bool isDelimiter(std::string_view line, char expectedDelimiter)//we can use linebreak as a safe 'null': it can never enter into this routine as it is the definition of the end of a line!
 {
     if (line.empty()) return false;
 
     if (line.size() < Cortex.Settings.Files.StructureDelimiterRepeatCount) return false;
 
     auto firstChar = line[0];
+    if (expectedDelimiter != '\n' && firstChar != expectedDelimiter) return false;
+    if (std::isspace(firstChar)) return false;
     for (int i = 1; i < line.size(); ++i)
     {
         if (line[i] != firstChar) return false;
@@ -61,10 +63,12 @@ void Note::Scan(bool saveToBuffer,bool scanLinks)
     std::vector<std::vector<std::string>> fileChunks;
     std::vector<std::string> bucket;
     int i = 1;
+    char expectedDelimiter='\n';
     JSL::forLineIn(Path.Source,[&](auto line){
 
-        if (isDelimiter(line) && fileChunks.size() < 2)
+        if (isDelimiter(line,expectedDelimiter) && fileChunks.size() < 2)
         {
+            expectedDelimiter =line[0];
             BodyStartLine = i+1;
             fileChunks.push_back(bucket);
             bucket.clear();
@@ -113,6 +117,7 @@ void Note::Build(std::string_view preamble)
 }
 bool Note::FlushBuild(int truncation)
 {
+    JSL::initialiseFile(Path.Build);
     std::fstream output(Path.Build,std::ios::out);
     Generator.Flush(output,truncation);
     output.close();

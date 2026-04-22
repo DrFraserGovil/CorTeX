@@ -192,7 +192,13 @@ SettingsObject
 					trigger="text-size"
 					note="The font size (in pt) of the body text of the documents"
 				}   
-				         
+				
+				bool DefaultEnumerate
+				{
+					default = false
+					trigger=default-enum
+					note="If true, the autoformatter will default lists to numbered; if false to bullet points"
+				}
 			}   
 		}
 	}

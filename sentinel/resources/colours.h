@@ -13,4 +13,5 @@ struct ColourHolder
     colour CompileSuccess = JSL::Text::Colour(50,180,50);
     colour CompileError = JSL::Text::Red;
     colour ScanStart = JSL::Text::Yellow;
+    colour CompileStart = JSL::Background::White;
 };

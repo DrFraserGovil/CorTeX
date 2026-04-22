@@ -21,12 +21,16 @@ class TexGenerator
         std::deque<int> Lines;
 
         void WritePreamble(std::string_view preamble,FileHeader header);
-        void BasicLinePass();
+        void BodyPass();
+        void LinkRender();
         template <class T> //template to handle string_views easily
         void InsertLine(T & line)
         {
             InsertedLines.push_back((std::string)line);
             Lines.push_back(-InsertedLines.size()); //we use negative numbers to index the inserted lines. The off-by-one error is to avoid -0 = 0.
-      
         }
+        void ListCheck(int i,std::string_view line);
+        size_t ListDepth;
+        std::string ListType;
+        std::stack<std::string> OpenLists;
 };

@@ -132,7 +132,6 @@ CompileReturn ExternalCall(std::string cmd,std::shared_ptr<Note> note, std::stri
     int exitCode = WEXITSTATUS(status);
     if (exitCode == 0 && fs::exists(expectedOut))
     {
-        LOG(DEBUG) << "Success";
         return {true,""};
     }
     else
@@ -143,7 +142,7 @@ CompileReturn ExternalCall(std::string cmd,std::shared_ptr<Note> note, std::stri
 
 void CompilerObject::CompileFile(std::shared_ptr<Note> note)
 {
-    LOG(DEBUG) << "Compiling " << note->Header.Title;
+    LOG(DEBUG) << Cortex.Colours.CompileStart << txt::Bold << "Begin Compiling " << note->Header.Title;
     int truncation = 0;
     if (note->Buffer.Body.size() == 0)
     {
@@ -211,7 +210,7 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
         } 
         else
         {
-            LOG(INFO) << result.ErrorMessage;
+            // LOG(INFO) << result.ErrorMessage;
         }
         ++truncation;
         errorLine = fileSize - truncation + note->BodyStartLine;
@@ -231,7 +230,7 @@ void CompilerObject::MoveSuccessful(std::shared_ptr<Note> note,fs::path pdfpath,
     }
     else
     {
-        LOG(INFO) << Cortex.Colours.CompileSuccess << "Successfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
+        LOG(INFO) << Cortex.Colours.CompileSuccess << "\tSuccessfully compiled " << note->Header.Title << " (Note " << note->ID <<")";
     }
     note->Buffer.Reset();
 }

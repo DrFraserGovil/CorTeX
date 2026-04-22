@@ -223,6 +223,7 @@ void SettingsObject_Document::Parse(int argc, char** argv)
 	TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",argc,argv).Value();
 	TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",argc,argv).Value();
 	FontSize = JSL::Parameter<size_t>(FontSize,"text-size",argc,argv).Value();
+	DefaultEnumerate = JSL::Parameter<bool>(DefaultEnumerate,"default-enum",argc,argv).Value();
 }
 void SettingsObject_Document::Configure(const std::string & configFile, std::string configDelimiter)
 {
@@ -230,6 +231,7 @@ void SettingsObject_Document::Configure(const std::string & configFile, std::str
 	TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",configFile,configDelimiter).Value();
 	TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",configFile,configDelimiter).Value();
 	FontSize = JSL::Parameter<size_t>(FontSize,"text-size",configFile,configDelimiter).Value();
+	DefaultEnumerate = JSL::Parameter<bool>(DefaultEnumerate,"default-enum",configFile,configDelimiter).Value();
 }
 void SettingsObject_Document::ParseLine(const std::vector<std::string> & linevec)
 {
@@ -237,6 +239,7 @@ void SettingsObject_Document::ParseLine(const std::vector<std::string> & linevec
 	TitleSize = JSL::Parameter<size_t>(TitleSize,"title-size",linevec).Value();
 	TitleCentered = JSL::Parameter<bool>(TitleCentered,"title-center",linevec).Value();
 	FontSize = JSL::Parameter<size_t>(FontSize,"text-size",linevec).Value();
+	DefaultEnumerate = JSL::Parameter<bool>(DefaultEnumerate,"default-enum",linevec).Value();
 }
 std::string SettingsObject_Document::ToText()
 {
@@ -245,6 +248,7 @@ std::string SettingsObject_Document::ToText()
 	s << "title-size " << JSL::MakeString(TitleSize) << "\n";
 	s << "title-center " << JSL::MakeString(TitleCentered) << "\n";
 	s << "text-size " << JSL::MakeString(FontSize) << "\n";
+	s << "default-enum " << JSL::MakeString(DefaultEnumerate) << "\n";
 	return s.str();}
 void SettingsObject_Document::Help(JSL::HelpMessages & help)
 {
@@ -252,6 +256,7 @@ void SettingsObject_Document::Help(JSL::HelpMessages & help)
 	help.AddMessage("SettingsObject_Document","title-size",18,"TitleSize","The font size (in pt) of the title text of the documents");
 	help.AddMessage("SettingsObject_Document","title-center",false,"TitleCentered","If true, the title of all notes are centered on the page");
 	help.AddMessage("SettingsObject_Document","text-size",10,"FontSize","The font size (in pt) of the body text of the documents");
+	help.AddMessage("SettingsObject_Document","default-enum",false,"DefaultEnumerate","If true, the autoformatter will default lists to numbered; if false to bullet points");
 }
 void SettingsObject_Document::GetDescription(std::string parameter,std::vector<JSL::ParameterDescription> & found)
 {
@@ -259,6 +264,7 @@ void SettingsObject_Document::GetDescription(std::string parameter,std::vector<J
 	JSL::ParameterDescription("TitleSize","size_t","title-size",TitleSize,(size_t)18,"The font size (in pt) of the title text of the documents").Query(parameter,found);
 	JSL::ParameterDescription("TitleCentered","bool","title-center",TitleCentered,(bool)false,"If true, the title of all notes are centered on the page").Query(parameter,found);
 	JSL::ParameterDescription("FontSize","size_t","text-size",FontSize,(size_t)10,"The font size (in pt) of the body text of the documents").Query(parameter,found);
+	JSL::ParameterDescription("DefaultEnumerate","bool","default-enum",DefaultEnumerate,(bool)false,"If true, the autoformatter will default lists to numbered; if false to bullet points").Query(parameter,found);
  }
 void SettingsObject::Parse(int argc, char** argv)
 {

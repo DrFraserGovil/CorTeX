@@ -116,6 +116,7 @@ class SettingsObject_Document
 		size_t TitleSize = 18;
 		bool TitleCentered = false;
 		size_t FontSize = 10;
+		bool DefaultEnumerate = false;
 
 		//default spaceship operator
 		auto operator<=>(const SettingsObject_Document&) const = default;
