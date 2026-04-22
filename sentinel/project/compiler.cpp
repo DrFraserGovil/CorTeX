@@ -210,7 +210,7 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
         } 
         else
         {
-            // LOG(INFO) << result.ErrorMessage;
+            LOG(INFO) << result.ErrorMessage;
         }
         ++truncation;
         errorLine = fileSize - truncation + note->BodyStartLine;

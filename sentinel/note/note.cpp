@@ -117,6 +117,7 @@ void Note::Build(std::string_view preamble)
 }
 bool Note::FlushBuild(int truncation)
 {
+    Generator.Report();
     JSL::initialiseFile(Path.Build);
     std::fstream output(Path.Build,std::ios::out);
     Generator.Flush(output,truncation);

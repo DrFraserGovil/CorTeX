@@ -13,6 +13,7 @@ class TexGenerator
         void BeginBuild(std::string_view preamble, BufferObj & inputBuffer,FileHeader header);
         void Flush(std::fstream & output, int truncation);
         size_t size();
+        void Report();
     private:
         BufferObj Buffer; //make a copy (or take ownership) so can be modified
         LinkSet & Links; //bind as reference as immutable
@@ -29,8 +30,12 @@ class TexGenerator
             InsertedLines.push_back((std::string)line);
             Lines.push_back(-InsertedLines.size()); //we use negative numbers to index the inserted lines. The off-by-one error is to avoid -0 = 0.
         }
-        void ListCheck(int i,std::string_view line);
+        void ListCheck(int i);
+        void FormatCheck(int i);
         size_t ListDepth;
         std::string ListType;
         std::stack<std::string> OpenLists;
+        std::map<std::string,int> ReplaceMap;
+        std::map<std::string,std::tuple<std::string,std::string,std::string>> FormatReplacers;
+        void TrackReplacement(std::string & cmd);
 };
