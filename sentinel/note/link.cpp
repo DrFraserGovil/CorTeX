@@ -29,7 +29,7 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
     bool insideLink=false;
    
     int beginIdx;
-    for (int j = 1; j < line.size()-2; ++j)
+    for (int j = 1; j < line.size()-1; ++j)
     {
         bool isBracket = (line[j] == '[');
         if (isBracket && prevBracket)
@@ -50,6 +50,10 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
 
 
         prevBracket = isBracket;
+    }
+    if (insideLink)
+    {
+        LOG(WARN) << "Line truncated whilst parsing link on line " << lineNo;
     }
     return out;
 
