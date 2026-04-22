@@ -110,7 +110,7 @@ struct CompileReturn
 
 CompileReturn ExternalCall(std::string cmd,std::shared_ptr<Note> note, std::string_view preamble, int truncation,fs::path expectedOut)
 {
-    note->Build(preamble,truncation);
+    note->FlushBuild(truncation);
  
     std::array<char, 256> buffer;
     std::string result;
@@ -150,37 +150,37 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
         LOG(WARN) << note->Path.Source.string() << " reached compiler without being scanned";
     }
 
-    auto & body = note->Buffer.Body;
-    auto State = StateStack();
-    State.Scan(body);
+    // auto & body = note->Buffer.Body;
+    // auto State = StateStack();
+    // State.Scan(body);
 
-    for (int i = 0; i < body.size(); ++i)
-    {
-        std::string_view line = body[i];
-        auto state = State.LineStatus[i];
-        if (state.Type==state.Full)
-        {
-            auto col = (state.Enabled) ? txt::Green : txt::Red;
-            std::cout << col << body[i] << std::endl;
-        }
-        else
-        {
-            int prev = 0;
-            bool type = !state.PartialArray[0].second;
-            auto col = (type)? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
-            for (int i = 0; i < state.PartialArray.size(); ++i)
-            {
-                int idx = state.PartialArray[i].first;
-                std::cout << col << line.substr(prev,idx-prev);
-                prev = idx;
-                col = ( state.PartialArray[i].second) ? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
-            }
-            std::cout << col << line.substr(prev,std::string_view::npos) <<std::endl;
-        }
-    }
+    // for (int i = 0; i < body.size(); ++i)
+    // {
+    //     std::string_view line = body[i];
+    //     auto state = State.LineStatus[i];
+    //     if (state.Type==state.Full)
+    //     {
+    //         auto col = (state.Enabled) ? txt::Green : txt::Red;
+    //         std::cout << col << body[i] << std::endl;
+    //     }
+    //     else
+    //     {
+    //         int prev = 0;
+    //         bool type = !state.PartialArray[0].second;
+    //         auto col = (type)? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
+    //         for (int i = 0; i < state.PartialArray.size(); ++i)
+    //         {
+    //             int idx = state.PartialArray[i].first;
+    //             std::cout << col << line.substr(prev,idx-prev);
+    //             prev = idx;
+    //             col = ( state.PartialArray[i].second) ? Cortex.Colours.DebugGreen : Cortex.Colours.DebugYellow;
+    //         }
+    //         std::cout << col << line.substr(prev,std::string_view::npos) <<std::endl;
+    //     }
+    // }
 
 
-    if (State.Error.found) return;
+    // if (State.Error.found) return;
 
     int fileSize = note->Buffer.Body.size();
     auto dirPath =  note->Parent.lock()->Path.Build.string();
@@ -188,6 +188,9 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
     auto rel = fs::relative(Cortex.Values.ClassFile_Compiler,dirPath);    
     rel.replace_extension("");
     std::string preamble = PreambleHead + rel.string() + PreambleTail;
+
+
+    note->Build(preamble);
 
     std::string cmd = Cortex.Settings.Compiler.CompilerCommand + " -interaction=nonstopmode -halt-on-error -output-directory=" +dirPath;
     cmd += " " + note->Path.Build.string();
@@ -198,7 +201,6 @@ void CompilerObject::CompileFile(std::shared_ptr<Note> note)
 
     while (truncation == 0)
     {
-        note->Build(preamble,truncation);
         auto result = ExternalCall(cmd,note,preamble,truncation,buildpdf);
        
 

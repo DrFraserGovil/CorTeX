@@ -4,7 +4,7 @@
 #include "note_helpers.h"
 #include "fileHeader.h"
 #include "linkSet.h"
-
+#include "builder/TexGenerator.h"
 class Directory;
 class Note
 {
@@ -16,11 +16,14 @@ class Note
         void DiskCheck();
         Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent);
         FileHeader Header;
-        void Build(std::string_view preamble,int Truncation);
         void Scan(bool saveToBuffer,bool scanLinks=true);
         friend class FileIndex;
         friend class CompilerObject;
         bool PendingMetaDataChange = false;
+        
+        
+        void Build(std::string_view preamble);
+        bool FlushBuild(int truncation);
     private:
         bool FailedToCompile = false;
         BufferObj Buffer;
@@ -28,6 +31,9 @@ class Note
         bool SetLinkConnections();
         LinkSet Links;
         int BodyStartLine;
+        TexGenerator Generator;
+
         void Delete();
+
     // static std::shared_ptr<Note> Create(std::filesystem::path path, std::weak_ptr<Directory> parent);
 };

@@ -44,13 +44,13 @@
     
     \newcommand{\titleFontSize}{21pt}
     \newcommand{\titleCentered}{0}
-    \renewcommand{\title}[1]{
+    \renewcommand{\maketitle}{
         \makeatletter
         {\begin{minipage}{\linewidth} % Force the width
             \if\titleCentered1
             \centering
             \fi
-            \bfseries \fontsize{\titleFontSize}{\titleFontSize}\selectfont #1
+            \bfseries \fontsize{\titleFontSize}{\titleFontSize}\selectfont \@title
         \end{minipage}     
         \makeatother
         }

@@ -56,7 +56,7 @@ std::vector<Link> Link::GetLinks(std::string_view line,int lineNo)
 }
 
 
-std::string Link::Render(std::string & requestingFile)
+std::string Link::Render()
 {
     if (!Target.empty())
     {

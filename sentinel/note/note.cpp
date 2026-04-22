@@ -1,7 +1,7 @@
 #include "note.h"
 #include "../global.h"
 #include "JSL/modules/FileIO/FileIO.h"
-Note::Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent) : Path(path),ID(id), Parent(parent)
+Note::Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent) : Path(path),ID(id), Parent(parent), Generator(Links)
 {
     Path.Compile.replace_extension(".pdf");
     IsDirty = false;
@@ -105,53 +105,69 @@ void Note::Scan(bool saveToBuffer,bool scanLinks)
     }
 }
 
-void Note::Build(std::string_view preamble,int Truncation)
+
+void Note::Build(std::string_view preamble)
 {
     IsDirty = false;
-    std::fstream output(Path.Build,std::ios::out);
-    //global preamble & documentclass
-    output << preamble;
-
-    //local preamble
-    for (auto & line : Buffer.Preamble)
-    {
-        output << line << "\n";
-    }
-
-    //main matter
-    output << "\\begin{document}\n";
-    int linkId = 0;
-    output << "\\title{" << Header.Title << "}\n";
-    std::string fileSource = Path.Source.string();
-    for (int i = 0; i < Buffer.Body.size()-Truncation; ++i)
-    {
-        std::string_view line = Buffer.Body[i];
-        if (linkId < Links.Lines.size() && Links.Lines[linkId] == i)
-        {
-            int pos = 0;
-            while (Links.Parsed[linkId].Line == i)
-            {
-                auto & link = Links.Parsed[linkId];
-                output << line.substr(pos,link.Start-pos);
-                output << link.Render(fileSource);
-                // output << "\\textcolor{red}{" << link.RenderText <<"}";
-                pos = link.End;
-                ++linkId;
-            }
-            output << line.substr(pos);
-            
-        }
-        else
-        {
-            output << line;
-        }
-        output << "\n";
-    }
-
-    output << "\\end{document}";
-
-    output.close();
+    Generator.BeginBuild(preamble,Buffer,Header);
 }
+bool Note::FlushBuild(int truncation)
+{
+    std::fstream output(Path.Build,std::ios::out);
+    Generator.Flush(output,truncation);
+    output.close();
+    return false;
+}
+// void Note::Build(std::string_view preamble,int Truncation)
+// {
+//     IsDirty = false;
+//     std::fstream output(Path.Build,std::ios::out);
+//     //global preamble & documentclass
+//     output << preamble;
+
+//     //local preamble
+//     for (auto & line : Buffer.Preamble)
+//     {
+//         output << line << "\n";
+//     }
+
+//     //main matter
+//     output << "\\begin{document}\n";
+//     int linkId = 0;
+//     output << "\\title{" << Header.Title << "}\n";
+//     std::string fileSource = 
+//     for (int i = 0; i < Buffer.Body.size()-Truncation; ++i)
+//     {
+//         std::string_view line = Buffer.Body[i];
+//         if (linkId < Links.Lines.size() && Links.Lines[linkId] == i)
+//         {
+//             int pos = 0;
+//             while (Links.Parsed[linkId].Line == i)
+//             {
+//                 auto & link = Links.Parsed[linkId];
+//                 output << line.substr(pos,link.Start-pos);
+//                 output << link.Render(fileSource);
+//                 // output << "\\textcolor{red}{" << link.RenderText <<"}";
+//                 pos = link.End;
+//                 ++linkId;
+//             }
+//             output << line.substr(pos);
+            
+//         }
+//         else
+//         {
+//             output << line;
+//         }
+//         output << "\n";
+//     }
+
+//     output << "\\end{document}";
+
+//     output.close();
+// }
+
+
+
 
 void tryDelete(fs::path path)
 {
