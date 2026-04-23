@@ -1,9 +1,9 @@
 #pragma once
 #include <vector>
 #include <string_view>
-#include "JSL/modules/Display/Log.h"
 #include "directory_display.h"
-#include "JSL/modules/Parameters/Describer.h"
+#include "Parameters/Describer.h"
+#include "Display/Log.h"
 
 void ShowSetting(std::vector<std::string> & cmd);
 

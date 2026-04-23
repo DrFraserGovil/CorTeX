@@ -1,7 +1,7 @@
 #include "settings.hpp"
 
-#include "JSL/modules/Parameters/Parameter.h"
-#include "JSL/modules/FileIO/fileWriters.h"
+#include "Parameters/Parameter.h"
+#include "FileIO/fileWriters.h"
 #include <cstdlib>//for exit(0)
 void SettingsObject_System_Headless::Parse(int argc, char** argv)
 {

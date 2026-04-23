@@ -1,6 +1,6 @@
 #include "note.h"
 #include "../global.h"
-#include "JSL/modules/FileIO/FileIO.h"
+#include "FileIO/FileIO.h"
 Note::Note(int id, std::filesystem::path path, std::weak_ptr<Directory> parent) : Path(path),ID(id), Parent(parent), Generator(Links)
 {
     Path.Compile.replace_extension(".pdf");

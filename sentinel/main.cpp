@@ -1,5 +1,5 @@
 #define JSL_INCLUDE_LOG
-#include "JSL/JSL.h"
+#include "JSL.h"
 Initialise_JSL_Log()
 #include <iostream>
 #include <csignal>

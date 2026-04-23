@@ -1,5 +1,5 @@
 #pragma once
-#include "JSL/modules/Display/ANSI_Codes.h"
+#include "Display/ANSI_Codes.h"
 
 
 using colour = JSL::TerminalFormat;

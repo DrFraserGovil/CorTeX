@@ -3,8 +3,8 @@
 	WARNING: Do not make manual modifications, as they may be overwritten.
 */
 #pragma once
-#include "JSL/modules/Parameters/Describer.h"
-#include "JSL/modules/Parameters/Parsing.h"
+#include "Parameters/Describer.h"
+#include "Parameters/Parsing.h"
 #include <string>
 #include <vector>
 class SettingsObject_System_Headless

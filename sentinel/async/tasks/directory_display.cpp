@@ -1,8 +1,8 @@
 #include "worker_functions.h"
-#include "JSL/modules/Display/Log.h"
-#include "JSL/modules/Strings/Strings.h"
-
 #include "../global.h"
+#include "Display/Log.h"
+#include "Strings/Strings.h"
+
 #include "../index/directory.h"
 
 std::vector<JSL::TerminalFormat> colorArray = {

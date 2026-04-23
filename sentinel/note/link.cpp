@@ -1,5 +1,5 @@
 #include "link.h"
-#include "JSL/modules/Strings/trim.h"
+#include "Strings/trim.h"
 #include "../global.h"
 Link::Link(int lineNo, int startPos, int endPos, std::string_view line) : Line(lineNo), Start(startPos), End(endPos)
 {

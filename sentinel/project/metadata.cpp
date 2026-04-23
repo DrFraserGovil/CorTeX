@@ -1,6 +1,6 @@
 #include "metadata.h"
 #include "../global.h"
-#include "JSL/modules/FileIO/FileIO.h"
+#include "FileIO/FileIO.h"
 Metadata::Metadata()
 {
     SetDefaults();

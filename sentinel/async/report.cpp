@@ -1,6 +1,6 @@
 #include "report.h"
 #include "../settings/settings.hpp"
-#include "JSL/modules/Strings/Strings.h"
+#include "Strings/Strings.h"
 #include "../global.h"
 
 FileReport::FileReport(std::weak_ptr<Directory> dir, inotify_event *event)

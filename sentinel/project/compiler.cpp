@@ -1,7 +1,7 @@
 #include "compiler.h"
 #include <sstream>
 #include <array>
-#include "JSL/modules/FileIO/FileIO.h"
+#include "FileIO/FileIO.h"
 #include "../global.h"
 #include "../resources/resources.h"
 #include "../note/builder/stateStack.h"

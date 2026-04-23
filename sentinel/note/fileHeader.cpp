@@ -1,5 +1,5 @@
 #include "fileHeader.h"
-#include "JSL/modules/Strings/Strings.h"
+#include "Strings/Strings.h"
 #include "../global.h"
 FileHeader::FileHeader()
 {
