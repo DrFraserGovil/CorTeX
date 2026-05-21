@@ -19,8 +19,24 @@ add_executable(cortex ${ALL_SOURCES} "${GEN_HEADER}")
 
 # Link libraries
 
-######### CURRENTLY LINKS TO LOCAL JSL FOR EASY DEV
-add_subdirectory( ${CMAKE_CURRENT_SOURCE_DIR}/../JSL "${CMAKE_CURRENT_BINARY_DIR}/jsl_build")
+### For development purposes, it is quicker and easier to use the local libraru
+### But other people will need to download it
+set(LOCAL_JSL "${CMAKE_CURRENT_SOURCE_DIR}/../JSL")
+if(EXISTS "${LOCAL_JSL}/CMakeLists.txt")
+    message(STATUS "Using local JSL from ${LOCAL_JSL}")
+    add_subdirectory("${LOCAL_JSL}" "${CMAKE_CURRENT_BINARY_DIR}/jsl_build")
+else()
+    message(STATUS "Local JSL not found. Fetching from Git...")
+    include(FetchContent)
+        FetchContent_Declare(
+        jsl
+        GIT_REPOSITORY https://github.com/DrFraserGovil/JSL.git
+        GIT_TAG        deheader  
+    )
+    FetchContent_MakeAvailable(jsl)
+endif()
+
+
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
