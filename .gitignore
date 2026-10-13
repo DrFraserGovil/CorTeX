@@ -4,5 +4,6 @@
 *compiled
 *test
 
+*jvim.session
 node_modules/
 out/
