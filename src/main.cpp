@@ -1,10 +1,9 @@
 #include "Project.h"
-#include "ProjectSettings.h"
-#include "config.h"
-#include "create.h"
+#include "Settings/ArchiveSettings.h"
+#include "Setup.h"
 #include <JSL.h>
 SettingsObject Settings;
-ProjectSettings Project;
+ArchiveSettings Archive;
 void ConfigureLog()
 {
 	JSL::Log::Global().SetLevel(INFO);
@@ -99,7 +98,7 @@ void ValidateCortexDirectory(Mode mode)
 		{
 			LOG(DEBUG) << "Located registry file in" << Settings.RootPath;
 			LOG(INFO) << "Loading project settings";
-			Project.Configure(Settings.RootPath / ".cortex/settings.config", " ");
+			Archive.Configure(Settings.RootPath / ".cortex/settings.config", " ");
 		}
 	}
 }

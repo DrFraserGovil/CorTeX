@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Settings.h"
+#include "Settings/Settings.h"
 
 enum class Mode
 {

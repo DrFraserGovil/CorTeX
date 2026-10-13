@@ -1,7 +1,7 @@
 
 #pragma once
 #include <JSL/Interface.h>
-class ProjectSettings : public JSL::Interface::Aggregator<ProjectSettings>
+class ArchiveSettings : public JSL::Interface::Aggregator<ArchiveSettings>
 {
   public:
 	//! @alias width
@@ -11,10 +11,7 @@ class ProjectSettings : public JSL::Interface::Aggregator<ProjectSettings>
 	//! @brief The paperheight of the rendered document
 	double RenderHeightCM = 25;
 
-	//! @alias vector
-	//! @brief test
-	std::vector<double> testVec = {1, 2, 3.3};
-#include "Settings.ProjectSettings.autogen"
+#include "ArchiveSettings.ArchiveSettings.autogen"
 };
 
-extern ProjectSettings Project;
+extern ArchiveSettings Archive;

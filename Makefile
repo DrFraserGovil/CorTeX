@@ -14,7 +14,7 @@ all:
 	fi
 	@cmake --build $(BUILD_DIR)  --config Release --target cortex $(EXTRA_BUILD_FLAGS) 
 mirror:
-	@command -v lsj>/dev/null 2>&1 && lsj src/Settings.h $(MIRROR_FLAGS) || echo "no mirror found, using cached values" 
+	@command -v lsj>/dev/null 2>&1 && lsj src/Settings/Settings.h src/Settings/ArchiveSettings.h $(MIRROR_FLAGS) || echo "no mirror found, using cached values" 
 ship:
 	@make mirror
 	@mkdir -p $(BUILD_DIR)

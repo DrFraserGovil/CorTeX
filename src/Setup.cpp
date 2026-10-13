@@ -1,8 +1,16 @@
-#include "create.h"
+#include "Setup.h"
 #include "JSL.h"
-#include "ProjectSettings.h"
-#include "Settings.h"
-#include "config.h"
+#include "Settings/ArchiveSettings.h"
+#include "Settings/Settings.h"
+
+void ConfigInterface()
+{
+	LOG(INFO) << JSL::Display::Yellow(true) << "\t-- Settings Interface --\t\t" << JSL::Display::ResetAll();
+	auto out = JSL::Interface::Console(Archive);
+
+	out.Export(Settings.RootPath / ".cortex/settings.config", true);
+	Archive = out;
+}
 
 auto prompt = JSL::Display::Colour(100, 100, 100);
 // Prints a question (showing the default, if any) and reads one line from std::cin.
@@ -66,8 +74,8 @@ void MakeCortex(std::string name, std::string documentclass)
 	auto registry = dir / "registry.ctx";
 	JSL::IO::writeString(registry, "name = " + name + "\n");
 
-	Project.Reset();
-	Project.Export(dir / "settings.config", true);
+	Archive.Reset();
+	Archive.Export(dir / "settings.config", true);
 }
 
 void CreateArchive()
