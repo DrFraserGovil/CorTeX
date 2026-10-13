@@ -1,16 +1,6 @@
 #pragma once
 
-#include "Settings/Settings.h"
-
-enum class Mode
-{
-	Shutdown,
-	Build,
-	Rebuild,
-	New,
-	Settings,
-	Watch,
-};
+// #include "Settings/Settings.h"
 
 class CortexProject
 {

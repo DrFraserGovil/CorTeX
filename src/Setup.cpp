@@ -1,14 +1,14 @@
 #include "Setup.h"
 #include "JSL.h"
 #include "Settings/ArchiveSettings.h"
-#include "Settings/Settings.h"
+#include "Settings/RuntimeSettings.h"
 
 void ConfigInterface()
 {
 	LOG(INFO) << JSL::Display::Yellow(true) << "\t-- Settings Interface --\t\t" << JSL::Display::ResetAll();
 	auto out = JSL::Interface::Console(Archive);
 
-	out.Export(Settings.RootPath / ".cortex/settings.config", true);
+	out.Export(Runtime.RootPath / ".cortex/settings.config", true);
 	Archive = out;
 }
 
@@ -65,7 +65,7 @@ bool Confirm(const std::string &question, bool defaultValue)
 
 void MakeCortex(std::string name, std::string documentclass)
 {
-	auto dir = Settings.RootPath / ".cortex";
+	auto dir = Runtime.RootPath / ".cortex";
 	JSL::IO::mkdir(dir, JSL::IO::Policy::Generous); // can use generous because we only get here if an extant archive is malformed, so overwrite anything already present
 
 	auto preamble = dir / "preamble.tex";

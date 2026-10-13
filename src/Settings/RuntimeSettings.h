@@ -8,7 +8,7 @@
 //! @command shutdown Sends a shutdown message to a running CorTeX instance
 //! @command settings Open the settings-modification interface
 //! @command watch Begins a persistent process which watches the current archive for changes to the source file
-class SettingsObject : public JSL::Interface::Aggregator<SettingsObject>
+class RuntimeSettingsObject: public JSL::Interface::Aggregator<RuntimeSettingsObject>
 {
   public:
 	//! @alias v verbose
@@ -23,8 +23,6 @@ class SettingsObject : public JSL::Interface::Aggregator<SettingsObject>
 	//! @brief The directory to target as the root (if none provided, uses the current working directory)
 	std::filesystem::path RootPath;
 
-#include "Settings.SettingsObject.autogen"
-
 	void Initialise(int argc, char **argv)
 	{
 		Parse(argc, argv);
@@ -34,6 +32,7 @@ class SettingsObject : public JSL::Interface::Aggregator<SettingsObject>
 		}
 		RootPath = std::filesystem::weakly_canonical(RootPath);
 	}
+	#include "RuntimeSettings.RuntimeSettingsObject.autogen"
 };
 
-extern SettingsObject Settings;
+extern RuntimeSettingsObject Runtime;

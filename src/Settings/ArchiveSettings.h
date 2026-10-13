@@ -1,7 +1,7 @@
 
 #pragma once
 #include <JSL/Interface.h>
-class ArchiveSettings : public JSL::Interface::Aggregator<ArchiveSettings>
+class ArchiveSettings: public JSL::Interface::Aggregator<ArchiveSettings>
 {
   public:
 	//! @alias width
@@ -10,8 +10,7 @@ class ArchiveSettings : public JSL::Interface::Aggregator<ArchiveSettings>
 	//! @alias height
 	//! @brief The paperheight of the rendered document
 	double RenderHeightCM = 25;
-
-#include "ArchiveSettings.ArchiveSettings.autogen"
+	#include "ArchiveSettings.ArchiveSettings.autogen"
 };
 
 extern ArchiveSettings Archive;
