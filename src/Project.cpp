@@ -57,7 +57,6 @@ void CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preambl
 {
 	bool pdf = Archive.PdfOutput;
 	TexRunner tex(BuildDir, preamble, pdf);
-	SvgConverter svg;
 	Emitter emitter(OutputDir);
 
 	size_t failures = 0;
@@ -77,13 +76,13 @@ void CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preambl
 			continue;
 		}
 
-		auto pages = svg.Convert(*output);
-		if (pages.empty())
+		auto svg = Svg::Convert(*output);
+		if (!svg)
 		{
 			++failures;
 			continue;
 		}
-		emitter.WriteNote(note, pages);
+		emitter.WriteNote(note, {*svg});
 	}
 	emitter.WriteIndex(notes, pdf);
 

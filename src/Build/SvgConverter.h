@@ -1,12 +1,11 @@
 #pragma once
 #include <filesystem>
+#include <optional>
 #include <string>
-#include <vector>
 
-//! Converts an XDV file into one SVG string per page using dvisvgm
-class SvgConverter
+namespace Svg
 {
-  public:
-	//! @returns The SVG text of each page, in order; empty if conversion failed (the reason is logged)
-	std::vector<std::string> Convert(const std::filesystem::path &xdv);
-};
+	//! Converts a single-page XDV file into SVG using dvisvgm
+	//! @returns The SVG text, or nullopt if conversion failed (the reason is logged)
+	std::optional<std::string> Convert(const std::filesystem::path &xdv);
+} // namespace Svg
