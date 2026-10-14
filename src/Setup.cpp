@@ -63,13 +63,13 @@ bool Confirm(const std::string &question, bool defaultValue)
 	}
 }
 
-void MakeCortex(std::string name, std::string documentclass)
+void MakeCortex(std::string name)
 {
 	auto dir = Runtime.RootPath / ".cortex";
 	JSL::IO::mkdir(dir, JSL::IO::Policy::Generous); // can use generous because we only get here if an extant archive is malformed, so overwrite anything already present
 
 	auto preamble = dir / "preamble.tex";
-	JSL::IO::writeString(preamble, "\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n\\PassOptionsToPackage{dvisvgm}{graphicx} \\PassOptionsToPackage{dvisvgm}{graphics}\\PassOptionsToPackage{dvisvgm}{xcolor}\\documentclass{" + documentclass + "}");
+	JSL::IO::writeString(preamble, "%% ALL DECLARATIONS HERE ARE SHARED WITH ALL FILES IN THE ARCHIVE\n");
 
 	auto registry = dir / "registry.ctx";
 	JSL::IO::writeString(registry, "name = " + name + "\n");
@@ -80,16 +80,15 @@ void MakeCortex(std::string name, std::string documentclass)
 
 void CreateArchive()
 {
+	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Creation Interface --\t\t" << JSL::Display::ResetAll();
 	LOG(INFO) << "You will now be prompted for the setup information. Values presented " << prompt << "[like this]" << JSL::Display::ResetAll() << " are defaults, and will be used if no value is given";
 	LOG(INFO)
 		<< "What will the new CorTeX project be called?";
 	auto name = Prompt("Archive Name", "My Project");
 
-	std::cout << "Please select the documentclass to be assigned to files \n'cortex' will use the inbuilt class optimised for viewing CorTeX files\n";
-	auto documentclass = Prompt("Document Class", "cortex");
 	bool conf = Confirm("Open Settings Interface?", false);
 
-	MakeCortex(name, documentclass);
+	MakeCortex(name);
 
 	if (conf)
 	{

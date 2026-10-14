@@ -1,3 +1,4 @@
+#include "Project.h"
 #include "Settings/ArchiveSettings.h"
 #include "Settings/RuntimeSettings.h"
 #include "Setup.h"
@@ -132,6 +133,9 @@ int main(int argc, char **argv)
 				break;
 			case Mode::Settings:
 				ConfigInterface();
+				break;
+			case Mode::Rebuild:
+				CortexProject(Runtime.RootPath).CleanRebuild();
 				break;
 			default:
 				throw std::runtime_error("End of the line");

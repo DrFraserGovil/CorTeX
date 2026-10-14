@@ -8,4 +8,7 @@ void FieldList(Wrapper &&W)
 	Name = "ArchiveSettings";
 	W(JSL::Interface::Field<double>(RenderWidthCM, "RenderWidthCM", {"width"}, 25, "The paperwidth of the rendered document"));
 	W(JSL::Interface::Field<double>(RenderHeightCM, "RenderHeightCM", {"height"}, 25, "The paperheight of the rendered document"));
+	W(JSL::Interface::Field<std::vector<std::string>>(AllowedFilePatterns, "AllowedFilePatterns", {"allowed", "allowed-files"}, {"*.tex"}, "Files which match these globs will be added into the archive"));
+	W(JSL::Interface::Field<std::vector<std::string>>(IgnoredFilePatterns, "IgnoredFilePatterns", {"ignored", "ignored-files"}, {".*"}, "Files which match these globs can never be added (even if they meet the matching criteria)"));
+	W(JSL::Interface::Field<bool>(PdfOutput, "PdfOutput", {"pdf"}, false, "If true, each note is compiled to a standalone PDF instead of SVG pages for the browser viewer"));
 }
