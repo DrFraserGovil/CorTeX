@@ -14,11 +14,12 @@ class CortexProject
 
   private:
 	std::filesystem::path Root;
-	std::filesystem::path BuildDir;	 //!< scratch space for tex/xdv/svg intermediates
-	std::filesystem::path OutputDir; //!< the browser-facing product
+	std::filesystem::path BuildDir;	  //!< scratch space for tex/xdv/svg intermediates
+	std::filesystem::path OutputDir;  //!< the browser-facing product
+	std::filesystem::path StagingDir; //!< the browser-facing product
 
 	//! Every .tex file under Root, relative to Root, skipping hidden files and directories (including .cortex)
 	std::set<std::filesystem::path> FindSources() const;
 
-	void BuildFiles(std::vector<Note> path, std::string_view preamble);
+	size_t BuildFiles(std::vector<Note> path, std::string_view preamble, bool stageOuput);
 };

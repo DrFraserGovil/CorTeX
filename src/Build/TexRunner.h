@@ -16,11 +16,15 @@ class TexRunner
 	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf);
 
 	//! Compiles the note. The working directory is the note's source directory, so relative inputs and images resolve as they would for the author.
+	//! @details xelatex is rerun (up to MaxPasses times) while the log asks for it, so cross-references are correct regardless of what earlier builds left behind.
 	//! @returns The path to the resulting XDV (or PDF) file, or nullopt if compilation failed (the reason is logged)
 	std::optional<std::filesystem::path> Compile(const Note &note);
 
 	//! The source of cortex.cls, as compiled into this binary (needed by anything hashing the build inputs)
 	static std::string_view ClassSource();
+
+	//! The maximum number of xelatex passes per note, before giving up on references settling
+	static constexpr int MaxPasses = 3;
 
   private:
 	std::filesystem::path BuildDir;

@@ -55,6 +55,20 @@ std::filesystem::path changeExtension(std::filesystem::path input, const std::st
 	return input;
 }
 
+// True if a TeX log contains one of LaTeX's (or a package's) requests for another pass.
+// Deliberately excludes "There were undefined references": a genuinely undefined label never resolves, so rerunning would just waste passes.
+static bool NeedsRerun(const std::string &log)
+{
+	for (std::string_view signal : {"Rerun to get", "Rerun LaTeX", "Please rerun", "Label(s) may have changed"})
+	{
+		if (log.find(signal) != std::string::npos)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 {
 	auto texFile = BuildDir / (note.Id + ".tex");
@@ -82,17 +96,31 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 	/// CONSTRUCT COMPILATION INSTRUCTIONS
 	std::string mode = ProducePdf ? "" : "-no-pdf ";
 	// cortex.cls lives in BuildDir, which isn't on TeX's search path; the trailing ':' keeps the default paths after it
-	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": xelatex " + mode + "-interaction=nonstopmode -halt-on-error -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
+	// max_print_line stops TeX wrapping log lines at 79 characters, which could split the rerun messages we search for
+	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 xelatex " + mode + "-interaction=nonstopmode -halt-on-error -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
 
-	/// RUN COMPILER
+	/// RUN COMPILER UNTIL REFERENCES SETTLE
+	// Each pass resolves references using the .aux written by the pass before; LaTeX says in the log when that has changed things
 	auto stdFile = changeExtension(texFile, ".stdcout");
-	int code = Shell::Run(cmd, (note.SourceAbsolutePath).parent_path(), stdFile);
-
-	/// CHECK IF IT WORKED
-	if (code != 0 || !std::filesystem::exists(outFile))
+	for (int pass = 1; pass <= MaxPasses; ++pass)
 	{
-		LOG(WARN) << "Failed to compile " << note.RelativePath << " (xelatex exit code " << code << "); see " << logFile;
-		return std::nullopt;
+		LOG(DEBUG) << "xelatex pass " << pass << " for " << note.RelativePath;
+		int code = Shell::Run(cmd, (note.SourceAbsolutePath).parent_path(), stdFile);
+
+		/// CHECK IF IT WORKED
+		if (code != 0 || !std::filesystem::exists(outFile))
+		{
+			LOG(WARN) << "Failed to compile " << note.RelativePath << " (xelatex exit code " << code << "); see " << logFile;
+			return std::nullopt;
+		}
+
+		/// CHECK IF ANOTHER PASS IS NEEDED
+		if (!NeedsRerun(JSL::IO::getFile(logFile)))
+		{
+			return outFile;
+		}
 	}
+
+	LOG(WARN) << "References in " << note.RelativePath << " had not settled after " << MaxPasses << " passes; some may be wrong. See " << logFile;
 	return outFile;
 }

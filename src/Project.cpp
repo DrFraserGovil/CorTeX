@@ -10,13 +10,14 @@ CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
 {
 	BuildDir = Root / ".cortex/build";
 	OutputDir = Root / "view";
+	StagingDir = Root / ".cortex/staging";
 }
 
 std::set<std::filesystem::path> CortexProject::FindSources() const
 {
 	auto forceExclude = Archive.IgnoredFilePatterns;
 	forceExclude.push_back(".cortex");
-	forceExclude.push_back(OutputDir);
+	forceExclude.push_back(OutputDir.filename());
 	auto exclude = JSL::IO::multiGlobToRegex(forceExclude);
 	auto include = JSL::IO::multiGlobToRegex(Archive.AllowedFilePatterns);
 	auto dir = JSL::IO::Directory::Snapshot(Root, exclude);
@@ -34,6 +35,9 @@ void CortexProject::CleanRebuild()
 	LOG(INFO) << "The entire project will now be rebuilt from scratch";
 	auto tmp = JSL::Log::Indent();
 
+	/// Clear the old staging and build directory
+	std::filesystem::remove_all(StagingDir);
+
 	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	std::vector<Note> notes;
 	std::map<std::string, std::filesystem::path> seen;
@@ -48,16 +52,35 @@ void CortexProject::CleanRebuild()
 		seen[note.Id] = path;
 		notes.push_back(std::move(note));
 	}
+
+	if (notes.empty())
+	{
+		LOG(WARN) << "Archive has no source files to compile";
+		return;
+	}
 	LOG(INFO) << "Found " << notes.size() << " notes";
 
-	BuildFiles(notes, preamble);
+	size_t failures = BuildFiles(notes, preamble, true);
+
+	if (failures < notes.size()) // i.e. if *some* files managed to compile
+	{
+		std::filesystem::remove_all(OutputDir);
+		std::filesystem::rename(StagingDir, OutputDir);
+	}
+	else
+	{
+		LOG(ERROR) << "Catastrophic compilation failure; the project could not compile\n"
+				   << "The files in " << OutputDir << " are unaffected";
+		throw std::runtime_error("All files failed to compile");
+	}
 }
 
-void CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preamble)
+size_t CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preamble, bool stageOutput)
 {
+	auto writeTarget = stageOutput ? StagingDir : OutputDir;
 	bool pdf = Archive.PdfOutput;
 	TexRunner tex(BuildDir, preamble, pdf);
-	Emitter emitter(OutputDir);
+	Emitter emitter(writeTarget);
 
 	size_t failures = 0;
 	for (auto &note : notes)
@@ -84,11 +107,16 @@ void CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preambl
 		}
 		emitter.WriteNote(note, {*svg});
 	}
-	emitter.WriteIndex(notes, pdf);
+	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
+	if (!pdf)
+	{
+		emitter.WriteIndex(notes);
+	}
 
 	if (failures > 0)
 	{
 		LOG(WARN) << failures << " of " << notes.size() << " notes failed to build";
 	}
-	LOG(INFO) << "Output written to " << OutputDir / "index.html";
+	LOG(INFO) << "Output written to " << (pdf ? writeTarget : writeTarget / "index.html");
+	return failures;
 }

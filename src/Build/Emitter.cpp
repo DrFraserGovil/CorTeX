@@ -59,9 +59,7 @@ main svg { display: block; max-width: 100%; height: auto; margin-bottom: 1em; bo
 <nav><ul id="list"></ul></nav>
 <main id="note">Select a note</main>
 <script>
-let cortexFormat = "svg";
-function CortexIndex(notes, format) {
-	cortexFormat = format;
+function CortexIndex(notes) {
 	const list = document.getElementById("list");
 	for (const n of notes) {
 		const li = document.createElement("li");
@@ -77,13 +75,6 @@ function CortexNote(note) {
 function show() {
 	const m = location.hash.match(/^#\/n\/(.+)$/);
 	if (!m) return;
-	if (cortexFormat === "pdf") {
-		const frame = document.createElement("iframe");
-		frame.src = "notes/" + decodeURIComponent(m[1]) + ".pdf";
-		frame.style = "width: 100%; height: 95vh; border: none;";
-		document.getElementById("note").replaceChildren(frame);
-		return;
-	}
 	const s = document.createElement("script");
 	s.src = "notes/" + decodeURIComponent(m[1]) + ".js";
 	document.body.appendChild(s);
@@ -116,12 +107,13 @@ void Emitter::WriteNote(const Note &note, const std::vector<std::string> &pages)
 
 void Emitter::WritePdf(const Note &note, const std::filesystem::path &pdf)
 {
-	auto target = OutputDir / "notes" / (note.Id + ".pdf");
+	auto target = OutputDir / note.RelativePath;
+	target.replace_extension(".pdf");
 	JSL::IO::mkdir(target.parent_path(), JSL::IO::Policy::Generous);
 	std::filesystem::copy_file(pdf, target, std::filesystem::copy_options::overwrite_existing);
 }
 
-void Emitter::WriteIndex(const std::vector<Note> &notes, bool pdf)
+void Emitter::WriteIndex(const std::vector<Note> &notes)
 {
 	JSL::IO::mkdir(OutputDir, JSL::IO::Policy::Generous);
 
@@ -131,7 +123,7 @@ void Emitter::WriteIndex(const std::vector<Note> &notes, bool pdf)
 		auto &n = notes[i];
 		js += (i > 0 ? ",\n" : "") + std::string("{\"id\":") + JsonString(n.Id) + ",\"title\":" + JsonString(n.Title) + ",\"path\":" + JsonString(n.RelativePath.generic_string()) + "}";
 	}
-	js += std::string("\n], ") + (pdf ? "\"pdf\"" : "\"svg\"") + ");\n";
+	js += "\n]);\n";
 	JSL::IO::writeString(OutputDir / "index.js", js);
 	JSL::IO::writeString(OutputDir / "index.html", StubViewer);
 }

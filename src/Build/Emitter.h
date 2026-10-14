@@ -13,12 +13,11 @@ class Emitter
 	//! Writes notes/<id>.js, which calls CortexNote({...}) when loaded
 	void WriteNote(const Note &note, const std::vector<std::string> &pages);
 
-	//! Copies a compiled PDF to notes/<id>.pdf
+	//! Copies a compiled PDF into the output directory, mirroring the note's source path (sub/Note.tex -> sub/Note.pdf)
 	void WritePdf(const Note &note, const std::filesystem::path &pdf);
 
 	//! Writes index.js (calls CortexIndex([...]) when loaded) and the stub index.html viewer
-	//! @param pdf If true, the viewer opens notes/<id>.pdf rather than loading notes/<id>.js
-	void WriteIndex(const std::vector<Note> &notes, bool pdf);
+	void WriteIndex(const std::vector<Note> &notes);
 
   private:
 	std::filesystem::path OutputDir;
