@@ -1,6 +1,5 @@
 #pragma once
 #include "Build/Note.h"
-#include <JSL/Async.h>
 #include <filesystem>
 #include <set>
 //! Owns everything needed to turn an archive into its output folder
@@ -11,8 +10,6 @@ class CortexProject
 
 	//! Compiles every note in the archive and writes the output folder
 	void CleanRebuild();
-
-	void Shutdown();
 
   private:
 	std::filesystem::path Root;
@@ -28,9 +25,4 @@ class CortexProject
 	std::set<std::filesystem::path> FindSources() const;
 
 	size_t BuildFiles(std::vector<Note> path, std::string_view preamble, bool stageOuput);
-
-	void BuildLock();
-
-	std::string CanonicaliseName();
-	JSL::Async::Watcher::Socket Blocker;
 };

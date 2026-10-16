@@ -1,10 +1,10 @@
 #include "Project.h"
 #include "Build/Emitter.h"
+#include "Build/ProjectLock.h"
 #include "Build/SvgConverter.h"
 #include "Build/TexRunner.h"
 #include "Settings/ArchiveSettings.h"
 #include <JSL.h>
-#include <JSL/Async.h>
 #include <JSL/IO.h>
 #include <map>
 CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
@@ -32,7 +32,9 @@ std::set<std::filesystem::path> CortexProject::FindSources() const
 
 void CortexProject::CleanRebuild()
 {
-	BuildLock();
+	// held until this function returns or throws; another build of this project can't start in the meantime
+	ProjectLock lock(Root);
+
 	/// visual info
 	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Recompile --\t\t" << JSL::Display::ResetAll();
 	LOG(INFO) << "The entire project will now be rebuilt from scratch";
@@ -87,10 +89,6 @@ void CortexProject::CleanRebuild()
 				   << "The files in " << OutputDir << " are unaffected";
 		throw std::runtime_error("All files failed to compile");
 	}
-}
-void CortexProject::Shutdown()
-{
-	Blocker.Stop();
 }
 
 void CortexProject::SwapStagingIntoOutput()
@@ -166,43 +164,4 @@ size_t CortexProject::BuildFiles(std::vector<Note> notes, std::string_view pream
 	}
 	LOG(INFO) << "Output written to " << (pdf ? writeTarget : writeTarget / "index.html");
 	return failures;
-}
-void CortexProject::BuildLock()
-{
-	auto name = CanonicaliseName();
-	// Watcher.SetSocketCallback(name, [this](std::string line) {
-	// 	LOG(INFO) << "Message recieved on blocking socket:\n"
-	// 			  << line;
-	// });
-	// Watcher.Start();
-
-	try
-	{
-		Blocker.Initialise(name, [](std::string_view line) {
-			LOG(INFO) << "Message recieved on blocking socket:\n"
-					  << line;
-		});
-		Blocker.Start();
-	}
-	catch (std::exception &e)
-	{
-		LOG(ERROR) << JSL::Display::Yellow() << "Could not acquire a lock for this project\nThe most likely cause is another build process in process.\nFull socket diagnostic below\n";
-		throw std::runtime_error(e.what());
-	}
-}
-
-std::string CortexProject::CanonicaliseName()
-{
-	// canonical: resolves symlinks, '..' and trailing slashes, so every route to the same folder agrees
-	auto key = std::filesystem::canonical(Root).string();
-
-	// FNV-1a (64-bit): tiny, and gives the same answer in every build, on every compiler
-	uint64_t hash = 14695981039346656037ull;
-	for (unsigned char c : key)
-	{
-		hash ^= c;
-		hash *= 1099511628211ull;
-	}
-
-	return std::format("cortex-{}-{:016x}", Root.filename().string(), hash);
 }

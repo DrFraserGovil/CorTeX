@@ -1,4 +1,5 @@
 #include "Note.h"
+#include "../Utility/Sanitise.h"
 #include "../Settings/RuntimeSettings.h"
 #include <JSL.h>
 // A line consisting solely of five or more dashes (surrounding whitespace allowed) delineates sections.
@@ -91,17 +92,6 @@ std::string Note::Slug(const std::filesystem::path &relativePath)
 {
 	auto stem = relativePath;
 	stem.replace_extension();
-	std::string slug;
-	for (char c : stem.generic_string())
-	{
-		if (std::isalnum(static_cast<unsigned char>(c)) || c == '/' || c == '-' || c == '_')
-		{
-			slug += std::tolower(static_cast<unsigned char>(c));
-		}
-		else
-		{
-			slug += '-';
-		}
-	}
-	return slug;
+	// '/' survives so that ids mirror the folder structure; lowercase so ids don't depend on how a file name was capitalised
+	return Utility::Sanitise(stem.generic_string(), "/-_", true);
 }

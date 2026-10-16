@@ -18,7 +18,7 @@ auto prompt = JSL::Display::Colour(100, 100, 100);
 // the default is used if there is one; otherwise this throws, since there's no sensible answer.
 std::string Prompt(const std::string &question, const std::string &defaultValue = "")
 {
-	std::cout << JSL::Display::Purple() << question << ":";
+	std::cout << JSL::Display::Green() << question << ":";
 	if (!defaultValue.empty())
 	{
 		std::cout << prompt << " [" << defaultValue << "] ";
@@ -63,35 +63,70 @@ bool Confirm(const std::string &question, bool defaultValue)
 	}
 }
 
-void MakeCortex(std::string name)
+const std::filesystem::path cortexDir = ".cortex";
+const std::filesystem::path preambleFile = cortexDir / "preamble.tex";
+const std::filesystem::path registryFile = cortexDir / "registry.ctx";
+const std::filesystem::path settingsFile = cortexDir / "settings.config";
+
+void PrepareCortex(bool writeSettings, bool writePreamble)
 {
-	auto dir = Runtime.RootPath / ".cortex";
-	JSL::IO::mkdir(dir, JSL::IO::Policy::Generous); // can use generous because we only get here if an extant archive is malformed, so overwrite anything already present
+	JSL::IO::mkdir(Runtime.RootPath / cortexDir, JSL::IO::Policy::Generous);
 
-	auto preamble = dir / "preamble.tex";
-	JSL::IO::writeString(preamble, "%% ALL DECLARATIONS HERE ARE SHARED WITH ALL FILES IN THE ARCHIVE\n");
+	if (writePreamble)
+	{
+		JSL::IO::writeString(Runtime.RootPath / preambleFile, "%% ALL DECLARATIONS HERE ARE SHARED WITH ALL FILES IN THE ARCHIVE\n");
+	}
 
-	auto registry = dir / "registry.ctx";
-	JSL::IO::writeString(registry, "name = " + name + "\n");
+	if (writeSettings)
+	{
+		Archive.Reset();
+		Archive.Export(Runtime.RootPath / settingsFile, true);
+	}
+	else
+	{
+		Archive.Configure(Runtime.RootPath / settingsFile, " ");
+	}
 
-	Archive.Reset();
-	Archive.Export(dir / "settings.config", true);
+	auto reg = Runtime.RootPath / registryFile;
+	JSL::IO::remove(reg, JSL::IO::Policy::Generous); // if the registry file exists, remove it here so that configuration can't complete it is re-written. Prevents half-formed files
+}
+
+void FinaliseCortex(std::string name)
+{
+	LOG(INFO) << JSL::Display::Green() << "Finalising CorTeX Registration";
+	JSL::IO::writeString(Runtime.RootPath / registryFile, "name = " + name + "\n");
+}
+
+bool overwriteCheck(std::string name, std::filesystem::path path)
+{
+	bool fileExists = std::filesystem::exists(path);
+	if (fileExists)
+	{
+		LOG(WARN) << "A " << name << " file already exists at " << path.string();
+		return Confirm("Overwrite?", false);
+	}
+	return true;
 }
 
 void CreateArchive()
 {
-	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Creation Interface --\t\t" << JSL::Display::ResetAll();
-	LOG(INFO) << "You will now be prompted for the setup information. Values presented " << prompt << "[like this]" << JSL::Display::ResetAll() << " are defaults, and will be used if no value is given";
+	LOG(INFO) << JSL::Display::Green(true) << "\t-- Creation Interface --\t\t" << JSL::Display::ResetAll();
+	LOG(INFO) << "You will now be prompted for the setup information.\nValues presented " << prompt << "[like this]" << JSL::Display::ResetAll() << " are defaults, and will be used if no value is given";
 	LOG(INFO)
 		<< "What will the new CorTeX project be called?";
 	auto name = Prompt("Archive Name", "My Project");
 
-	bool conf = Confirm("Open Settings Interface?", false);
+	bool writeSettings = overwriteCheck("Settings", Runtime.RootPath / ".cortex/settings.config");
+	bool writePreamble = overwriteCheck("Preamble", Runtime.RootPath / ".cortex/preamble.tex");
 
-	MakeCortex(name);
+	LOG(INFO) << "Do you want to change the default settings?";
+	bool conf = Confirm("Change Settings?", false);
+
+	PrepareCortex(writeSettings, writePreamble);
 
 	if (conf)
 	{
 		ConfigInterface();
 	}
+	FinaliseCortex(name);
 }
