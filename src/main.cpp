@@ -134,9 +134,12 @@ int main(int argc, char **argv)
 			case Mode::Settings:
 				ConfigInterface();
 				break;
-			case Mode::Rebuild:
-				CortexProject(Runtime.RootPath).CleanRebuild();
-				break;
+			case Mode::Rebuild: {
+				CortexProject P = CortexProject(Runtime.RootPath);
+				P.CleanRebuild();
+				ConfigInterface();
+			}
+			break;
 			default:
 				throw std::runtime_error("End of the line");
 		}

@@ -1,6 +1,8 @@
 #include "TexRunner.h"
 #include "Shell.h"
 #include <JSL.h>
+#include <algorithm>
+#include <regex>
 
 // The class every note is compiled against. The [svg] option (the default) loads the dvisvgm drivers, which
 // must be in place before any user package loads pgf, graphicx or xcolor; [pdf] leaves the native drivers alone.
@@ -8,20 +10,38 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{cortex}[CorTeX note class]
 \newif\ifcortex@svg
 \cortex@svgtrue
-\DeclareOption{svg}{\cortex@svgtrue}
-\DeclareOption{pdf}{\cortex@svgfalse}
-\DeclareOption*{\PassOptionsToClass{\CurrentOption}{article}}
-\ProcessOptions\relax
+\def\cortex@width{25cm}
+\DeclareKeys[cortex]{
+	svg .code = \cortex@svgtrue,
+	pdf .code = \cortex@svgfalse,
+	width .store = \cortex@width,
+	unknown .code = \PassOptionsToClass{\CurrentOption}{standalone}
+}
+\ProcessKeyOptions[cortex]
 \ifcortex@svg
 	\def\pgfsysdriver{pgfsys-dvisvgm.def}
 	\PassOptionsToPackage{dvisvgm}{graphicx}
 	\PassOptionsToPackage{dvisvgm}{graphics}
 	\PassOptionsToPackage{dvisvgm}{xcolor}
 \fi
-\LoadClass{article}
+\LoadClass{standalone}
+
+% The engine wraps every note body in this, so all notes share one fixed width (and narrower content can be centred within it).
+% minipage resets \parindent and \parskip to zero, so the values set by the preambles are captured before it opens, and restored inside.
+\newlength{\cortex@parindent}
+\newskip\cortex@parskip
+\newenvironment{cortexbody}
+{%
+	\setlength{\cortex@parindent}{\parindent}%
+	\setlength{\cortex@parskip}{\parskip}%
+	\begin{minipage}{\cortex@width}%
+	\setlength{\parindent}{\cortex@parindent}%
+	\setlength{\parskip}{\cortex@parskip}%
+}
+{\end{minipage}}
 )tex";
 
-TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf)
+TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM)
 {
 	WriteClass();
 }
@@ -69,6 +89,56 @@ static bool NeedsRerun(const std::string &log)
 	return false;
 }
 
+// The number of the line on which the next appended text would start
+static size_t NextLine(const std::string &text)
+{
+	return std::count(text.begin(), text.end(), '\n') + 1;
+}
+
+std::string TexRunner::Diagnose(const Note &note, const std::filesystem::path &texFile, const std::filesystem::path &logFile, const Layout &layout) const
+{
+	if (!std::filesystem::exists(logFile))
+	{
+		return "no log was produced";
+	}
+
+	// with -file-line-error, TeX reports errors as "<file>:<line>: <message>"
+	static const std::regex errorLine(R"(^(.*):([0-9]+): (.*)$)");
+	for (auto &line : JSL::IO::getFileLines(logFile))
+	{
+		std::smatch match;
+		if (!std::regex_match(line, match, errorLine))
+		{
+			continue;
+		}
+		std::filesystem::path file = match[1].str();
+		size_t lineNumber = std::stoul(match[2].str());
+		std::string message = match[3].str();
+
+		// errors inside another file (an \input, a package) are reported as TeX gives them
+		if (file.filename() != texFile.filename())
+		{
+			return file.string() + ":" + std::to_string(lineNumber) + ": " + message;
+		}
+
+		// otherwise, map the generated file's line back to the section of the user's files it came from
+		if (lineNumber >= layout.BodyStart)
+		{
+			return note.RelativePath.string() + ":" + std::to_string(note.BodyLine + lineNumber - layout.BodyStart) + ": " + message;
+		}
+		if (lineNumber >= layout.LocalPreambleStart)
+		{
+			return note.RelativePath.string() + ":" + std::to_string(note.LocalPreambleLine + lineNumber - layout.LocalPreambleStart) + " (local preamble): " + message;
+		}
+		if (lineNumber >= layout.PreambleStart)
+		{
+			return ".cortex/preamble.tex:" + std::to_string(1 + lineNumber - layout.PreambleStart) + ": " + message;
+		}
+		return "(generated \\documentclass line): " + message;
+	}
+	return "no error message found in the log";
+}
+
 std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 {
 	auto texFile = BuildDir / (note.Id + ".tex");
@@ -83,8 +153,18 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 
 	/// WRITE TO TEX FILE
 	LOG(DEBUG) << "Writing tex file " << texFile;
-	std::string documentClass = ProducePdf ? "\\documentclass[pdf]{cortex}\n" : "\\documentclass[svg]{cortex}\n";
-	JSL::IO::writeString(texFile, documentClass + Preamble + "\n" + note.LocalPreamble + "\n\\begin{document}\n" + note.Body + "\n\\end{document}\n");
+	std::string options = std::string(ProducePdf ? "pdf" : "svg") + ",width=" + JSL::String::makeFrom(WidthCM) + "cm";
+	std::string documentClass = "\\documentclass[" + options + "]{cortex}\n";
+	// assembled piece by piece, recording where each part starts so errors can be traced back to the user's files
+	Layout layout;
+	std::string tex = documentClass;
+	layout.PreambleStart = NextLine(tex);
+	tex += Preamble + "\n";
+	layout.LocalPreambleStart = NextLine(tex);
+	tex += note.LocalPreamble + "\n\\begin{document}\n\\begin{cortexbody}\n";
+	layout.BodyStart = NextLine(tex);
+	tex += note.Body + "\n\\end{cortexbody}\n\\end{document}\n";
+	JSL::IO::writeString(texFile, tex);
 
 	/// CHOOSE PDF OR XDV
 	auto outFile = changeExtension(texFile, ProducePdf ? ".pdf" : ".xdv");
@@ -96,8 +176,10 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 	/// CONSTRUCT COMPILATION INSTRUCTIONS
 	std::string mode = ProducePdf ? "" : "-no-pdf ";
 	// cortex.cls lives in BuildDir, which isn't on TeX's search path; the trailing ':' keeps the default paths after it
-	// max_print_line stops TeX wrapping log lines at 79 characters, which could split the rerun messages we search for
-	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 xelatex " + mode + "-interaction=nonstopmode -halt-on-error -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
+	// max_print_line stops TeX wrapping log lines at 79 characters, which could split the messages we search for
+	// timeout kills a pass that never finishes (e.g. a recursive macro), turning a hung build into one failed note
+	// -file-line-error makes TeX report errors as "<file>:<line>: <message>", which Diagnose relies on
+	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 timeout " + std::to_string(TimeoutSeconds) + " xelatex " + mode + "-interaction=nonstopmode -halt-on-error -file-line-error -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
 
 	/// RUN COMPILER UNTIL REFERENCES SETTLE
 	// Each pass resolves references using the .aux written by the pass before; LaTeX says in the log when that has changed things
@@ -108,9 +190,14 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 		int code = Shell::Run(cmd, (note.SourceAbsolutePath).parent_path(), stdFile);
 
 		/// CHECK IF IT WORKED
+		if (code == 124) // timeout's exit code when it had to kill the command
+		{
+			LOG(WARN) << "Failed to compile " << note.RelativePath << ": xelatex was still running after " << TimeoutSeconds << "s (an infinite loop?); see " << logFile;
+			return std::nullopt;
+		}
 		if (code != 0 || !std::filesystem::exists(outFile))
 		{
-			LOG(WARN) << "Failed to compile " << note.RelativePath << " (xelatex exit code " << code << "); see " << logFile;
+			LOG(WARN) << "Failed to compile " << note.RelativePath << "\n\t" << Diagnose(note, texFile, logFile, layout) << "\n\tFull log: " << logFile;
 			return std::nullopt;
 		}
 

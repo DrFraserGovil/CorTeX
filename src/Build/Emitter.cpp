@@ -87,6 +87,16 @@ window.addEventListener("hashchange", show);
 </html>
 )HTML";
 
+// Writes via a temporary file and a rename, so the target is always either the complete old version or the complete new one:
+// a crash (or the viewer reading mid-write) never sees a half-written file
+static void WriteAtomic(const std::filesystem::path &target, std::string_view content)
+{
+	auto temporary = target;
+	temporary += ".tmp";
+	JSL::IO::writeString(temporary, content);
+	std::filesystem::rename(temporary, target);
+}
+
 Emitter::Emitter(std::filesystem::path outputDir) : OutputDir(std::move(outputDir))
 {
 }
@@ -102,7 +112,7 @@ void Emitter::WriteNote(const Note &note, const std::vector<std::string> &pages)
 		js += (i > 0 ? "," : "") + JsonString(pages[i]);
 	}
 	js += "]});\n";
-	JSL::IO::writeString(target, js);
+	WriteAtomic(target, js);
 }
 
 void Emitter::WritePdf(const Note &note, const std::filesystem::path &pdf)
@@ -110,7 +120,10 @@ void Emitter::WritePdf(const Note &note, const std::filesystem::path &pdf)
 	auto target = OutputDir / note.RelativePath;
 	target.replace_extension(".pdf");
 	JSL::IO::mkdir(target.parent_path(), JSL::IO::Policy::Generous);
-	std::filesystem::copy_file(pdf, target, std::filesystem::copy_options::overwrite_existing);
+	auto temporary = target;
+	temporary += ".tmp";
+	std::filesystem::copy_file(pdf, temporary, std::filesystem::copy_options::overwrite_existing);
+	std::filesystem::rename(temporary, target); // as in WriteAtomic: never a half-copied PDF in place of the old one
 }
 
 void Emitter::WriteIndex(const std::vector<Note> &notes)
@@ -124,6 +137,6 @@ void Emitter::WriteIndex(const std::vector<Note> &notes)
 		js += (i > 0 ? ",\n" : "") + std::string("{\"id\":") + JsonString(n.Id) + ",\"title\":" + JsonString(n.Title) + ",\"path\":" + JsonString(n.RelativePath.generic_string()) + "}";
 	}
 	js += "\n]);\n";
-	JSL::IO::writeString(OutputDir / "index.js", js);
-	JSL::IO::writeString(OutputDir / "index.html", StubViewer);
+	WriteAtomic(OutputDir / "index.js", js);
+	WriteAtomic(OutputDir / "index.html", StubViewer);
 }

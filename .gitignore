@@ -3,6 +3,7 @@
 *cortex
 *compiled
 *test
+view/
 
 *jvim.session
 node_modules/

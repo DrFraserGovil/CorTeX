@@ -15,7 +15,8 @@ std::optional<std::string> Svg::Convert(const std::filesystem::path &xdv)
 	/// CONSTRUCT CONVERSION INSTRUCTIONS
 	// --font-format=woff2 embeds the fonts compactly, so the SVG renders identically without the fonts installed
 	// --page=1 converts only the first (and only) page
-	auto cmd = "dvisvgm --font-format=woff2 --page=1 --output=" + Shell::Quote(svgFile.filename()) + " " + Shell::Quote(xdv.filename());
+	// --bbox=papersize keeps the page size set by standalone (i.e. the full cortexbody width); the default crops to the visible ink, so every note would have a different width
+	auto cmd = "dvisvgm --font-format=woff2 --page=1 --bbox=papersize --output=" + Shell::Quote(svgFile.filename()) + " " + Shell::Quote(xdv.filename());
 
 	/// RUN CONVERTER
 	auto log = dir / (stem + ".dvisvgm.log");

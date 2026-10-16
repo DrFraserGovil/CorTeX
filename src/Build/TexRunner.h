@@ -12,8 +12,9 @@ class TexRunner
 	//! @param buildDir The scratch directory in which .tex/.xdv/.log files are written
 	//! @param preamble The archive preamble (packages and macros; the \documentclass line is generated)
 	//! @param producePdf If true, xelatex runs to completion and produces a PDF; otherwise it stops at XDV
+	//! @param widthCM The fixed width of every note's body (the cortexbody minipage)
 	//! @throws runtime_error If cortex.cls cannot be written
-	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf);
+	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM);
 
 	//! Compiles the note. The working directory is the note's source directory, so relative inputs and images resolve as they would for the author.
 	//! @details xelatex is rerun (up to MaxPasses times) while the log asks for it, so cross-references are correct regardless of what earlier builds left behind.
@@ -26,11 +27,26 @@ class TexRunner
 	//! The maximum number of xelatex passes per note, before giving up on references settling
 	static constexpr int MaxPasses = 3;
 
+	//! The longest a single xelatex pass may run before it is killed (guards against infinite loops in a note)
+	static constexpr int TimeoutSeconds = 60;
+
   private:
 	std::filesystem::path BuildDir;
 	std::string Preamble;
 	bool ProducePdf;
+	double WidthCM;
 
 	//! Writes ClassSource() to BuildDir/cortex.cls, unless an identical copy is already there
 	void WriteClass();
+
+	//! The first line of each part of a generated .tex file, so TeX's line numbers can be mapped back to the files the user wrote
+	struct Layout
+	{
+		size_t PreambleStart;
+		size_t LocalPreambleStart;
+		size_t BodyStart;
+	};
+
+	//! Explains a failed compilation: the first error in the log, located in the user's own file where possible
+	std::string Diagnose(const Note &note, const std::filesystem::path &texFile, const std::filesystem::path &logFile, const Layout &layout) const;
 };

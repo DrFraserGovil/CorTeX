@@ -44,21 +44,20 @@ Note::Note(const std::filesystem::path &root, const std::filesystem::path &noteP
 		case 1:
 			ParseHeader({begin, begin + separators[0]});
 			Body = Join(begin + separators[0] + 1, lines.cend());
+			BodyLine = separators[0] + 2; // separators are 0-based indices; the section starts on the line after
 			break;
 		default:
 			ParseHeader({begin, begin + separators[0]});
 			LocalPreamble = Join(begin + separators[0] + 1, begin + separators[1]);
 			Body = Join(begin + separators[1] + 1, lines.cend());
+			LocalPreambleLine = separators[0] + 2;
+			BodyLine = separators[1] + 2;
 			break;
 	}
 
 	if (Id.empty())
 	{
 		Id = Slug(RelativePath);
-	}
-	if (Title.empty())
-	{
-		Title = RelativePath.stem().string();
 	}
 }
 
