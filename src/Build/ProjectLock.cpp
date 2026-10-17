@@ -1,4 +1,5 @@
 #include "ProjectLock.h"
+#include "../Utility/Hash.h"
 #include "../Utility/Sanitise.h"
 #include <JSL.h>
 #include <format>
@@ -27,13 +28,7 @@ std::string ProjectLock::SocketName(const std::filesystem::path &root)
 	// canonical: resolves symlinks, '..' and trailing slashes, so every route to the same folder agrees
 	auto key = std::filesystem::canonical(root).string();
 
-	// FNV-1a (64-bit): tiny, and gives the same answer in every build, on every compiler
-	uint64_t hash = 14695981039346656037ull;
-	for (unsigned char c : key)
-	{
-		hash ^= c;
-		hash *= 1099511628211ull;
-	}
+	auto hash = Utility::Hash(key);
 
 	// the label is only for recognising the socket in a directory listing; uniqueness comes from the hash, so it can be safely shortened
 	auto label = Utility::Sanitise(root.filename().string());

@@ -2,14 +2,36 @@
 #include "JSL.h"
 #include "Settings/ArchiveSettings.h"
 #include "Settings/RuntimeSettings.h"
+#include "Project.h"
 
-void ConfigInterface()
+bool Confirm(const std::string &question, bool defaultValue);
+
+void ConfigInterface(bool offerRebuild)
 {
 	LOG(INFO) << JSL::Display::Yellow(true) << "\t-- Settings Interface --\t\t" << JSL::Display::ResetAll();
-	auto out = JSL::Interface::Console(Archive);
 
-	out.Export(Runtime.RootPath / ".cortex/settings.config", true);
-	Archive = out;
+	// GlobalHash reads the global Archive, so it is compared before and after the edit
+	CortexProject project(Runtime.RootPath);
+	std::string before = offerRebuild ? project.GlobalHash() : "";
+	auto previous = Archive;
+	Archive = JSL::Interface::Console(Archive);
+
+	/// CHANGES WHICH AFFECT EVERY NOTE ARE ONLY SAVED WITH AN EXPLICIT REBUILD
+	if (offerRebuild && project.GlobalHash() != before)
+	{
+		LOG(WARN) << "These changes affect every note, so the whole project must be rebuilt from scratch";
+		if (!Confirm("Save the changes and rebuild now?", false))
+		{
+			Archive = previous;
+			LOG(INFO) << "Changes discarded; the settings are unchanged";
+			return;
+		}
+		Archive.Export(Runtime.RootPath / ".cortex/settings.config", true);
+		project.CleanRebuild();
+		return;
+	}
+
+	Archive.Export(Runtime.RootPath / ".cortex/settings.config", true);
 }
 
 auto prompt = JSL::Display::Colour(100, 100, 100);
@@ -126,7 +148,7 @@ void CreateArchive()
 
 	if (conf)
 	{
-		ConfigInterface();
+		ConfigInterface(false); // nothing has been built yet, so there is nothing to rebuild
 	}
 	FinaliseCortex(name);
 }

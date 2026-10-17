@@ -104,8 +104,16 @@ std::string TexRunner::Diagnose(const Note &note, const std::filesystem::path &t
 
 	// with -file-line-error, TeX reports errors as "<file>:<line>: <message>"
 	static const std::regex errorLine(R"(^(.*):([0-9]+): (.*)$)");
+	// some errors (e.g. a missing \input file or package) are instead reported as "! <message>", followed by
+	// "<file>:<line>: Emergency stop." when nonstopmode can't ask for a new file name: the location is right, the message isn't
+	std::string bangMessage;
 	for (auto &line : JSL::IO::getFileLines(logFile))
 	{
+		if (line.starts_with("! "))
+		{
+			bangMessage = line.substr(2);
+			continue;
+		}
 		std::smatch match;
 		if (!std::regex_match(line, match, errorLine))
 		{
@@ -114,6 +122,15 @@ std::string TexRunner::Diagnose(const Note &note, const std::filesystem::path &t
 		std::filesystem::path file = match[1].str();
 		size_t lineNumber = std::stoul(match[2].str());
 		std::string message = match[3].str();
+		if (message.starts_with("Emergency stop") && !bangMessage.empty())
+		{
+			message = bangMessage;
+		}
+		// graphicx's message for a missing image only talks about bounding boxes
+		if (message.find("Cannot determine size of graphic") != std::string::npos)
+		{
+			message += " (does the image file exist?)";
+		}
 
 		// errors inside another file (an \input, a package) are reported as TeX gives them
 		if (file.filename() != texFile.filename())
@@ -139,7 +156,41 @@ std::string TexRunner::Diagnose(const Note &note, const std::filesystem::path &t
 	return "no error message found in the log";
 }
 
-std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
+std::set<std::filesystem::path> TexRunner::ReadInputs(const std::filesystem::path &flsFile)
+{
+	std::set<std::filesystem::path> inputs;
+	if (!std::filesystem::exists(flsFile))
+	{
+		return inputs;
+	}
+
+	// the .fls lists "PWD <dir>" first, then "INPUT <file>" for everything opened, with relative paths relative to PWD;
+	// the same file can appear several times under different spellings (./part.tex, part.tex), and some entries aren't files at all (commands run by graphicx)
+	std::filesystem::path pwd;
+	for (auto &line : JSL::IO::getFileLines(flsFile))
+	{
+		if (line.starts_with("PWD "))
+		{
+			pwd = line.substr(4);
+		}
+		else if (line.starts_with("INPUT "))
+		{
+			std::filesystem::path file = line.substr(6);
+			if (file.is_relative())
+			{
+				file = pwd / file;
+			}
+			file = file.lexically_normal();
+			if (std::filesystem::is_regular_file(file))
+			{
+				inputs.insert(file);
+			}
+		}
+	}
+	return inputs;
+}
+
+TexRunner::Result TexRunner::Compile(const Note &note)
 {
 	auto texFile = BuildDir / (note.Id + ".tex");
 
@@ -179,7 +230,8 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 	// max_print_line stops TeX wrapping log lines at 79 characters, which could split the messages we search for
 	// timeout kills a pass that never finishes (e.g. a recursive macro), turning a hung build into one failed note
 	// -file-line-error makes TeX report errors as "<file>:<line>: <message>", which Diagnose relies on
-	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 timeout " + std::to_string(TimeoutSeconds) + " xelatex " + mode + "-interaction=nonstopmode -halt-on-error -file-line-error -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
+	// -recorder writes a .fls listing every file TeX opened, so the note's dependencies (\input files, local packages, images) can be tracked
+	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 timeout " + std::to_string(TimeoutSeconds) + " xelatex " + mode + "-interaction=nonstopmode -halt-on-error -file-line-error -recorder -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
 
 	/// RUN COMPILER UNTIL REFERENCES SETTLE
 	// Each pass resolves references using the .aux written by the pass before; LaTeX says in the log when that has changed things
@@ -192,22 +244,24 @@ std::optional<std::filesystem::path> TexRunner::Compile(const Note &note)
 		/// CHECK IF IT WORKED
 		if (code == 124) // timeout's exit code when it had to kill the command
 		{
-			LOG(WARN) << "Failed to compile " << note.RelativePath << ": xelatex was still running after " << TimeoutSeconds << "s (an infinite loop?); see " << logFile;
-			return std::nullopt;
+			auto error = "xelatex was still running after " + std::to_string(TimeoutSeconds) + "s (an infinite loop?)";
+			LOG(WARN) << "Failed to compile " << note.RelativePath << ": " << error << "; see " << logFile;
+			return {std::nullopt, error, {}};
 		}
 		if (code != 0 || !std::filesystem::exists(outFile))
 		{
-			LOG(WARN) << "Failed to compile " << note.RelativePath << "\n\t" << Diagnose(note, texFile, logFile, layout) << "\n\tFull log: " << logFile;
-			return std::nullopt;
+			auto error = Diagnose(note, texFile, logFile, layout);
+			LOG(WARN) << "Failed to compile " << note.RelativePath << "\n\t" << error << "\n\tFull log: " << logFile;
+			return {std::nullopt, error, {}};
 		}
 
 		/// CHECK IF ANOTHER PASS IS NEEDED
 		if (!NeedsRerun(JSL::IO::getFile(logFile)))
 		{
-			return outFile;
+			return {outFile, "", ReadInputs(changeExtension(texFile, ".fls"))};
 		}
 	}
 
 	LOG(WARN) << "References in " << note.RelativePath << " had not settled after " << MaxPasses << " passes; some may be wrong. See " << logFile;
-	return outFile;
+	return {outFile, "", ReadInputs(changeExtension(texFile, ".fls"))};
 }

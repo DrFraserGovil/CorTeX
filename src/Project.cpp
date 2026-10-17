@@ -1,11 +1,14 @@
 #include "Project.h"
 #include "Build/Emitter.h"
+#include "Build/Index.h"
 #include "Build/ProjectLock.h"
 #include "Build/SvgConverter.h"
 #include "Build/TexRunner.h"
 #include "Settings/ArchiveSettings.h"
+#include "Utility/Hash.h"
 #include <JSL.h>
 #include <JSL/IO.h>
+#include <algorithm>
 #include <map>
 CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
 {
@@ -13,6 +16,7 @@ CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
 	OutputDir = Root / "view";
 	StagingDir = Root / ".cortex/staging";
 	PreviousDir = Root / ".cortex/previous";
+	BuildStateFile = Root / ".cortex/buildstate.tsv";
 }
 
 std::set<std::filesystem::path> CortexProject::FindSources() const
@@ -30,22 +34,8 @@ std::set<std::filesystem::path> CortexProject::FindSources() const
 	return dir.MatchFiles(include);
 }
 
-void CortexProject::CleanRebuild()
+std::vector<Note> CortexProject::ScanNotes() const
 {
-	// held until this function returns or throws; another build of this project can't start in the meantime
-	ProjectLock lock(Root);
-
-	/// visual info
-	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Recompile --\t\t" << JSL::Display::ResetAll();
-	LOG(INFO) << "The entire project will now be rebuilt from scratch";
-	auto tmp = JSL::Log::Indent();
-
-	/// Clear the old staging directory (and any output left over from an interrupted swap)
-	std::filesystem::remove_all(StagingDir);
-	std::filesystem::remove_all(PreviousDir);
-	JSL::IO::mkdir(StagingDir, JSL::IO::Policy::Generous); // exists even if nothing is written into it, so an empty project still swaps
-
-	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	std::vector<Note> notes;
 	std::map<std::string, std::filesystem::path> seen;
 	for (auto &path : FindSources())
@@ -76,12 +66,156 @@ void CortexProject::CleanRebuild()
 	{
 		LOG(INFO) << "Found " << notes.size() << " notes";
 	}
+	return notes;
+}
 
-	size_t failures = BuildFiles(notes, preamble, true);
+std::string CortexProject::GlobalHash() const
+{
+	// '\0' separates the parts, so that moving text from one part to the next can't produce the same hash
+	std::string key = JSL::IO::getFile(Root / ".cortex/preamble.tex");
+	key += '\0' + std::string(TexRunner::ClassSource());
+	key += '\0' + JSL::String::makeFrom(Archive.RenderWidthCM);
+	key += '\0' + std::string(Archive.PdfOutput ? "pdf" : "svg");
+	key += '\0' + std::to_string(EngineVersion);
+	return Utility::HashHex(key);
+}
+
+std::string CortexProject::NoteHash(const Note &note)
+{
+	// the header isn't included: a new title changes the index, but not the compiled note
+	return Utility::HashHex(note.LocalPreamble + '\0' + note.Body);
+}
+
+std::vector<std::pair<std::string, std::string>> CortexProject::ProjectDependencies(const std::set<std::filesystem::path> &inputs) const
+{
+	std::vector<std::pair<std::string, std::string>> dependencies;
+	for (auto &file : inputs)
+	{
+		// files outside the project are the TeX installation: tracking every package would be slow, and they rarely change
+		auto relative = file.lexically_relative(Root);
+		if (relative.empty() || *relative.begin() == "..")
+		{
+			continue;
+		}
+		// .cortex holds the generated wrapper, .aux files and cortex.cls (covered by the global hash); the output is never an input
+		auto top = *relative.begin();
+		if (top == ".cortex" || top == OutputDir.filename())
+		{
+			continue;
+		}
+		dependencies.push_back({relative.generic_string(), Utility::HashHex(JSL::IO::getFile(file))});
+	}
+	return dependencies;
+}
+
+bool CortexProject::DependenciesChanged(const NoteRecord &record) const
+{
+	for (auto &[path, hash] : record.Dependencies)
+	{
+		auto file = Root / path;
+		if (!std::filesystem::is_regular_file(file) || Utility::HashHex(JSL::IO::getFile(file)) != hash)
+		{
+			LOG(DEBUG) << record.Path << " depends on " << path << ", which has changed";
+			return true;
+		}
+	}
+	return false;
+}
+
+void CortexProject::Build()
+{
+	// held until this function returns or throws; another build of this project can't start in the meantime
+	ProjectLock lock(Root);
+
+	/// visual info
+	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Build --\t\t" << JSL::Display::ResetAll();
+	auto tmp = JSL::Log::Indent();
+
+	/// READ THE PROJECT AND WHAT THE LAST BUILD DID
+	auto notes = ScanNotes();
+	auto state = BuildState::Load(BuildStateFile);
+	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
+	auto global = GlobalHash();
+	bool pdf = Archive.PdfOutput;
+	Emitter output(OutputDir);
+
+	bool globalChanged = (state.GlobalHash != global);
+	if (globalChanged && !state.Records.empty())
+	{
+		LOG(INFO) << "Project-wide inputs have changed (preamble, settings or CorTeX version); every note will be recompiled";
+	}
+
+	/// DECIDE WHICH NOTES NEED COMPILING
+	std::vector<Note> dirty;
+	for (auto &note : notes)
+	{
+		auto record = state.Records.find(note.Id);
+		bool isDirty = globalChanged										 // something every note depends on has changed
+					   || record == state.Records.end()						 // never built
+					   || record->second.Hash != NoteHash(note)				 // edited since it was last built
+					   || !record->second.Succeeded							 // failed last time: try again
+					   || DependenciesChanged(record->second)				 // an \input file, local package or image has changed
+					   || !std::filesystem::exists(output.OutputFor(note, pdf)); // output deleted (or moved, in PDF mode)
+		if (isDirty)
+		{
+			dirty.push_back(note);
+		}
+	}
+	LOG(INFO) << dirty.size() << " of " << notes.size() << " notes need compiling";
+
+	/// COMPILE THEM, STRAIGHT INTO THE OUTPUT
+	// no staging: each output is replaced atomically, and a failure leaves the last good version in place
+	if (!dirty.empty())
+	{
+		BuildFiles(dirty, preamble, OutputDir, state);
+	}
+
+	/// RECORD, INDEX AND TIDY UP
+	state.GlobalHash = global;
+	std::set<std::string> ids;
+	for (auto &note : notes)
+	{
+		ids.insert(note.Id);
+	}
+	state.RetainOnly(ids);
+
+	WriteIndex(notes, state, OutputDir);
+	SweepOutput(notes);
+	SweepScratch(notes);
+	state.Save(BuildStateFile);
+	LOG(INFO) << "Output written to " << (pdf ? OutputDir : OutputDir / "index.html");
+}
+
+void CortexProject::CleanRebuild()
+{
+	// held until this function returns or throws; another build of this project can't start in the meantime
+	ProjectLock lock(Root);
+
+	/// visual info
+	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Recompile --\t\t" << JSL::Display::ResetAll();
+	LOG(INFO) << "The entire project will now be rebuilt from scratch";
+	auto tmp = JSL::Log::Indent();
+
+	/// Clear the old staging directory (and any output left over from an interrupted swap)
+	std::filesystem::remove_all(StagingDir);
+	std::filesystem::remove_all(PreviousDir);
+	JSL::IO::mkdir(StagingDir, JSL::IO::Policy::Generous); // exists even if nothing is written into it, so an empty project still swaps
+
+	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
+	auto notes = ScanNotes();
+
+	// a fresh state: nothing from earlier builds survives a rebuild
+	BuildState state;
+	state.GlobalHash = GlobalHash();
+	size_t failures = BuildFiles(notes, preamble, StagingDir, state);
+	WriteIndex(notes, state, StagingDir);
 
 	if (notes.empty() || failures < notes.size()) // i.e. unless every note failed (which suggests a project-wide problem)
 	{
 		SwapStagingIntoOutput();
+		SweepScratch(notes);
+		state.Save(BuildStateFile);
+		LOG(INFO) << "Output written to " << (Archive.PdfOutput ? OutputDir : OutputDir / "index.html");
 	}
 	else
 	{
@@ -120,48 +254,152 @@ void CortexProject::SwapStagingIntoOutput()
 	std::filesystem::remove_all(PreviousDir);
 }
 
-size_t CortexProject::BuildFiles(std::vector<Note> notes, std::string_view preamble, bool stageOutput)
+size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state)
 {
-	auto writeTarget = stageOutput ? StagingDir : OutputDir;
 	bool pdf = Archive.PdfOutput;
 	TexRunner tex(BuildDir, preamble, pdf, Archive.RenderWidthCM);
-	Emitter emitter(writeTarget);
+	Emitter emitter(targetDir);
 
 	size_t failures = 0;
 	for (auto &note : notes)
 	{
 		LOG(INFO) << "Compiling " << note.RelativePath;
-		auto output = tex.Compile(note);
-		if (!output)
+		NoteRecord record{note.Id, note.RelativePath.generic_string(), NoteHash(note), false, false, "", {}};
+
+		/// COMPILE, AND CONVERT IF NEEDED
+		auto result = tex.Compile(note);
+		std::string error = result.Error;
+		if (result.Output && pdf)
 		{
-			++failures;
-			continue;
+			emitter.WritePdf(note, *result.Output);
+		}
+		else if (result.Output)
+		{
+			auto svg = Svg::Convert(*result.Output);
+			if (svg)
+			{
+				emitter.WriteNote(note, {*svg});
+			}
+			else
+			{
+				error = "dvisvgm could not convert the compiled note (see its .dvisvgm.log in .cortex/build)";
+			}
 		}
 
-		if (pdf)
-		{
-			emitter.WritePdf(note, *output);
-			continue;
-		}
-
-		auto svg = Svg::Convert(*output);
-		if (!svg)
+		/// RECORD THE OUTCOME
+		record.Succeeded = error.empty();
+		record.Diagnostic = error;
+		// only a successful compile's inputs are meaningful; a failed note is retried regardless
+		record.Dependencies = record.Succeeded ? ProjectDependencies(result.Inputs) : std::vector<std::pair<std::string, std::string>>{};
+		// after a failure, any existing output is the last good version, and stays in place
+		record.HasOutput = std::filesystem::exists(emitter.OutputFor(note, pdf));
+		if (!record.Succeeded)
 		{
 			++failures;
-			continue;
 		}
-		emitter.WriteNote(note, {*svg});
-	}
-	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
-	if (!pdf)
-	{
-		emitter.WriteIndex(notes);
+		state.Records[note.Id] = record;
 	}
 
 	if (failures > 0)
 	{
 		LOG(WARN) << failures << " of " << notes.size() << " notes failed to build";
 	}
-	LOG(INFO) << "Output written to " << (pdf ? writeTarget : writeTarget / "index.html");
 	return failures;
+}
+
+void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir)
+{
+	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
+	if (Archive.PdfOutput)
+	{
+		return;
+	}
+	Index index(notes, state);
+	Emitter(targetDir).WriteIndex(index.Serialise());
+}
+
+// Removes now-empty directories under (but not including) root, deepest first
+static void RemoveEmptyDirectories(const std::filesystem::path &root)
+{
+	std::vector<std::filesystem::path> dirs;
+	for (auto &entry : std::filesystem::recursive_directory_iterator(root))
+	{
+		if (entry.is_directory()) dirs.push_back(entry.path());
+	}
+	std::sort(dirs.begin(), dirs.end(), [](auto &a, auto &b) { return a.string().size() > b.string().size(); });
+	for (auto &dir : dirs)
+	{
+		if (std::filesystem::is_empty(dir)) std::filesystem::remove(dir);
+	}
+}
+
+void CortexProject::SweepOutput(const std::vector<Note> &notes)
+{
+	if (!std::filesystem::exists(OutputDir)) return;
+
+	/// LIST WHAT SHOULD BE THERE
+	// the same function the writers use, so the sweep can never disagree with them about where outputs go
+	bool pdf = Archive.PdfOutput;
+	Emitter output(OutputDir);
+	std::set<std::filesystem::path> expected;
+	for (auto &note : notes)
+	{
+		expected.insert(output.OutputFor(note, pdf));
+	}
+	if (!pdf)
+	{
+		for (auto &file : output.ViewerFiles()) expected.insert(file);
+	}
+
+	/// DELETE EVERYTHING ELSE
+	// deleted or renamed notes, the other mode's files after a mode switch, temporary files from an interrupted write
+	std::vector<std::filesystem::path> unexpected;
+	for (auto &entry : std::filesystem::recursive_directory_iterator(OutputDir))
+	{
+		if (entry.is_regular_file() && !expected.contains(entry.path())) unexpected.push_back(entry.path());
+	}
+	for (auto &file : unexpected)
+	{
+		LOG(DEBUG) << "Sweeping " << file;
+		std::filesystem::remove(file);
+	}
+	RemoveEmptyDirectories(OutputDir);
+}
+
+void CortexProject::SweepScratch(const std::vector<Note> &notes)
+{
+	if (!std::filesystem::exists(BuildDir)) return;
+
+	std::set<std::string> ids;
+	for (auto &note : notes)
+	{
+		ids.insert(note.Id);
+	}
+
+	// a scratch file belongs to a note if stripping its extensions leaves that note's id: sub/note.tex, sub/note.dvisvgm.log -> sub/note
+	auto belongsToNote = [&](std::string relative) {
+		while (true)
+		{
+			auto dot = relative.rfind('.');
+			auto slash = relative.rfind('/');
+			if (dot == std::string::npos || (slash != std::string::npos && dot < slash)) return false;
+			relative = relative.substr(0, dot);
+			if (ids.contains(relative)) return true;
+		}
+	};
+
+	std::vector<std::filesystem::path> unwanted;
+	for (auto &entry : std::filesystem::recursive_directory_iterator(BuildDir))
+	{
+		if (!entry.is_regular_file()) continue;
+		auto relative = entry.path().lexically_relative(BuildDir).generic_string();
+		if (relative == "cortex.cls" || belongsToNote(relative)) continue;
+		unwanted.push_back(entry.path());
+	}
+	for (auto &file : unwanted)
+	{
+		LOG(DEBUG) << "Sweeping scratch file " << file;
+		std::filesystem::remove(file);
+	}
+	RemoveEmptyDirectories(BuildDir);
 }

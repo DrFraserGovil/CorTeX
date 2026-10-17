@@ -2,6 +2,7 @@
 #include "Note.h"
 #include <filesystem>
 #include <optional>
+#include <set>
 #include <string_view>
 
 //! Wraps a note body in the archive preamble and compiles it with xelatex, to either XDV (for SVG conversion) or PDF
@@ -18,8 +19,19 @@ class TexRunner
 
 	//! Compiles the note. The working directory is the note's source directory, so relative inputs and images resolve as they would for the author.
 	//! @details xelatex is rerun (up to MaxPasses times) while the log asks for it, so cross-references are correct regardless of what earlier builds left behind.
-	//! @returns The path to the resulting XDV (or PDF) file, or nullopt if compilation failed (the reason is logged)
-	std::optional<std::filesystem::path> Compile(const Note &note);
+	//! The outcome of compiling one note
+	struct Result
+	{
+		//! The resulting XDV (or PDF) file, or nullopt if compilation failed
+		std::optional<std::filesystem::path> Output;
+		//! A one-line explanation of the failure (empty on success); also logged
+		std::string Error;
+		//! Every existing file TeX read during a successful compilation (absolute, normalised, from the -recorder .fls file); empty on failure
+		std::set<std::filesystem::path> Inputs;
+	};
+
+	//! @returns The output file on success, or the reason for failure
+	Result Compile(const Note &note);
 
 	//! The source of cortex.cls, as compiled into this binary (needed by anything hashing the build inputs)
 	static std::string_view ClassSource();
@@ -46,6 +58,9 @@ class TexRunner
 		size_t LocalPreambleStart;
 		size_t BodyStart;
 	};
+
+	//! Reads the files TeX opened from its -recorder output
+	static std::set<std::filesystem::path> ReadInputs(const std::filesystem::path &flsFile);
 
 	//! Explains a failed compilation: the first error in the log, located in the user's own file where possible
 	std::string Diagnose(const Note &note, const std::filesystem::path &texFile, const std::filesystem::path &logFile, const Layout &layout) const;

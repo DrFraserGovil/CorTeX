@@ -134,6 +134,9 @@ int main(int argc, char **argv)
 			case Mode::Settings:
 				ConfigInterface();
 				break;
+			case Mode::Build:
+				CortexProject(Runtime.RootPath).Build();
+				break;
 			case Mode::Rebuild:
 				CortexProject(Runtime.RootPath).CleanRebuild();
 				break;
