@@ -7,6 +7,7 @@
 #include "Settings/ArchiveSettings.h"
 #include "Utility/Hash.h"
 #include <JSL.h>
+#include <JSL/Strings/Stitch.h>
 #include <JSL/IO.h>
 #include <algorithm>
 #include <map>
@@ -120,6 +121,24 @@ bool CortexProject::DependenciesChanged(const NoteRecord &record) const
 		}
 	}
 	return false;
+}
+
+void CortexProject::WarnAboutInputs(const Note &note, const std::vector<std::pair<std::string, std::string>> &dependencies) const
+{
+	for (auto &[path, hash] : dependencies)
+	{
+		auto file = Root / path;
+		if (file.extension() != ".tex") continue; // packages, images, bibliographies: plain TeX's business
+
+		if (Note::HasNoteHeader(file))
+		{
+			LOG(WARN) << note.RelativePath.generic_string() << " uses \\input on " << path << ", which is a CorTeX note: its header (title, separator line) will be typeset as text";
+		}
+		else if (!Syntax::Process(JSL::IO::getFile(file)).Links.empty())
+		{
+			LOG(WARN) << path << " (\\input by " << note.RelativePath.generic_string() << ") contains [[links]], which are only processed in notes: in an \\input file they appear as literal brackets";
+		}
+	}
 }
 
 void CortexProject::Build()
@@ -291,6 +310,7 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 		record.Diagnostic = error;
 		// only a successful compile's inputs are meaningful; a failed note is retried regardless
 		record.Dependencies = record.Succeeded ? ProjectDependencies(result.Inputs) : std::vector<std::pair<std::string, std::string>>{};
+		WarnAboutInputs(note, record.Dependencies);
 		// after a failure, any existing output is the last good version, and stays in place
 		record.HasOutput = std::filesystem::exists(emitter.OutputFor(note, pdf));
 		if (!record.Succeeded)
@@ -309,12 +329,23 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 
 void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir)
 {
+	Index index(notes, state);
+
+	/// REPORT ON THE LINK NETWORK
+	for (auto &[name, ids] : index.Clashes())
+	{
+		LOG(WARN) << "'" << name << "' is the title or alias of several notes (" << JSL::String::stitch(ids, 0, ids.size(), ", ") << "); links to it go to whichever is nearest the linking note";
+	}
+	if (auto unresolved = index.UnresolvedCount(); unresolved > 0)
+	{
+		LOG(INFO) << unresolved << " link" << (unresolved == 1 ? "" : "s") << " point at notes which don't exist yet";
+	}
+
 	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
 	if (Archive.PdfOutput)
 	{
 		return;
 	}
-	Index index(notes, state);
 	Emitter(targetDir).WriteIndex(index.Serialise());
 }
 
@@ -376,6 +407,7 @@ void CortexProject::SweepScratch(const std::vector<Note> &notes)
 		ids.insert(note.Id);
 	}
 
+	// (cortex.cls lives in .cortex/class, outside BuildDir, so it is never swept)
 	// a scratch file belongs to a note if stripping its extensions leaves that note's id: sub/note.tex, sub/note.dvisvgm.log -> sub/note
 	auto belongsToNote = [&](std::string relative) {
 		while (true)
@@ -393,7 +425,7 @@ void CortexProject::SweepScratch(const std::vector<Note> &notes)
 	{
 		if (!entry.is_regular_file()) continue;
 		auto relative = entry.path().lexically_relative(BuildDir).generic_string();
-		if (relative == "cortex.cls" || belongsToNote(relative)) continue;
+		if (belongsToNote(relative)) continue;
 		unwanted.push_back(entry.path());
 	}
 	for (auto &file : unwanted)

@@ -39,10 +39,21 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 	\setlength{\parskip}{\cortex@parskip}%
 }
 {\end{minipage}}
+
+% [[links]] are rewritten by the engine into \CortexLink{<slug>}{<text>}. In SVG output the text is wrapped in an <a> pointing at the viewer's
+% route for that slug (a raw dvisvgm special: no hyperref needed, no border box, and a link which wraps across lines stays one anchor);
+% the viewer resolves the slug and styles the link. PDF output has no viewer to navigate, so the link is just its text.
+% Users may \renewcommand it in their preamble.
+\ifcortex@svg
+	\newcommand{\CortexLink}[2]{\special{dvisvgm:raw <a class="cortex-link" xlink:href="\string##/a/#1">}#2\special{dvisvgm:raw </a>}}
+\else
+	\newcommand{\CortexLink}[2]{#2}
+\fi
 )tex";
 
 TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM)
 {
+	ClassDir = BuildDir.parent_path() / "class";
 	WriteClass();
 }
 
@@ -53,16 +64,16 @@ std::string_view TexRunner::ClassSource()
 
 void TexRunner::WriteClass()
 {
-	auto target = BuildDir / "cortex.cls";
+	auto target = ClassDir / "cortex.cls";
 	if (std::filesystem::exists(target) && JSL::IO::getFile(target) == CortexClass)
 	{
 		LOG(DEBUG) << "cortex.cls is up to date";
 		return;
 	}
 
-	if (auto made = JSL::IO::mkdir(BuildDir, JSL::IO::Policy::Generous); !made)
+	if (auto made = JSL::IO::mkdir(ClassDir, JSL::IO::Policy::Generous); !made)
 	{
-		LOG(ERROR) << "Could not create the build directory " << BuildDir << ": " << made.Message;
+		LOG(ERROR) << "Could not create the class directory " << ClassDir << ": " << made.Message;
 		throw std::runtime_error("Cannot write cortex.cls");
 	}
 	LOG(DEBUG) << "Writing " << target;
@@ -214,7 +225,7 @@ TexRunner::Result TexRunner::Compile(const Note &note)
 	layout.LocalPreambleStart = NextLine(tex);
 	tex += note.LocalPreamble + "\n\\begin{document}\n\\begin{cortexbody}\n";
 	layout.BodyStart = NextLine(tex);
-	tex += note.Body + "\n\\end{cortexbody}\n\\end{document}\n";
+	tex += note.ProcessedBody + "\n\\end{cortexbody}\n\\end{document}\n";
 	JSL::IO::writeString(texFile, tex);
 
 	/// CHOOSE PDF OR XDV
@@ -226,12 +237,12 @@ TexRunner::Result TexRunner::Compile(const Note &note)
 
 	/// CONSTRUCT COMPILATION INSTRUCTIONS
 	std::string mode = ProducePdf ? "" : "-no-pdf ";
-	// cortex.cls lives in BuildDir, which isn't on TeX's search path; the trailing ':' keeps the default paths after it
+	// cortex.cls lives in ClassDir, which isn't on TeX's search path; the trailing ':' keeps the default paths (starting with the note's own directory) after it
 	// max_print_line stops TeX wrapping log lines at 79 characters, which could split the messages we search for
 	// timeout kills a pass that never finishes (e.g. a recursive macro), turning a hung build into one failed note
 	// -file-line-error makes TeX report errors as "<file>:<line>: <message>", which Diagnose relies on
 	// -recorder writes a .fls listing every file TeX opened, so the note's dependencies (\input files, local packages, images) can be tracked
-	auto cmd = "TEXINPUTS=" + Shell::Quote(BuildDir) + ": max_print_line=10000 timeout " + std::to_string(TimeoutSeconds) + " xelatex " + mode + "-interaction=nonstopmode -halt-on-error -file-line-error -recorder -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
+	auto cmd = "TEXINPUTS=" + Shell::Quote(ClassDir) + ": max_print_line=10000 timeout " + std::to_string(TimeoutSeconds) + " xelatex " + mode + "-interaction=nonstopmode -halt-on-error -file-line-error -recorder -output-directory=" + Shell::Quote(outDir) + " " + Shell::Quote(texFile);
 
 	/// RUN COMPILER UNTIL REFERENCES SETTLE
 	// Each pass resolves references using the .aux written by the pass before; LaTeX says in the log when that has changed things

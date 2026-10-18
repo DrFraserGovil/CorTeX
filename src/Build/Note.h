@@ -1,4 +1,5 @@
 #pragma once
+#include "../Syntax/Syntax.h"
 #include <filesystem>
 #include <string>
 #include <vector>
@@ -22,11 +23,20 @@ class Note
 	//! The `title:` header. Empty if the note has none, which makes it unbuildable (it can't be referenced)
 	std::string Title;
 
+	//! The `alias:` header entries (comma-separated), as written. Together with the title, these are what [[links]] can match
+	std::vector<std::string> Aliases;
+
 	//! Preamble material specific to this note, placed after the project preamble (empty if absent)
 	std::string LocalPreamble;
 
-	//! The LaTeX content of the note
+	//! The LaTeX content of the note, as written
 	std::string Body;
+
+	//! Body with CorTeX's extended syntax rewritten into LaTeX (same number of lines): this is what gets compiled
+	std::string ProcessedBody;
+
+	//! The [[links]] found in the body
+	std::vector<Syntax::Link> Links;
 
 	//! The 1-based line in the source file at which LocalPreamble starts (0 if there is none), for mapping TeX errors back to the source
 	size_t LocalPreambleLine = 0;
@@ -36,6 +46,9 @@ class Note
 
 	//! Reads and parses the file at root/relativePath
 	Note(const std::filesystem::path &root, const std::filesystem::path &notePath);
+
+	//! True if the file starts with a CorTeX header containing a title (i.e. it is a note, not a plain TeX fragment)
+	static bool HasNoteHeader(const std::filesystem::path &file);
 
   private:
 	void ParseHeader(const std::vector<std::string> &lines);

@@ -24,7 +24,7 @@ class CortexProject
 	std::string GlobalHash() const;
 
 	//! Bumped by hand whenever a change to the engine alters the TeX it generates, so existing projects recompile
-	static constexpr int EngineVersion = 1;
+	static constexpr int EngineVersion = 2; // 2: [[links]] rewritten by the syntax engine
 
   private:
 	std::filesystem::path Root;
@@ -53,6 +53,10 @@ class CortexProject
 	//! True if any file the note depended on last time has changed or disappeared
 	bool DependenciesChanged(const NoteRecord &record) const;
 
+	//! Warns about \input files which won't behave as the author expects: ones containing [[links]] (which are only processed in notes)
+	//! and ones which are themselves notes (whose header would be typeset)
+	void WarnAboutInputs(const Note &note, const std::vector<std::pair<std::string, std::string>> &dependencies) const;
+
 	//! Compiles each of the notes, writing their outputs into targetDir and recording each outcome in state
 	//! @returns The number of notes which failed
 	size_t BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state);
@@ -63,6 +67,6 @@ class CortexProject
 	//! Deletes everything in OutputDir which isn't an output of a current note (or the viewer), then any emptied directories
 	void SweepOutput(const std::vector<Note> &notes);
 
-	//! Deletes scratch files in BuildDir which don't belong to a current note (keeping cortex.cls), then any emptied directories
+	//! Deletes scratch files in BuildDir which don't belong to a current note, then any emptied directories
 	void SweepScratch(const std::vector<Note> &notes);
 };

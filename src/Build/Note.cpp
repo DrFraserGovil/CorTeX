@@ -2,6 +2,7 @@
 #include "../Utility/Sanitise.h"
 #include "../Settings/RuntimeSettings.h"
 #include <JSL.h>
+#include <algorithm>
 // A line consisting solely of five or more dashes (surrounding whitespace allowed) delineates sections.
 // Five, so that TeX's en-/em-dashes (-- and ---) on a line of their own are never mistaken for one.
 static bool IsSeparator(std::string_view line)
@@ -60,6 +61,16 @@ Note::Note(const std::filesystem::path &root, const std::filesystem::path &noteP
 	{
 		Id = Slug(RelativePath);
 	}
+
+	/// APPLY THE EXTENDED SYNTAX
+	// purely local to this note: what the links point at is resolved later, by the Index
+	auto processed = Syntax::Process(Body);
+	ProcessedBody = std::move(processed.Text);
+	Links = std::move(processed.Links);
+	for (auto &warning : processed.Warnings)
+	{
+		LOG(WARN) << RelativePath.generic_string() << ":" << BodyLine + warning.Line - 1 << ": " << warning.Message;
+	}
 }
 
 void Note::ParseHeader(const std::vector<std::string> &lines)
@@ -76,6 +87,14 @@ void Note::ParseHeader(const std::vector<std::string> &lines)
 		{
 			Title = value;
 		}
+		else if (JSL::String::iEquals(key, "alias") || JSL::String::iEquals(key, "aliases"))
+		{
+			for (auto &alias : JSL::String::split(value, ","))
+			{
+				auto trimmed = JSL::String::trim(alias);
+				if (!trimmed.empty()) Aliases.push_back(trimmed);
+			}
+		}
 		else if (JSL::String::iEquals(key, "id"))
 		{
 			if (value.find('/') != std::string::npos)
@@ -86,6 +105,25 @@ void Note::ParseHeader(const std::vector<std::string> &lines)
 			Id = value;
 		}
 	}
+}
+
+bool Note::HasNoteHeader(const std::filesystem::path &file)
+{
+	auto lines = JSL::IO::getFileLines(file);
+	for (auto &line : lines)
+	{
+		if (IsSeparator(line))
+		{
+			return false; // reached the end of the would-be header without finding a title
+		}
+		auto delim = line.find(':');
+		if (delim != std::string::npos && JSL::String::iEquals(JSL::String::trim(std::string_view(line).substr(0, delim)), "title"))
+		{
+			// a title line only counts if a separator follows it somewhere
+			return std::any_of(lines.begin(), lines.end(), [](auto &l) { return IsSeparator(l); });
+		}
+	}
+	return false;
 }
 
 std::string Note::Slug(const std::filesystem::path &relativePath)

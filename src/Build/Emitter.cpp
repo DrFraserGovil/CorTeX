@@ -12,11 +12,18 @@ static const char *StubViewer = R"HTML(<!doctype html>
 <style>
 body { font-family: sans-serif; margin: 0; display: flex; }
 nav { width: 16em; padding: 1em; border-right: 1px solid #ccc; min-height: 100vh; }
-nav .stale, nav .failed { color: #b35900; }
+nav li.current a { font-weight: bold; }
+nav .stale a, nav .failed a { color: #b35900; }
 .banner { background: #fff3cd; border: 1px solid #e0b252; padding: 0.5em 1em; margin-bottom: 1em; }
 .banner pre { white-space: pre-wrap; margin: 0.5em 0 0 0; }
 main { padding: 1em; flex: 1; }
 main svg { display: block; max-width: 100%; height: auto; margin-bottom: 1em; box-shadow: 0 0 4px #aaa; }
+/* links inside notes: the SVG text is coloured here, so resolved and unresolved links can differ */
+a.cortex-link text, a.cortex-link tspan { fill: #1a5fb4; }
+a.cortex-link.unresolved text, a.cortex-link.unresolved tspan { fill: #c01c28; }
+a.cortex-link:hover text, a.cortex-link:hover tspan { fill: #0b3d75; }
+.backlinks { border-top: 1px solid #ccc; padding-top: 0.5em; color: #555; }
+.backlinks h3 { margin: 0.2em 0; font-size: 1em; }
 </style>
 </head>
 <body>
@@ -24,47 +31,137 @@ main svg { display: block; max-width: 100%; height: auto; margin-bottom: 1em; bo
 <main id="note">Select a note</main>
 <script>
 const cortexNotes = {};
+const cortexOrder = [];
+let currentId = null;
+
 function CortexIndex(notes) {
 	const list = document.getElementById("list");
 	for (const n of notes) {
 		cortexNotes[n.id] = n;
+		cortexOrder.push(n);
 		const li = document.createElement("li");
-		li.innerHTML = '<a href="#/n/' + encodeURIComponent(n.id) + '"></a>';
-		li.firstChild.textContent = n.title + (n.status === "ok" ? "" : " (" + n.status + ")");
+		li.dataset.id = n.id;
 		li.className = n.status;
+		const a = document.createElement("a");
+		a.href = noteRoute(n.id);
+		a.textContent = n.title + (n.status === "ok" ? "" : " (" + n.status + ")");
+		li.appendChild(a);
 		list.appendChild(li);
 	}
 }
+
+function noteRoute(id) { return "#/n/" + encodeURIComponent(id); }
+
 // A warning box; the diagnostic is set as text, never parsed as HTML
 function banner(message, diagnostic) {
 	const div = document.createElement("div");
 	div.className = "banner";
 	div.textContent = message;
-	const pre = document.createElement("pre");
-	pre.textContent = diagnostic;
-	div.appendChild(pre);
+	if (diagnostic) {
+		const pre = document.createElement("pre");
+		pre.textContent = diagnostic;
+		div.appendChild(pre);
+	}
 	return div;
 }
+
+// A list of links to notes, under a heading (empty lists produce nothing)
+function noteList(heading, ids) {
+	const div = document.createElement("div");
+	div.className = "backlinks";
+	if (ids.length === 0) return div;
+	const h = document.createElement("h3");
+	h.textContent = heading;
+	div.appendChild(h);
+	const ul = document.createElement("ul");
+	for (const id of ids) {
+		const li = document.createElement("li");
+		const a = document.createElement("a");
+		a.href = noteRoute(id);
+		a.textContent = cortexNotes[id] ? cortexNotes[id].title : id;
+		li.appendChild(a);
+		ul.appendChild(li);
+	}
+	div.appendChild(ul);
+	return div;
+}
+
+function highlight(id) {
+	for (const li of document.querySelectorAll("#list li")) li.classList.toggle("current", li.dataset.id === id);
+}
+
+// Called by notes/<id>.js once it has loaded
 function CortexNote(note) {
+	if (note.id !== currentId) return; // a slower load of a note the user has already navigated away from
 	const main = document.getElementById("note");
 	main.innerHTML = note.pages.join("");
 	const entry = cortexNotes[note.id];
-	if (entry && entry.status === "stale") {
-		main.prepend(banner("This note failed to rebuild; showing the last version that compiled.", entry.diagnostic));
+	if (entry) {
+		if (entry.status === "stale") {
+			main.prepend(banner("This note failed to rebuild; showing the last version that compiled.", entry.diagnostic));
+		}
+		// mark links which point at no note, so they can be styled differently
+		for (const a of main.querySelectorAll("a.cortex-link")) {
+			const href = a.getAttribute("xlink:href") || a.getAttribute("href") || "";
+			const slug = decodeURIComponent(href.replace(/^#\/a\//, ""));
+			if (entry.links[slug] === null) a.classList.add("unresolved");
+		}
+		main.appendChild(noteList("Linked from", entry.backlinks));
 	}
 	document.title = note.title;
 }
-function show() {
-	const m = location.hash.match(/^#\/n\/(.+)$/);
-	if (!m) return;
-	const entry = cortexNotes[decodeURIComponent(m[1])];
-	if (entry && entry.status === "failed") {
-		document.getElementById("note").replaceChildren(banner("This note has not compiled successfully yet.", entry.diagnostic));
+
+function showNote(id) {
+	currentId = id;
+	highlight(id);
+	const entry = cortexNotes[id];
+	const main = document.getElementById("note");
+	if (!entry) {
+		main.replaceChildren(banner("There is no note with the id '" + id + "'."));
+		return;
+	}
+	if (entry.status === "failed") {
+		main.replaceChildren(banner("This note has not compiled successfully yet.", entry.diagnostic), noteList("Linked from", entry.backlinks));
+		document.title = entry.title;
 		return;
 	}
 	const s = document.createElement("script");
-	s.src = "notes/" + decodeURIComponent(m[1]) + ".js";
+	s.src = "notes/" + id + ".js";
+	s.onload = () => s.remove();
 	document.body.appendChild(s);
+}
+
+// Following a [[link]]: the engine has already resolved every link from every note, so use the current note's answer;
+// without one (e.g. the URL was opened directly) fall back to any note with that name, preferring the shallowest
+function followLink(slug) {
+	let target;
+	const from = currentId ? cortexNotes[currentId] : null;
+	if (from && slug in from.links) {
+		target = from.links[slug];
+	} else {
+		const claimants = cortexOrder.filter(n => n.names.includes(slug));
+		claimants.sort((a, b) => a.path.split("/").length - b.path.split("/").length || a.id.localeCompare(b.id));
+		target = claimants.length ? claimants[0].id : null;
+	}
+
+	if (target) {
+		location.replace(noteRoute(target)); // replace, so Back returns to the linking note rather than this redirect
+		return;
+	}
+
+	currentId = null;
+	highlight(null);
+	const linkers = cortexOrder.filter(n => n.links[slug] === null).map(n => n.id);
+	document.getElementById("note").replaceChildren(banner("No note is called '" + slug + "' yet."), noteList("Linked from", linkers));
+	document.title = slug + " (missing)";
+}
+
+function show() {
+	const route = location.hash.match(/^#\/([na])\/(.+)$/);
+	if (!route) return;
+	const value = decodeURIComponent(route[2]);
+	if (route[1] === "n") showNote(value);
+	else followLink(value);
 }
 window.addEventListener("hashchange", show);
 </script>

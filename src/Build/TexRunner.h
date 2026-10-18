@@ -6,7 +6,7 @@
 #include <string_view>
 
 //! Wraps a note body in the archive preamble and compiles it with xelatex, to either XDV (for SVG conversion) or PDF
-//! @details Owns cortex.cls, which every note is compiled against: it is (re)written into the build directory on construction, and selected by the generated \documentclass line, so the output-mode drivers live in exactly one place.
+//! @details Owns cortex.cls, which every note is compiled against: it is (re)written into its own directory (ClassDir, beside the build directory) on construction, and selected by the generated \documentclass line, so the output-mode drivers live in exactly one place.
 class TexRunner
 {
   public:
@@ -44,11 +44,14 @@ class TexRunner
 
   private:
 	std::filesystem::path BuildDir;
+	//! Holds only cortex.cls: the one directory added to TeX's search path. The build directory must never be on it, because it
+	//! mirrors note ids (i.e. project paths), so \input{sub/note} would find the generated wrapper instead of the user's file
+	std::filesystem::path ClassDir;
 	std::string Preamble;
 	bool ProducePdf;
 	double WidthCM;
 
-	//! Writes ClassSource() to BuildDir/cortex.cls, unless an identical copy is already there
+	//! Writes ClassSource() to ClassDir/cortex.cls, unless an identical copy is already there
 	void WriteClass();
 
 	//! The first line of each part of a generated .tex file, so TeX's line numbers can be mapped back to the files the user wrote
