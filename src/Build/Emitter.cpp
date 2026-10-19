@@ -13,6 +13,16 @@ static const char *StubViewer = R"HTML(<!doctype html>
 body { font-family: sans-serif; margin: 0; display: flex; }
 nav { width: 16em; padding: 1em; border-right: 1px solid #ccc; min-height: 100vh; }
 nav li.current a { font-weight: bold; }
+nav ul { padding-left: 1.2em; }
+#home-links { margin-bottom: 0.8em; font-weight: bold; }
+#home-links a { margin-right: 0.8em; }
+.overview h1 { margin-top: 0; }
+.overview h2 { font-size: 1.1em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+.overview h3 { font-size: 1em; color: #555; margin-bottom: 0.2em; }
+.overview .stale a, .overview .failed a { color: #b35900; }
+.overview .note-error { color: #555; font-family: monospace; font-size: 0.9em; margin-left: 0.5em; }
+#zoom { display: flex; gap: 0.3em; align-items: center; margin-bottom: 1em; font-size: 0.9em; color: #555; }
+#zoom button { min-width: 2em; }
 nav .stale a, nav .failed a { color: #b35900; }
 .banner { background: #fff3cd; border: 1px solid #e0b252; padding: 0.5em 1em; margin-bottom: 1em; }
 .banner pre { white-space: pre-wrap; margin: 0.5em 0 0 0; }
@@ -27,12 +37,45 @@ a.cortex-link:hover text, a.cortex-link:hover tspan { fill: #0b3d75; }
 </style>
 </head>
 <body>
-<nav><ul id="list"></ul></nav>
+<nav><div id="home-links"><a href="#/">Home</a> <a id="overview-link" href="#/overview">Overview</a></div><div id="zoom"><button id="zoom-out" title="Smaller">&minus;</button><span id="zoom-level"></span><button id="zoom-in" title="Larger">+</button><button id="zoom-reset" title="The project's default size">reset</button></div><ul id="list"></ul></nav>
 <main id="note">Select a note</main>
 <script>
 const cortexNotes = {};
 const cortexOrder = [];
 let currentId = null;
+
+// Zoom: the project's default (from index.js), optionally overridden by this reader (remembered in browser storage, where available).
+// Notes are vector images, so any zoom is sharp, and it never changes where lines break.
+let projectZoom = 1;
+let readerZoom = null;
+try { const saved = parseFloat(localStorage.getItem("cortex-zoom")); if (saved > 0) readerZoom = saved; } catch (e) {}
+let projectName = "CorTeX";
+let homeId = "";
+function CortexConfig(config) {
+	if (config.zoom > 0) projectZoom = config.zoom;
+	if (config.name) projectName = config.name;
+	homeId = config.home || "";
+	// with no home note, Home already is the overview, so a separate link would be redundant
+	document.getElementById("overview-link").style.display = homeId ? "" : "none";
+	applyZoom();
+}
+function zoom() { return readerZoom || projectZoom; }
+function setReaderZoom(value) {
+	readerZoom = value;
+	try { if (value) localStorage.setItem("cortex-zoom", value); else localStorage.removeItem("cortex-zoom"); } catch (e) {}
+	applyZoom();
+}
+// draw each note at its natural size (dvisvgm gives it in pt; 1pt = 4/3 CSS px) times the zoom; max-width still shrinks it to fit a narrow window
+function applyZoom() {
+	document.getElementById("zoom-level").textContent = Math.round(zoom() * 100) + "%";
+	for (const svg of document.querySelectorAll("#note svg")) {
+		const natural = parseFloat(svg.getAttribute("width"));
+		if (natural > 0) svg.style.width = (natural * 4 / 3 * zoom()) + "px";
+	}
+}
+document.getElementById("zoom-in").onclick = () => setReaderZoom(Math.round(zoom() * 110) / 100);
+document.getElementById("zoom-out").onclick = () => setReaderZoom(Math.round(zoom() / 1.1 * 100) / 100);
+document.getElementById("zoom-reset").onclick = () => setReaderZoom(null);
 
 function CortexIndex(notes) {
 	const list = document.getElementById("list");
@@ -108,6 +151,7 @@ function CortexNote(note) {
 		}
 		main.appendChild(noteList("Linked from", entry.backlinks));
 	}
+	applyZoom();
 	document.title = note.title;
 }
 
@@ -156,8 +200,97 @@ function followLink(slug) {
 	document.title = slug + " (missing)";
 }
 
+// The constructed overview: built entirely from index.js, so it costs no TeX
+function element(tag, text, className) {
+	const e = document.createElement(tag);
+	if (text) e.textContent = text;
+	if (className) e.className = className;
+	return e;
+}
+function noteLink(id) {
+	const a = element("a", cortexNotes[id] ? cortexNotes[id].title : id);
+	a.href = noteRoute(id);
+	return a;
+}
+function showOverview() {
+	currentId = null;
+	highlight(null);
+	const page = element("div", "", "overview");
+	page.appendChild(element("h1", projectName));
+
+	/// every note, grouped by folder (the folder structure as a table of contents)
+	page.appendChild(element("h2", "Notes"));
+	const folders = {};
+	for (const n of cortexOrder) {
+		const folder = n.path.includes("/") ? n.path.slice(0, n.path.lastIndexOf("/")) : "";
+		(folders[folder] = folders[folder] || []).push(n);
+	}
+	for (const folder of Object.keys(folders).sort()) {
+		if (folder) page.appendChild(element("h3", folder + "/"));
+		const ul = element("ul");
+		for (const n of folders[folder].sort((a, b) => a.title.localeCompare(b.title))) {
+			const li = element("li", "", n.status);
+			li.appendChild(noteLink(n.id));
+			if (n.status !== "ok") li.appendChild(document.createTextNode(" (" + n.status + ")"));
+			ul.appendChild(li);
+		}
+		page.appendChild(ul);
+	}
+
+	/// wanted notes: link targets which no note answers to yet
+	const wanted = {};
+	for (const n of cortexOrder) {
+		for (const [slug, target] of Object.entries(n.links)) {
+			if (target === null) (wanted[slug] = wanted[slug] || []).push(n.id);
+		}
+	}
+	if (Object.keys(wanted).length) {
+		page.appendChild(element("h2", "Wanted notes"));
+		const ul = element("ul");
+		for (const slug of Object.keys(wanted).sort()) {
+			const li = element("li");
+			const a = element("a", slug);
+			a.href = "#/a/" + encodeURIComponent(slug);
+			li.appendChild(a);
+			li.appendChild(document.createTextNode(", linked from "));
+			wanted[slug].forEach((id, k) => { if (k) li.appendChild(document.createTextNode(", ")); li.appendChild(noteLink(id)); });
+			ul.appendChild(li);
+		}
+		page.appendChild(ul);
+	}
+
+	/// build problems
+	const problems = cortexOrder.filter(n => n.status !== "ok");
+	if (problems.length) {
+		page.appendChild(element("h2", "Build problems"));
+		const ul = element("ul");
+		for (const n of problems) {
+			const li = element("li", "", n.status);
+			li.appendChild(noteLink(n.id));
+			li.appendChild(document.createTextNode(n.status === "stale" ? " (showing its last good version)" : " (never compiled)"));
+			li.appendChild(element("div", n.diagnostic, "note-error"));
+			ul.appendChild(li);
+		}
+		page.appendChild(ul);
+	}
+
+	document.getElementById("note").replaceChildren(page);
+	document.title = projectName;
+}
+
 function show() {
-	const route = location.hash.match(/^#\/([na])\/(.+)$/);
+	const hash = location.hash;
+	if (hash === "" || hash === "#" || hash === "#/") {
+		// the landing page: the chosen home note, or the overview if there isn't one
+		if (homeId && cortexNotes[homeId]) location.replace(noteRoute(homeId));
+		else showOverview();
+		return;
+	}
+	if (hash === "#/overview") {
+		showOverview();
+		return;
+	}
+	const route = hash.match(/^#\/([na])\/(.+)$/);
 	if (!route) return;
 	const value = decodeURIComponent(route[2]);
 	if (route[1] === "n") showNote(value);
@@ -215,9 +348,11 @@ void Emitter::WritePdf(const Note &note, const std::filesystem::path &pdf)
 	std::filesystem::rename(temporary, target); // as in WriteAtomic: never a half-copied PDF in place of the old one
 }
 
-void Emitter::WriteIndex(std::string_view indexJs)
+void Emitter::WriteIndex(std::string_view indexJs, const ViewerConfig &viewer)
 {
 	JSL::IO::mkdir(OutputDir, JSL::IO::Policy::Generous);
-	Utility::WriteAtomic(OutputDir / "index.js", indexJs);
+	// viewer settings ride along in index.js, which is rewritten on every build: changing them never recompiles a note
+	std::string config = "CortexConfig({\"zoom\":" + JSL::String::makeFrom(viewer.Zoom) + ",\"name\":" + Utility::JsonString(viewer.Name) + ",\"home\":" + Utility::JsonString(viewer.Home) + "});\n";
+	Utility::WriteAtomic(OutputDir / "index.js", std::string(indexJs) + config);
 	Utility::WriteAtomic(OutputDir / "index.html", StubViewer);
 }

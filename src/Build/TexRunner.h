@@ -3,6 +3,8 @@
 #include <filesystem>
 #include <optional>
 #include <set>
+#include <utility>
+#include <vector>
 #include <string_view>
 
 //! Wraps a note body in the archive preamble and compiles it with xelatex, to either XDV (for SVG conversion) or PDF
@@ -14,8 +16,9 @@ class TexRunner
 	//! @param preamble The archive preamble (packages and macros; the \documentclass line is generated)
 	//! @param producePdf If true, xelatex runs to completion and produces a PDF; otherwise it stops at XDV
 	//! @param widthCM The fixed width of every note's body (the cortexbody minipage)
+	//! @param insertTitle If true, each note starts with \CortexTitle{<its title>}
 	//! @throws runtime_error If cortex.cls cannot be written
-	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM);
+	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, bool insertTitle = false);
 
 	//! Compiles the note. The working directory is the note's source directory, so relative inputs and images resolve as they would for the author.
 	//! @details xelatex is rerun (up to MaxPasses times) while the log asks for it, so cross-references are correct regardless of what earlier builds left behind.
@@ -30,8 +33,9 @@ class TexRunner
 		std::set<std::filesystem::path> Inputs;
 	};
 
+	//! @param linkTargets PDF mode only: each linked slug and the relative path of the PDF it resolves to (unlisted slugs are unresolved)
 	//! @returns The output file on success, or the reason for failure
-	Result Compile(const Note &note);
+	Result Compile(const Note &note, const std::vector<std::pair<std::string, std::string>> &linkTargets = {});
 
 	//! The source of cortex.cls, as compiled into this binary (needed by anything hashing the build inputs)
 	static std::string_view ClassSource();
@@ -50,6 +54,7 @@ class TexRunner
 	std::string Preamble;
 	bool ProducePdf;
 	double WidthCM;
+	bool InsertTitle;
 
 	//! Writes ClassSource() to ClassDir/cortex.cls, unless an identical copy is already there
 	void WriteClass();

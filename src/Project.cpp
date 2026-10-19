@@ -7,8 +7,9 @@
 #include "Settings/ArchiveSettings.h"
 #include "Utility/Hash.h"
 #include <JSL.h>
-#include <JSL/Strings/Stitch.h>
+#include <JSL/Async.h>
 #include <JSL/IO.h>
+#include <JSL/Strings/Stitch.h>
 #include <algorithm>
 #include <map>
 CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
@@ -22,11 +23,11 @@ CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
 
 std::set<std::filesystem::path> CortexProject::FindSources() const
 {
-	auto forceExclude = Archive.IgnoredFilePatterns;
+	auto forceExclude = Archive.Files.IgnoredFilePatterns;
 	forceExclude.push_back(".cortex");
 	forceExclude.push_back(OutputDir.filename());
 	auto exclude = JSL::IO::multiGlobToRegex(forceExclude);
-	auto include = JSL::IO::multiGlobToRegex(Archive.AllowedFilePatterns);
+	auto include = JSL::IO::multiGlobToRegex(Archive.Files.AllowedFilePatterns);
 	auto dir = JSL::IO::Directory::Snapshot(Root, exclude);
 
 	auto matching = dir.MatchFiles(include);
@@ -39,9 +40,10 @@ std::vector<Note> CortexProject::ScanNotes() const
 {
 	std::vector<Note> notes;
 	std::map<std::string, std::filesystem::path> seen;
+	auto syntax = SyntaxOptions();
 	for (auto &path : FindSources())
 	{
-		Note note(Root, path);
+		Note note(Root, path, syntax);
 
 		// a note without a title can't be linked to or listed, so it is never built
 		if (note.Title.empty())
@@ -70,21 +72,191 @@ std::vector<Note> CortexProject::ScanNotes() const
 	return notes;
 }
 
+std::string CortexProject::ProjectName() const
+{
+	// registry.ctx holds "name = <name>", written by cortex new
+	auto registry = Root / ".cortex/registry.ctx";
+	if (std::filesystem::exists(registry))
+	{
+		for (auto &line : JSL::IO::getFileLines(registry))
+		{
+			auto eq = line.find('=');
+			if (eq != std::string::npos && JSL::String::trim(std::string_view(line).substr(0, eq)) == "name")
+			{
+				return JSL::String::trim(std::string_view(line).substr(eq + 1));
+			}
+		}
+	}
+	return Root.filename().string();
+}
+
 std::string CortexProject::GlobalHash() const
 {
 	// '\0' separates the parts, so that moving text from one part to the next can't produce the same hash
 	std::string key = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	key += '\0' + std::string(TexRunner::ClassSource());
-	key += '\0' + JSL::String::makeFrom(Archive.RenderWidthCM);
-	key += '\0' + std::string(Archive.PdfOutput ? "pdf" : "svg");
+	key += '\0' + JSL::String::makeFrom(Archive.Render.WidthCM);
+	key += '\0' + std::string(Archive.Render.PdfOutput ? "pdf" : "svg");
 	key += '\0' + std::to_string(EngineVersion);
+	// the extended syntax and title change the generated TeX of every note
+	key += '\0' + std::string(Archive.Syntax.ExtendedSyntax ? "extended" : "plain") + '\0' + Archive.Syntax.DefaultListType;
+	key += '\0' + std::string(Archive.Render.InsertTitle ? "title" : "untitled");
 	return Utility::HashHex(key);
 }
 
-std::string CortexProject::NoteHash(const Note &note)
+Syntax::Options CortexProject::SyntaxOptions()
+{
+	Syntax::Options options;
+	options.Extended = Archive.Syntax.ExtendedSyntax;
+	options.ListType = Archive.Syntax.DefaultListType;
+	if (options.ListType != "itemize" && options.ListType != "enumerate")
+	{
+		LOG(WARN) << "list-type '" << options.ListType << "' is not 'itemize' or 'enumerate'; using itemize";
+		options.ListType = "itemize";
+	}
+	return options;
+}
+
+std::string CortexProject::NoteHash(const Note &note) const
 {
 	// the header isn't included: a new title changes the index, but not the compiled note
-	return Utility::HashHex(note.LocalPreamble + '\0' + note.Body);
+	std::string key = note.LocalPreamble + '\0' + note.Body;
+	if (auto targets = PdfLinkTargets.find(note.Id); targets != PdfLinkTargets.end())
+	{
+		for (auto &[slug, path] : targets->second)
+		{
+			key += '\0' + slug + '\0' + path;
+		}
+	}
+	return Utility::HashHex(key);
+}
+
+void CortexProject::ResolvePdfLinks(const std::vector<Note> &notes)
+{
+	PdfLinkTargets.clear();
+	if (!Archive.Render.PdfOutput) return;
+
+	// resolution only needs the scan, not build results, so it can happen before anything compiles
+	Index index(notes, BuildState{});
+	std::map<std::string, std::filesystem::path> pdfOf;
+	for (auto &entry : index.Entries())
+	{
+		pdfOf[entry.Id] = std::filesystem::path(entry.Path).replace_extension(".pdf");
+	}
+	for (auto &entry : index.Entries())
+	{
+		// relative paths are computed under a common dummy root, so a note at the top level (empty folder) works too
+		auto from = ("/root" / std::filesystem::path(entry.Path)).parent_path();
+		auto &targets = PdfLinkTargets[entry.Id];
+		for (auto &link : entry.Links)
+		{
+			if (link.Target.empty()) continue;
+			targets.push_back({link.Slug, ("/root" / pdfOf[link.Target]).lexically_relative(from).generic_string()});
+		}
+	}
+}
+
+bool CortexProject::AffectsBuild(const std::filesystem::path &relative) const
+{
+	auto path = relative.lexically_normal().generic_string();
+	if (path == ".cortex/preamble.tex" || path == ".cortex/settings.config")
+	{
+		return true;
+	}
+	for (auto &part : relative)
+	{
+		// the output and .cortex are written by the build itself (watching them would rebuild forever); other hidden files are editor or VCS noise
+		if (part == OutputDir.filename() || part.string().starts_with("."))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void CortexProject::Watch()
+{
+	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Watching Project --\t\t" << JSL::Display::ResetAll();
+	LOG(INFO) << "Rebuilding whenever the project changes. Type q and Enter (or run 'cortex shutdown') to stop";
+
+	JSL::Async::Watcher::Panopticon eye;
+
+	// one build (incremental, or clean on request), which never takes the watcher down with it: errors are reported, and the next change tries again.
+	// The settings are re-read first every time: another command may have just saved new ones, and its message can arrive before the file event
+	auto build = [&](bool clean) {
+		try
+		{
+			Archive.Reset(); // from scratch, so a setting removed from the file returns to its default
+			Archive.Configure(Root / ".cortex/settings.config", " ");
+			if (clean)
+			{
+				CleanRebuildLocked();
+			}
+			else
+			{
+				BuildLocked();
+			}
+		}
+		catch (std::exception &e)
+		{
+			LOG(ERROR) << "Build failed: " << e.what() << "\nStill watching for changes";
+		}
+	};
+
+	/// THE LOCK, AND MESSAGES FROM OTHER CORTEX COMMANDS
+	// registering the socket binds it, which is the project lock: it fails here if another build or watch is running
+	try
+	{
+		eye.SetSocketCallback(ProjectLock::SocketName(Root), [&](std::string message) {
+			message = JSL::String::trim(message);
+			if (message == "shutdown")
+			{
+				LOG(INFO) << "Shutdown requested";
+				eye.Stop();
+			}
+			else if (message == "rerun")
+			{
+				build(false);
+			}
+			else if (message == "rebuild")
+			{
+				build(true);
+			}
+			else
+			{
+				LOG(WARN) << "Ignoring unknown message '" << message << "'";
+			}
+		});
+	}
+	catch (std::exception &e)
+	{
+		LOG(ERROR) << "Could not acquire a lock for this project; another build or watch is probably running";
+		throw;
+	}
+
+	/// FILE CHANGES
+	// callbacks run on this (the main) thread, one batch at a time: changes made during a build queue up and trigger the next one
+	eye.SetFileBatchCallback(Root, true, [&](std::set<JSL::Async::Watcher::FileChange> batch) {
+		for (auto &change : batch)
+		{
+			auto relative = change.Path.is_absolute() ? change.Path.lexically_relative(Root) : change.Path;
+			if (!AffectsBuild(relative)) continue;
+
+			LOG(INFO) << "Change detected: " << relative.generic_string();
+			build(false);
+			return; // one build covers the whole batch
+		}
+	});
+	eye.SetDebounceTime(300); // editors often save as several quick writes; one build per save
+
+	/// THE TERMINAL
+	eye.SetInputCallback([&](std::string line) {
+		if (JSL::String::trim(line) == "q") eye.Stop();
+	});
+
+	build(false); // bring the output up to date before waiting for changes
+	eye.Start();
+	LOG(INFO) << "Stopped watching";
 }
 
 std::vector<std::pair<std::string, std::string>> CortexProject::ProjectDependencies(const std::set<std::filesystem::path> &inputs) const
@@ -143,9 +315,69 @@ void CortexProject::WarnAboutInputs(const Note &note, const std::vector<std::pai
 
 void CortexProject::Build()
 {
-	// held until this function returns or throws; another build of this project can't start in the meantime
-	ProjectLock lock(Root);
+	// held until this function returns or throws; if another process (a watch, or another build) holds it, that process is asked to rebuild instead
+	std::optional<ProjectLock> lock;
+	if (!ProjectLock::AcquireOrSend(Root, lock, "rerun"))
+	{
+		LOG(INFO) << "Another CorTeX process (a watch or build) is working on this project; it has been asked to rebuild";
+		return;
+	}
+	RunHoldingLock(*lock, false);
+}
 
+void CortexProject::RunHoldingLock(ProjectLock &lock, bool clean)
+{
+	// requests from other commands arrive during a build; act on them before releasing the lock, so none are lost
+	while (true)
+	{
+		if (clean)
+		{
+			CleanRebuildLocked();
+		}
+		else
+		{
+			BuildLocked();
+		}
+
+		if (lock.ShutdownRequested())
+		{
+			LOG(INFO) << "Shutdown requested; stopping";
+			return;
+		}
+		if (lock.TakeRebuild())
+		{
+			clean = true;
+		}
+		else if (lock.TakeRerun())
+		{
+			clean = false;
+		}
+		else
+		{
+			return;
+		}
+	}
+}
+
+void CortexProject::Shutdown()
+{
+	// no lock needed: this only talks to whoever holds it
+	try
+	{
+		if (JSL::Async::Socket::Transmit(ProjectLock::SocketName(Root), "shutdown"))
+		{
+			LOG(INFO) << "Asked the running CorTeX process to stop (a watch stops at once; a build stops after its current build)";
+			return;
+		}
+	}
+	catch (std::exception &)
+	{
+	}
+	LOG(INFO) << "No CorTeX process is running on this project";
+}
+
+void CortexProject::BuildLocked()
+{
 	/// visual info
 	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Build --\t\t" << JSL::Display::ResetAll();
 	auto tmp = JSL::Log::Indent();
@@ -155,8 +387,9 @@ void CortexProject::Build()
 	auto state = BuildState::Load(BuildStateFile);
 	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	auto global = GlobalHash();
-	bool pdf = Archive.PdfOutput;
+	bool pdf = Archive.Render.PdfOutput;
 	Emitter output(OutputDir);
+	ResolvePdfLinks(notes);
 
 	bool globalChanged = (state.GlobalHash != global);
 	if (globalChanged && !state.Records.empty())
@@ -169,11 +402,11 @@ void CortexProject::Build()
 	for (auto &note : notes)
 	{
 		auto record = state.Records.find(note.Id);
-		bool isDirty = globalChanged										 // something every note depends on has changed
-					   || record == state.Records.end()						 // never built
-					   || record->second.Hash != NoteHash(note)				 // edited since it was last built
-					   || !record->second.Succeeded							 // failed last time: try again
-					   || DependenciesChanged(record->second)				 // an \input file, local package or image has changed
+		bool isDirty = globalChanged											 // something every note depends on has changed
+					   || record == state.Records.end()							 // never built
+					   || record->second.Hash != NoteHash(note)					 // edited since it was last built
+					   || !record->second.Succeeded								 // failed last time: try again
+					   || DependenciesChanged(record->second)					 // an \input file, local package or image has changed
 					   || !std::filesystem::exists(output.OutputFor(note, pdf)); // output deleted (or moved, in PDF mode)
 		if (isDirty)
 		{
@@ -207,9 +440,18 @@ void CortexProject::Build()
 
 void CortexProject::CleanRebuild()
 {
-	// held until this function returns or throws; another build of this project can't start in the meantime
-	ProjectLock lock(Root);
+	// held until this function returns or throws; if another process (a watch, or another build) holds it, that process is asked to rebuild from scratch instead
+	std::optional<ProjectLock> lock;
+	if (!ProjectLock::AcquireOrSend(Root, lock, "rebuild"))
+	{
+		LOG(INFO) << "Another CorTeX process (a watch or build) is working on this project; it has been asked to rebuild from scratch";
+		return;
+	}
+	RunHoldingLock(*lock, true);
+}
 
+void CortexProject::CleanRebuildLocked()
+{
 	/// visual info
 	LOG(INFO) << JSL::Display::Purple(true) << "\t-- Project Recompile --\t\t" << JSL::Display::ResetAll();
 	LOG(INFO) << "The entire project will now be rebuilt from scratch";
@@ -222,6 +464,7 @@ void CortexProject::CleanRebuild()
 
 	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	auto notes = ScanNotes();
+	ResolvePdfLinks(notes);
 
 	// a fresh state: nothing from earlier builds survives a rebuild
 	BuildState state;
@@ -234,7 +477,7 @@ void CortexProject::CleanRebuild()
 		SwapStagingIntoOutput();
 		SweepScratch(notes);
 		state.Save(BuildStateFile);
-		LOG(INFO) << "Output written to " << (Archive.PdfOutput ? OutputDir : OutputDir / "index.html");
+		LOG(INFO) << "Output written to " << (Archive.Render.PdfOutput ? OutputDir : OutputDir / "index.html");
 	}
 	else
 	{
@@ -275,8 +518,8 @@ void CortexProject::SwapStagingIntoOutput()
 
 size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state)
 {
-	bool pdf = Archive.PdfOutput;
-	TexRunner tex(BuildDir, preamble, pdf, Archive.RenderWidthCM);
+	bool pdf = Archive.Render.PdfOutput;
+	TexRunner tex(BuildDir, preamble, pdf, Archive.Render.WidthCM, Archive.Render.InsertTitle);
 	Emitter emitter(targetDir);
 
 	size_t failures = 0;
@@ -286,7 +529,8 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 		NoteRecord record{note.Id, note.RelativePath.generic_string(), NoteHash(note), false, false, "", {}};
 
 		/// COMPILE, AND CONVERT IF NEEDED
-		auto result = tex.Compile(note);
+		auto targets = PdfLinkTargets.find(note.Id);
+		auto result = (targets != PdfLinkTargets.end()) ? tex.Compile(note, targets->second) : tex.Compile(note);
 		std::string error = result.Error;
 		if (result.Output && pdf)
 		{
@@ -338,15 +582,37 @@ void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 	}
 	if (auto unresolved = index.UnresolvedCount(); unresolved > 0)
 	{
-		LOG(INFO) << unresolved << " link" << (unresolved == 1 ? "" : "s") << " point at notes which don't exist yet";
+		LOG(INFO) << unresolved << (unresolved == 1 ? " link points at a note which doesn't" : " links point at notes which don't") << " exist yet";
 	}
 
 	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
-	if (Archive.PdfOutput)
+	if (Archive.Render.PdfOutput)
 	{
 		return;
 	}
-	Emitter(targetDir).WriteIndex(index.Serialise());
+	Emitter::ViewerConfig viewer;
+	viewer.Zoom = Archive.Render.ViewerZoom;
+	if (!(viewer.Zoom > 0))
+	{
+		LOG(WARN) << "zoom must be a positive number (1 = true size); using 1";
+		viewer.Zoom = 1;
+	}
+	viewer.Name = ProjectName();
+
+	// the home note is given as a path, matched against the notes actually being built (so ignored or untitled files can't be home)
+	if (!Archive.Files.HomeNote.empty())
+	{
+		auto wanted = std::filesystem::path(Archive.Files.HomeNote).lexically_normal().generic_string();
+		for (auto &note : notes)
+		{
+			if (note.RelativePath.generic_string() == wanted) viewer.Home = note.Id;
+		}
+		if (viewer.Home.empty())
+		{
+			LOG(WARN) << "home '" << Archive.Files.HomeNote << "' isn't a note in this project (missing, ignored, or without a title); the viewer will open on the overview";
+		}
+	}
+	Emitter(targetDir).WriteIndex(index.Serialise(), viewer);
 }
 
 // Removes now-empty directories under (but not including) root, deepest first
@@ -370,7 +636,7 @@ void CortexProject::SweepOutput(const std::vector<Note> &notes)
 
 	/// LIST WHAT SHOULD BE THERE
 	// the same function the writers use, so the sweep can never disagree with them about where outputs go
-	bool pdf = Archive.PdfOutput;
+	bool pdf = Archive.Render.PdfOutput;
 	Emitter output(OutputDir);
 	std::set<std::filesystem::path> expected;
 	for (auto &note : notes)

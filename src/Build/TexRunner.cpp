@@ -24,6 +24,8 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 	\PassOptionsToPackage{dvisvgm}{graphics}
 	\PassOptionsToPackage{dvisvgm}{xcolor}
 \fi
+% a small margin on every page: without it, glyphs touch the edge of the SVG and the browser clips their tops
+\PassOptionsToClass{border=4pt}{standalone}
 \LoadClass{standalone}
 
 % The engine wraps every note body in this, so all notes share one fixed width (and narrower content can be centred within it).
@@ -40,18 +42,34 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 }
 {\end{minipage}}
 
-% [[links]] are rewritten by the engine into \CortexLink{<slug>}{<text>}. In SVG output the text is wrapped in an <a> pointing at the viewer's
-% route for that slug (a raw dvisvgm special: no hyperref needed, no border box, and a link which wraps across lines stays one anchor);
-% the viewer resolves the slug and styles the link. PDF output has no viewer to navigate, so the link is just its text.
-% Users may \renewcommand it in their preamble.
+% With the InsertTitle setting, every note begins \CortexTitle{<title>}; users may \renewcommand it
+\newcommand{\CortexTitle}[1]{{\Large\bfseries #1\par}\medskip}
+
+% [[links]] are rewritten by the engine into \CortexLink{<slug>}{<text>}.
+% SVG output: the text is wrapped in an <a> pointing at the viewer's route for that slug (a raw dvisvgm special: no hyperref, no border box,
+% and a link which wraps across lines stays one anchor); the viewer resolves the slug and styles the link.
+% PDF output: there is no viewer, so the engine resolves each note's links before compiling, and declares every target with
+% \CortexLinkTarget{<slug>}{<path to the target PDF, relative to this one, hex-encoded so no filename can upset TeX>}.
+% A resolved link becomes a GoToR annotation (a raw xdvipdfmx special: "open that file"), followed by PDF readers such as Okular;
+% an unresolved one is just styled. Users may \renewcommand \CortexLinkText / \CortexUnresolvedLink (or \CortexLink itself) in their preamble.
+\newcommand{\CortexLinkTarget}[2]{\expandafter\def\csname cortex@target@#1\endcsname{#2}}
 \ifcortex@svg
 	\newcommand{\CortexLink}[2]{\special{dvisvgm:raw <a class="cortex-link" xlink:href="\string##/a/#1">}#2\special{dvisvgm:raw </a>}}
 \else
-	\newcommand{\CortexLink}[2]{#2}
+	\newcommand{\CortexLinkText}[1]{\special{color push rgb 0.1 0.37 0.7}#1\special{color pop}}
+	\newcommand{\CortexUnresolvedLink}[1]{\special{color push rgb 0.75 0.1 0.15}#1\special{color pop}}
+	\newcommand{\CortexLink}[2]{%
+		\ifcsname cortex@target@#1\endcsname
+			\special{pdf:bann << /Type/Annot /Subtype/Link /Border[0 0 0] /A << /S/GoToR /F <\csname cortex@target@#1\endcsname> /D[0 /Fit] >> >>}%
+			\CortexLinkText{#2}%
+			\special{pdf:eann}%
+		\else
+			\CortexUnresolvedLink{#2}%
+		\fi}
 \fi
 )tex";
 
-TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM)
+TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, bool insertTitle) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM), InsertTitle(insertTitle)
 {
 	ClassDir = BuildDir.parent_path() / "class";
 	WriteClass();
@@ -201,7 +219,20 @@ std::set<std::filesystem::path> TexRunner::ReadInputs(const std::filesystem::pat
 	return inputs;
 }
 
-TexRunner::Result TexRunner::Compile(const Note &note)
+// Encodes a string as the contents of a PDF hex string (<...>): only hex digits reach TeX, so no filename can be misread as TeX
+static std::string PdfHex(std::string_view text)
+{
+	static const char *digits = "0123456789ABCDEF";
+	std::string out;
+	for (unsigned char c : text)
+	{
+		out += digits[c >> 4];
+		out += digits[c & 15];
+	}
+	return out;
+}
+
+TexRunner::Result TexRunner::Compile(const Note &note, const std::vector<std::pair<std::string, std::string>> &linkTargets)
 {
 	auto texFile = BuildDir / (note.Id + ".tex");
 
@@ -223,7 +254,16 @@ TexRunner::Result TexRunner::Compile(const Note &note)
 	layout.PreambleStart = NextLine(tex);
 	tex += Preamble + "\n";
 	layout.LocalPreambleStart = NextLine(tex);
-	tex += note.LocalPreamble + "\n\\begin{document}\n\\begin{cortexbody}\n";
+	tex += note.LocalPreamble + "\n";
+	for (auto &[slug, path] : linkTargets)
+	{
+		tex += "\\CortexLinkTarget{" + slug + "}{" + PdfHex(path) + "}\n"; // before BodyStart is recorded, so line mapping is unaffected
+	}
+	tex += "\\begin{document}\n\\begin{cortexbody}\n";
+	if (InsertTitle)
+	{
+		tex += "\\CortexTitle{" + note.Title + "}\n"; // before BodyStart is recorded, so line mapping is unaffected
+	}
 	layout.BodyStart = NextLine(tex);
 	tex += note.ProcessedBody + "\n\\end{cortexbody}\n\\end{document}\n";
 	JSL::IO::writeString(texFile, tex);

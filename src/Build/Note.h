@@ -44,8 +44,8 @@ class Note
 	//! The 1-based line in the source file at which Body starts, for mapping TeX errors back to the source
 	size_t BodyLine = 1;
 
-	//! Reads and parses the file at root/relativePath
-	Note(const std::filesystem::path &root, const std::filesystem::path &notePath);
+	//! Reads and parses the file at notePath (an absolute path inside root), applying the extended syntax with the given options
+	Note(const std::filesystem::path &root, const std::filesystem::path &notePath, const Syntax::Options &syntax = {});
 
 	//! True if the file starts with a CorTeX header containing a title (i.e. it is a note, not a plain TeX fragment)
 	static bool HasNoteHeader(const std::filesystem::path &file);

@@ -137,6 +137,12 @@ int main(int argc, char **argv)
 			case Mode::Build:
 				CortexProject(Runtime.RootPath).Build();
 				break;
+			case Mode::Shutdown:
+				CortexProject(Runtime.RootPath).Shutdown();
+				break;
+			case Mode::Watch:
+				CortexProject(Runtime.RootPath).Watch();
+				break;
 			case Mode::Rebuild:
 				CortexProject(Runtime.RootPath).CleanRebuild();
 				break;

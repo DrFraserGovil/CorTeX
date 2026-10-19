@@ -1,7 +1,9 @@
 #pragma once
 #include "Build/BuildState.h"
 #include "Build/Note.h"
+#include "Build/ProjectLock.h"
 #include <filesystem>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -19,14 +21,37 @@ class CortexProject
 	//! Compiles every note in the archive from scratch, into a fresh output folder
 	void CleanRebuild();
 
+	//! Builds, then keeps watching the project and rebuilds (incrementally) whenever a source, preamble or setting changes, until told to stop
+	//! @details Holds the project lock throughout, through the same socket other commands would use to reach it. Stops on "q" (+Enter)
+	//! at the terminal, or a "shutdown" message on the socket; a "rerun" message triggers a build, as a file change would.
+	void Watch();
+
+	//! Asks whichever CorTeX process holds this project's lock (a watch or a build) to stop
+	void Shutdown();
+
+	//! The project's name from .cortex/registry.ctx (falling back to the root folder's name)
+	std::string ProjectName() const;
+
 	//! A hash of everything which affects every note: the preamble, cortex.cls, the width, the output mode and the engine version
 	//! @details If this changes between builds, every note must be recompiled
 	std::string GlobalHash() const;
 
 	//! Bumped by hand whenever a change to the engine alters the TeX it generates, so existing projects recompile
-	static constexpr int EngineVersion = 2; // 2: [[links]] rewritten by the syntax engine
+	static constexpr int EngineVersion = 5; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links
 
   private:
+	//! Runs a build (clean or incremental) while holding the lock, then any builds other commands requested meanwhile, until none are pending
+	void RunHoldingLock(ProjectLock &lock, bool clean);
+
+	//! The body of Build(), for callers which already hold the lock (Watch)
+	void BuildLocked();
+
+	//! The body of CleanRebuild(), for callers which already hold the lock
+	void CleanRebuildLocked();
+
+	//! True if a changed path (relative to Root) could affect the build: anything except the output, the engine's own scratch space,
+	//! and hidden files; within .cortex, only the preamble and settings count
+	bool AffectsBuild(const std::filesystem::path &relative) const;
 	std::filesystem::path Root;
 	std::filesystem::path BuildDir;		  //!< scratch space for tex/xdv/svg intermediates
 	std::filesystem::path OutputDir;	  //!< the browser-facing product
@@ -44,8 +69,18 @@ class CortexProject
 	//! @throws runtime_error If two notes share an id
 	std::vector<Note> ScanNotes() const;
 
-	//! A hash of the parts of a note which affect its compiled output (its local preamble and body; not its header)
-	static std::string NoteHash(const Note &note);
+	//! A hash of everything specific to a note which affects its compiled output: its local preamble and body (not its header),
+	//! and in PDF mode where its links point (a PDF link holds the target's file, so a moved or renamed target means recompiling)
+	std::string NoteHash(const Note &note) const;
+
+	//! PDF mode: for each note id, its resolved links as (slug, path of the target PDF relative to the note's own folder)
+	std::map<std::string, std::vector<std::pair<std::string, std::string>>> PdfLinkTargets;
+
+	//! Fills PdfLinkTargets from the scan (PDF mode only; links in SVG mode are resolved by the viewer)
+	void ResolvePdfLinks(const std::vector<Note> &notes);
+
+	//! The syntax options chosen in the settings (an unknown list type falls back to itemize, with a warning)
+	static Syntax::Options SyntaxOptions();
 
 	//! Reduces the files TeX read to the user's own project files (not the TeX installation, not .cortex or the output), with their content hashes
 	std::vector<std::pair<std::string, std::string>> ProjectDependencies(const std::set<std::filesystem::path> &inputs) const;

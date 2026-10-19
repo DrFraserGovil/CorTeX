@@ -26,6 +26,7 @@ void ConfigInterface(bool offerRebuild)
 			LOG(INFO) << "Changes discarded; the settings are unchanged";
 			return;
 		}
+		// saved first: whoever does the rebuild (this process, or a watch holding the lock) must read the new settings
 		Archive.Export(Runtime.RootPath / ".cortex/settings.config", true);
 		project.CleanRebuild();
 		return;

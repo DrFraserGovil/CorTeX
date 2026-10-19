@@ -4,14 +4,31 @@
 #include <vector>
 
 //! CorTeX's extended syntax: the text-level additions to LaTeX which are rewritten into plain LaTeX before compiling
-//! @details Currently only links: [[target]] and [[target|text]], which become \CortexLink{<slug>}{<text>} (defined in cortex.cls).
-//! Rules, which every future syntax shares:
-//!  - every rewrite stays on its own line, so line numbers in TeX's errors still map back to the source
+//! @details Always on:
+//!  - links: [[target]] and [[target|text]] become \CortexLink{<slug>}{<text>} (defined in cortex.cls).
+//!    Reserved for later: ![[...]] (transclusion; left as written) and [[note#section]] (links to the note, ignoring the section).
+//! Only with Options::Extended (the ExtendedSyntax setting), and only in text (never in maths):
+//!  - inline formatting: *italic*, **bold**, ***bold italic***, _monospace_, __small caps__
+//!    (an opening marker must not follow a letter, digit or backslash, and must be followed by a non-space other than '}';
+//!    a closing one must follow a non-space; formats don't span lines. So \section*, 2*3 and \x*\x are never formatting)
+//!  - star lists: a line starting with "* " is a list item, "** " a nested one, and so on; "*ENUM " / "*ITEM " force the list type.
+//!    A list ends at a blank line or any unindented non-list line; indented lines continue the current item; lines starting \item are left alone.
+//! Rules every syntax shares:
+//!  - every rewrite stays on its own line (list \begin/\end share a line with an item), so TeX's line numbers still map back to the source
 //!  - nothing inside a % comment is touched (a % escaped as \% isn't a comment)
 //!  - a line consisting only of a "cortex off" / "cortex on" comment (any number of %, any case and spacing) switches the syntax off/on for the rest of the note
-//!  - a backslash and the character after it are always left alone, so \[[ is not a link (and \[[A,B]\] stays display maths), while \\[[x]] is a line break then a link
+//!  - a backslash and the character after it are always left alone, so \[[ is not a link (and \[[A,B]\] stays display maths), and \* \_ are never formatting
+//!  - maths is tracked only through its delimiters ($...$, $$...$$, \(...\), \[...\]); environments are never tracked. Problems produce warnings, never errors
 namespace Syntax
 {
+	struct Options
+	{
+		//! Enables inline formatting and star lists
+		bool Extended = false;
+		//! The environment opened by star lists which don't force a type
+		std::string ListType = "itemize";
+	};
+
 	struct Link
 	{
 		//! The target as written, e.g. "Euler's Identity"
@@ -38,7 +55,7 @@ namespace Syntax
 	};
 
 	//! Rewrites the extended syntax in a note body
-	Result Process(std::string_view body);
+	Result Process(std::string_view body, const Options &options = {});
 
 	//! The canonical form of a link target, title or alias, so that they can be matched loosely:
 	//! lowercase, with every run of characters other than letters, digits, '-' and '_' collapsed to a single '-', and no leading or trailing '-'

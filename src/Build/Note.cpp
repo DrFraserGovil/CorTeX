@@ -1,6 +1,6 @@
 #include "Note.h"
-#include "../Utility/Sanitise.h"
 #include "../Settings/RuntimeSettings.h"
+#include "../Utility/Sanitise.h"
 #include <JSL.h>
 #include <algorithm>
 // A line consisting solely of five or more dashes (surrounding whitespace allowed) delineates sections.
@@ -8,6 +8,9 @@
 static bool IsSeparator(std::string_view line)
 {
 	auto trimmed = JSL::String::trim(line);
+	if (trimmed.size() < 5) return false;
+
+	std::vector<std::string> allowedSeparators = {"-", "="};
 	return trimmed.size() >= 5 && trimmed.find_first_not_of('-') == std::string::npos;
 }
 
@@ -21,7 +24,7 @@ static std::string Join(std::vector<std::string>::const_iterator begin, std::vec
 	return out;
 }
 
-Note::Note(const std::filesystem::path &root, const std::filesystem::path &notePath) : SourceAbsolutePath(notePath)
+Note::Note(const std::filesystem::path &root, const std::filesystem::path &notePath, const Syntax::Options &syntax) : SourceAbsolutePath(notePath)
 {
 	RelativePath = notePath.lexically_relative(root);
 
@@ -64,7 +67,7 @@ Note::Note(const std::filesystem::path &root, const std::filesystem::path &noteP
 
 	/// APPLY THE EXTENDED SYNTAX
 	// purely local to this note: what the links point at is resolved later, by the Index
-	auto processed = Syntax::Process(Body);
+	auto processed = Syntax::Process(Body, syntax);
 	ProcessedBody = std::move(processed.Text);
 	Links = std::move(processed.Links);
 	for (auto &warning : processed.Warnings)
