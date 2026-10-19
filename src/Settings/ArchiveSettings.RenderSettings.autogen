@@ -9,5 +9,6 @@ void FieldList(Wrapper &&W)
 	W(JSL::Interface::Field<bool>(PdfOutput, "PdfOutput", {"pdf"}, false, "If true, each note is compiled to a standalone PDF instead of SVG pages for the browser viewer"));
 	W(JSL::Interface::Field<double>(WidthCM, "WidthCM", {"width"}, 25, "The paperwidth of the rendered document"));
 	W(JSL::Interface::Field<double>(ViewerZoom, "ViewerZoom", {"zoom"}, 1.4, "How large notes are drawn in the viewer, relative to their true printed size (1 = actual size). A display setting only: changing it never recompiles notes, and readers can adjust it further with the viewer's zoom buttons"));
+	W(JSL::Interface::Field<std::string>(BackgroundColour, "BackgroundColour", {"background", "background-color", "background-colour"}, "", "The viewer's page colour, behind and around the notes, as any CSS colour (e.g. #f4ecd8, or wheat); empty keeps the default white. A display setting only: changing it never recompiles notes"));
 	W(JSL::Interface::Field<bool>(InsertTitle, "InsertTitle", {"insert-title", "title"}, true, "If true, each note's title is typeset at the top of the note (using the CortexTitle macro, which the preamble may redefine)"));
 }

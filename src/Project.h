@@ -1,6 +1,7 @@
 #pragma once
 #include "Build/BuildState.h"
 #include "Build/Note.h"
+#include "Build/TexRunner.h"
 #include "Build/ProjectLock.h"
 #include <filesystem>
 #include <map>
@@ -37,7 +38,7 @@ class CortexProject
 	std::string GlobalHash() const;
 
 	//! Bumped by hand whenever a change to the engine alters the TeX it generates, so existing projects recompile
-	static constexpr int EngineVersion = 5; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links
+	static constexpr int EngineVersion = 7; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links; 6: fragments, transclusion, origin-keyed links; 7: # headings
 
   private:
 	//! Runs a build (clean or incremental) while holding the lock, then any builds other commands requested meanwhile, until none are pending
@@ -58,6 +59,7 @@ class CortexProject
 	std::filesystem::path StagingDir;	  //!< where a clean rebuild is assembled, before being swapped into OutputDir
 	std::filesystem::path PreviousDir;	  //!< where the old output is held during the swap, so it can be restored if the swap fails
 	std::filesystem::path BuildStateFile; //!< the record of what the last build did with each note
+	std::filesystem::path FragmentDir;	  //!< every note's processed body, under key-based names, for \input-ing (by the note itself, and by transclusions)
 
 	//! Replaces OutputDir with StagingDir, restoring the old output if the replacement fails
 	void SwapStagingIntoOutput();
@@ -70,14 +72,19 @@ class CortexProject
 	std::vector<Note> ScanNotes() const;
 
 	//! A hash of everything specific to a note which affects its compiled output: its local preamble and body (not its header),
-	//! and in PDF mode where its links point (a PDF link holds the target's file, so a moved or renamed target means recompiling)
+	//! and everything in its CompilePlan: the bodies and local preambles of every note it transcludes (so editing a transcluded note
+	//! recompiles the notes showing it), how its transclusions resolve, and in PDF mode where its links point
 	std::string NoteHash(const Note &note) const;
 
-	//! PDF mode: for each note id, its resolved links as (slug, path of the target PDF relative to the note's own folder)
-	std::map<std::string, std::vector<std::pair<std::string, std::string>>> PdfLinkTargets;
+	//! The CompilePlan of every note, by id: filled by PlanCompilations before anything is compiled
+	std::map<std::string, CompilePlan> Plans;
 
-	//! Fills PdfLinkTargets from the scan (PDF mode only; links in SVG mode are resolved by the viewer)
-	void ResolvePdfLinks(const std::vector<Note> &notes);
+	//! Resolves every note's transclusions and (PDF mode) links from the scan alone, finds transclusion cycles, and fills Plans.
+	//! Warns about each cycle; the notes must outlive Plans (the plans point into them)
+	void PlanCompilations(const std::vector<Note> &notes);
+
+	//! Writes every note's fragment (its processed body) where TeX can \input it, skipping unchanged ones and removing stale ones
+	void WriteFragments(const std::vector<Note> &notes);
 
 	//! The syntax options chosen in the settings (an unknown list type falls back to itemize, with a warning)
 	static Syntax::Options SyntaxOptions();

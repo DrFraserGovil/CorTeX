@@ -42,6 +42,7 @@ a.cortex-link:hover text, a.cortex-link:hover tspan { fill: #0b3d75; }
 <script>
 const cortexNotes = {};
 const cortexOrder = [];
+const cortexByKey = {}; // links and transclusions name their origin note by key
 let currentId = null;
 
 // Zoom: the project's default (from index.js), optionally overridden by this reader (remembered in browser storage, where available).
@@ -55,6 +56,8 @@ function CortexConfig(config) {
 	if (config.zoom > 0) projectZoom = config.zoom;
 	if (config.name) projectName = config.name;
 	homeId = config.home || "";
+	// set as a style property (never inserted as text), so the setting can't inject anything; an invalid colour is simply ignored
+	if (config.background) document.body.style.backgroundColor = config.background;
 	// with no home note, Home already is the overview, so a separate link would be redundant
 	document.getElementById("overview-link").style.display = homeId ? "" : "none";
 	applyZoom();
@@ -81,6 +84,7 @@ function CortexIndex(notes) {
 	const list = document.getElementById("list");
 	for (const n of notes) {
 		cortexNotes[n.id] = n;
+		cortexByKey[n.key] = n;
 		cortexOrder.push(n);
 		const li = document.createElement("li");
 		li.dataset.id = n.id;
@@ -143,11 +147,12 @@ function CortexNote(note) {
 		if (entry.status === "stale") {
 			main.prepend(banner("This note failed to rebuild; showing the last version that compiled.", entry.diagnostic));
 		}
-		// mark links which point at no note, so they can be styled differently
+		// mark links which point at no note, so they can be styled differently; each link is judged from the note it was written in
+		// (which, inside a transcluded note, isn't the note being shown)
 		for (const a of main.querySelectorAll("a.cortex-link")) {
 			const href = a.getAttribute("xlink:href") || a.getAttribute("href") || "";
-			const slug = decodeURIComponent(href.replace(/^#\/a\//, ""));
-			if (entry.links[slug] === null) a.classList.add("unresolved");
+			const [origin, slug] = parseLink(decodeURIComponent(href.replace(/^#\/a\//, "")));
+			if (resolveLink(origin, slug) === null) a.classList.add("unresolved");
 		}
 		main.appendChild(noteList("Linked from", entry.backlinks));
 	}
@@ -175,18 +180,26 @@ function showNote(id) {
 	document.body.appendChild(s);
 }
 
-// Following a [[link]]: the engine has already resolved every link from every note, so use the current note's answer;
-// without one (e.g. the URL was opened directly) fall back to any note with that name, preferring the shallowest
-function followLink(slug) {
-	let target;
-	const from = currentId ? cortexNotes[currentId] : null;
-	if (from && slug in from.links) {
-		target = from.links[slug];
-	} else {
-		const claimants = cortexOrder.filter(n => n.names.includes(slug));
-		claimants.sort((a, b) => a.path.split("/").length - b.path.split("/").length || a.id.localeCompare(b.id));
-		target = claimants.length ? claimants[0].id : null;
-	}
+// A link route is "<origin key>/<slug>" (from a note) or just "<slug>" (typed, or from the overview)
+function parseLink(value) {
+	const slash = value.indexOf("/");
+	return slash < 0 ? [null, value] : [value.slice(0, slash), value.slice(slash + 1)];
+}
+
+// The engine has already resolved every link from the note it was written in, so use that note's answer;
+// without one (no origin, e.g. from the overview) fall back to any note with that name, preferring the shallowest
+function resolveLink(origin, slug) {
+	const from = origin ? cortexByKey[origin] : null;
+	if (from && slug in from.links) return from.links[slug];
+	const claimants = cortexOrder.filter(n => n.names.includes(slug));
+	claimants.sort((a, b) => a.path.split("/").length - b.path.split("/").length || a.id.localeCompare(b.id));
+	return claimants.length ? claimants[0].id : null;
+}
+
+// Following a [[link]]
+function followLink(value) {
+	const [origin, slug] = parseLink(value);
+	const target = resolveLink(origin, slug);
 
 	if (target) {
 		location.replace(noteRoute(target)); // replace, so Back returns to the linking note rather than this redirect
@@ -352,7 +365,7 @@ void Emitter::WriteIndex(std::string_view indexJs, const ViewerConfig &viewer)
 {
 	JSL::IO::mkdir(OutputDir, JSL::IO::Policy::Generous);
 	// viewer settings ride along in index.js, which is rewritten on every build: changing them never recompiles a note
-	std::string config = "CortexConfig({\"zoom\":" + JSL::String::makeFrom(viewer.Zoom) + ",\"name\":" + Utility::JsonString(viewer.Name) + ",\"home\":" + Utility::JsonString(viewer.Home) + "});\n";
+	std::string config = "CortexConfig({\"zoom\":" + JSL::String::makeFrom(viewer.Zoom) + ",\"name\":" + Utility::JsonString(viewer.Name) + ",\"home\":" + Utility::JsonString(viewer.Home) + ",\"background\":" + Utility::JsonString(viewer.Background) + "});\n";
 	Utility::WriteAtomic(OutputDir / "index.js", std::string(indexJs) + config);
 	Utility::WriteAtomic(OutputDir / "index.html", StubViewer);
 }

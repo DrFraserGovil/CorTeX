@@ -34,6 +34,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @brief How large notes are drawn in the viewer, relative to their true printed size (1 = actual size). A display setting only: changing it never recompiles notes, and readers can adjust it further with the viewer's zoom buttons
 	double ViewerZoom = 1.4;
 
+	//! @alias background, background-colour, background-color
+	//! @brief The viewer's page colour, behind and around the notes, as any CSS colour (e.g. #f4ecd8, or wheat); empty keeps the default white. A display setting only: changing it never recompiles notes
+	std::string BackgroundColour = "";
+
 	//! @alias insert-title, title
 	//! @brief If true, each note's title is typeset at the top of the note (using the CortexTitle macro, which the preamble may redefine)
 	bool InsertTitle = true;
@@ -44,7 +48,7 @@ class SyntaxSettings : public JSL::Interface::Aggregator<SyntaxSettings>
 {
   public:
 	//! @alias extended, extended-syntax
-	//! @brief If true, notes may also use CorTeX's extended syntax: *italic*, **bold**, ***both***, _monospace_, __small caps__, and lines starting with stars as lists ([[links]] always work)
+	//! @brief If true, notes may also use CorTeX's extended syntax: *italic*, **bold**, ***both***, _monospace_, __small caps__, lines starting with # as headings (# section, ## subsection, ...), and lines starting with stars as lists ([[links]] always work)
 	bool ExtendedSyntax = false;
 
 	//! @alias list-type

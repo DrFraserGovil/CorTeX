@@ -53,7 +53,7 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state)
 	/// ONE ENTRY PER NOTE, WITH ITS BUILD STATUS AND NAMES
 	for (auto &note : notes)
 	{
-		Entry entry{note.Id, note.Title, note.RelativePath.generic_string(), Status::Failed, "not yet built", {}, {}, {}};
+		Entry entry{note.Id, note.Key, note.Title, note.RelativePath.generic_string(), Status::Failed, "not yet built", {}, {}, {}};
 
 		// the status comes from the last time the note was compiled, whether that was this run or an earlier one
 		auto record = state.Records.find(note.Id);
@@ -98,7 +98,10 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state)
 	{
 		auto &entry = List[n];
 		std::set<std::string> seen;
-		for (auto &link : notes[n].Links)
+		// a transclusion is a kind of link: it resolves the same way, counts as a backlink, and if unresolved it's a wanted note
+		auto references = notes[n].Links;
+		references.insert(references.end(), notes[n].Transclusions.begin(), notes[n].Transclusions.end());
+		for (auto &link : references)
 		{
 			if (!seen.insert(link.Slug).second) continue;
 
@@ -157,7 +160,7 @@ std::string Index::Serialise() const
 	{
 		auto &e = List[i];
 		js += (i > 0 ? ",\n" : "");
-		js += "{\"id\":" + JsonString(e.Id) + ",\"title\":" + JsonString(e.Title) + ",\"path\":" + JsonString(e.Path);
+		js += "{\"id\":" + JsonString(e.Id) + ",\"key\":" + JsonString(e.Key) + ",\"title\":" + JsonString(e.Title) + ",\"path\":" + JsonString(e.Path);
 		js += ",\"status\":" + JsonString(StatusName(e.State)) + ",\"diagnostic\":" + JsonString(e.Diagnostic);
 		js += ",\"names\":" + JsonArray(e.Names);
 

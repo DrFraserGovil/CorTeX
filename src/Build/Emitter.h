@@ -29,6 +29,8 @@ class Emitter
 		std::string Name;
 		//! The id of the note the viewer opens on; empty means the constructed overview
 		std::string Home;
+		//! The page colour behind the notes, as any CSS colour; empty for the default
+		std::string Background;
 	};
 
 	//! Writes index.js (the serialised Index, followed by the viewer's settings) and the stub index.html viewer

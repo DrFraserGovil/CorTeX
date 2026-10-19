@@ -6,7 +6,9 @@
 #include "Build/TexRunner.h"
 #include "Settings/ArchiveSettings.h"
 #include "Utility/Hash.h"
+#include "Utility/Files.h"
 #include <JSL.h>
+#include <functional>
 #include <JSL/Async.h>
 #include <JSL/IO.h>
 #include <JSL/Strings/Stitch.h>
@@ -19,6 +21,7 @@ CortexProject::CortexProject(std::filesystem::path root) : Root(std::move(root))
 	StagingDir = Root / ".cortex/staging";
 	PreviousDir = Root / ".cortex/previous";
 	BuildStateFile = Root / ".cortex/buildstate.tsv";
+	FragmentDir = Root / ".cortex/fragments";
 }
 
 std::set<std::filesystem::path> CortexProject::FindSources() const
@@ -121,38 +124,184 @@ std::string CortexProject::NoteHash(const Note &note) const
 {
 	// the header isn't included: a new title changes the index, but not the compiled note
 	std::string key = note.LocalPreamble + '\0' + note.Body;
-	if (auto targets = PdfLinkTargets.find(note.Id); targets != PdfLinkTargets.end())
+	if (auto plan = Plans.find(note.Id); plan != Plans.end())
 	{
-		for (auto &[slug, path] : targets->second)
+		for (auto *hoisted : plan->second.Hoisted)
 		{
-			key += '\0' + slug + '\0' + path;
+			key += '\0' + hoisted->Key + '\0' + hoisted->LocalPreamble + '\0' + hoisted->Body;
+		}
+		for (auto &[origin, slug, target] : plan->second.Transclusions)
+		{
+			key += '\0' + origin + '\0' + slug + '\0' + target;
+		}
+		for (auto &[origin, slug, problem] : plan->second.TransclusionProblems)
+		{
+			key += '\0' + origin + '\0' + slug + '\0' + problem;
+		}
+		for (auto &[origin, slug, path] : plan->second.LinkTargets)
+		{
+			key += '\0' + origin + '\0' + slug + '\0' + path;
 		}
 	}
 	return Utility::HashHex(key);
 }
 
-void CortexProject::ResolvePdfLinks(const std::vector<Note> &notes)
+void CortexProject::PlanCompilations(const std::vector<Note> &notes)
 {
-	PdfLinkTargets.clear();
-	if (!Archive.Render.PdfOutput) return;
+	Plans.clear();
 
-	// resolution only needs the scan, not build results, so it can happen before anything compiles
+	/// RESOLVE EVERYTHING FROM THE SCAN ALONE (BUILD RESULTS DON'T AFFECT WHERE ANYTHING POINTS)
 	Index index(notes, BuildState{});
-	std::map<std::string, std::filesystem::path> pdfOf;
-	for (auto &entry : index.Entries())
+	std::map<std::string, const Note *> byId;
+	std::map<std::string, std::map<std::string, std::string>> resolved; // note id -> slug -> target id (empty if unresolved)
+	for (size_t n = 0; n < notes.size(); ++n)
 	{
-		pdfOf[entry.Id] = std::filesystem::path(entry.Path).replace_extension(".pdf");
-	}
-	for (auto &entry : index.Entries())
-	{
-		// relative paths are computed under a common dummy root, so a note at the top level (empty folder) works too
-		auto from = ("/root" / std::filesystem::path(entry.Path)).parent_path();
-		auto &targets = PdfLinkTargets[entry.Id];
-		for (auto &link : entry.Links)
+		byId[notes[n].Id] = &notes[n];
+		for (auto &link : index.Entries()[n].Links)
 		{
-			if (link.Target.empty()) continue;
-			targets.push_back({link.Slug, ("/root" / pdfOf[link.Target]).lexically_relative(from).generic_string()});
+			resolved[notes[n].Id][link.Slug] = link.Target;
 		}
+	}
+	auto target = [&](const Note &from, const std::string &slug) { return resolved[from.Id][slug]; };
+
+	/// FIND CYCLES: STRONGLY CONNECTED COMPONENTS OF THE TRANSCLUSION GRAPH (TARJAN)
+	// an edge is circular if it stays within one component (or points at its own note), wherever the compilation starts
+	std::map<std::string, int> component, order, low;
+	std::vector<std::string> stack;
+	std::set<std::string> onStack;
+	int counter = 0, components = 0;
+	std::function<void(const std::string &)> connect = [&](const std::string &id) {
+		order[id] = low[id] = counter++;
+		stack.push_back(id);
+		onStack.insert(id);
+		for (auto &t : byId[id]->Transclusions)
+		{
+			auto next = target(*byId[id], t.Slug);
+			if (next.empty()) continue;
+			if (!order.contains(next))
+			{
+				connect(next);
+				low[id] = std::min(low[id], low[next]);
+			}
+			else if (onStack.contains(next))
+			{
+				low[id] = std::min(low[id], order[next]);
+			}
+		}
+		if (low[id] == order[id])
+		{
+			std::string member;
+			do
+			{
+				member = stack.back();
+				stack.pop_back();
+				onStack.erase(member);
+				component[member] = components;
+			} while (member != id);
+			++components;
+		}
+	};
+	for (auto &note : notes)
+	{
+		if (!order.contains(note.Id)) connect(note.Id);
+	}
+	auto circular = [&](const std::string &from, const std::string &to) { return from == to || component[from] == component[to]; };
+
+	// each circular transclusion is reported once, at the place it was written
+	for (auto &note : notes)
+	{
+		for (auto &t : note.Transclusions)
+		{
+			auto next = target(note, t.Slug);
+			if (!next.empty() && circular(note.Id, next))
+			{
+				LOG(WARN) << note.RelativePath.generic_string() << ":" << note.BodyLine + t.Line - 1 << ": transcluding '" << t.Target << "' here would loop back on itself, so it is shown as an error instead";
+			}
+		}
+	}
+
+	/// ONE PLAN PER NOTE
+	bool pdf = Archive.Render.PdfOutput;
+	for (auto &root : notes)
+	{
+		CompilePlan plan;
+
+		// everything reachable through (non-circular) transclusions, in first-visit order: their preambles are hoisted in this order
+		std::set<std::string> visited{root.Id};
+		std::function<void(const Note &)> visit = [&](const Note &from) {
+			for (auto &t : from.Transclusions)
+			{
+				auto next = target(from, t.Slug);
+				if (next.empty() || circular(from.Id, next) || !visited.insert(next).second) continue;
+				plan.Hoisted.push_back(byId[next]);
+				visit(*byId[next]);
+			}
+		};
+		visit(root);
+
+		// declarations for the note and every note it shows: each resolved from its own origin
+		std::vector<const Note *> shown{&root};
+		shown.insert(shown.end(), plan.Hoisted.begin(), plan.Hoisted.end());
+		auto rootDir = ("/root" / root.RelativePath).parent_path(); // a dummy root, so a top-level note (empty folder) works too
+		for (auto *from : shown)
+		{
+			std::set<std::string> declared;
+			for (auto &t : from->Transclusions)
+			{
+				if (!declared.insert(t.Slug).second) continue;
+				auto next = target(*from, t.Slug);
+				if (next.empty())
+				{
+					plan.TransclusionProblems.push_back({from->Key, t.Slug, "missing note: " + t.Slug});
+				}
+				else if (circular(from->Id, next))
+				{
+					plan.TransclusionProblems.push_back({from->Key, t.Slug, "circular transclusion: " + t.Slug});
+				}
+				else
+				{
+					plan.Transclusions.push_back({from->Key, t.Slug, byId[next]->Key});
+				}
+			}
+			if (!pdf) continue;
+
+			// a PDF link must name the target's file relative to the PDF actually being read: this note's, not the origin's
+			std::set<std::string> linked;
+			for (auto &link : from->Links)
+			{
+				auto next = target(*from, link.Slug);
+				if (next.empty() || !linked.insert(link.Slug).second) continue;
+				auto pdfPath = ("/root" / byId[next]->RelativePath).replace_extension(".pdf");
+				plan.LinkTargets.push_back({from->Key, link.Slug, pdfPath.lexically_relative(rootDir).generic_string()});
+			}
+		}
+		Plans[root.Id] = std::move(plan);
+	}
+}
+
+void CortexProject::WriteFragments(const std::vector<Note> &notes)
+{
+	JSL::IO::mkdir(FragmentDir, JSL::IO::Policy::Generous);
+
+	// every note's fragment, current: a transcluded note may not be compiled this run, but its fragment must still be up to date
+	std::set<std::filesystem::path> expected;
+	for (auto &note : notes)
+	{
+		auto file = FragmentDir / (TexRunner::FragmentName(note) + ".tex");
+		expected.insert(file);
+		if (std::filesystem::exists(file) && JSL::IO::getFile(file) == note.ProcessedBody) continue; // unchanged: leave its timestamp alone
+		Utility::WriteAtomic(file, note.ProcessedBody);
+	}
+
+	// and nothing else: fragments of notes which no longer exist
+	std::vector<std::filesystem::path> stale;
+	for (auto &entry : std::filesystem::directory_iterator(FragmentDir))
+	{
+		if (!expected.contains(entry.path())) stale.push_back(entry.path());
+	}
+	for (auto &file : stale)
+	{
+		std::filesystem::remove(file);
 	}
 }
 
@@ -304,7 +453,7 @@ void CortexProject::WarnAboutInputs(const Note &note, const std::vector<std::pai
 
 		if (Note::HasNoteHeader(file))
 		{
-			LOG(WARN) << note.RelativePath.generic_string() << " uses \\input on " << path << ", which is a CorTeX note: its header (title, separator line) will be typeset as text";
+			LOG(WARN) << note.RelativePath.generic_string() << " uses \\input on " << path << ", which is a CorTeX note: its header (title, separator line) will be typeset as text. To include a note, transclude it with ![[...]]";
 		}
 		else if (!Syntax::Process(JSL::IO::getFile(file)).Links.empty())
 		{
@@ -389,7 +538,8 @@ void CortexProject::BuildLocked()
 	auto global = GlobalHash();
 	bool pdf = Archive.Render.PdfOutput;
 	Emitter output(OutputDir);
-	ResolvePdfLinks(notes);
+	PlanCompilations(notes);
+	WriteFragments(notes);
 
 	bool globalChanged = (state.GlobalHash != global);
 	if (globalChanged && !state.Records.empty())
@@ -464,7 +614,8 @@ void CortexProject::CleanRebuildLocked()
 
 	auto preamble = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	auto notes = ScanNotes();
-	ResolvePdfLinks(notes);
+	PlanCompilations(notes);
+	WriteFragments(notes);
 
 	// a fresh state: nothing from earlier builds survives a rebuild
 	BuildState state;
@@ -529,8 +680,7 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 		NoteRecord record{note.Id, note.RelativePath.generic_string(), NoteHash(note), false, false, "", {}};
 
 		/// COMPILE, AND CONVERT IF NEEDED
-		auto targets = PdfLinkTargets.find(note.Id);
-		auto result = (targets != PdfLinkTargets.end()) ? tex.Compile(note, targets->second) : tex.Compile(note);
+		auto result = tex.Compile(note, Plans.at(note.Id));
 		std::string error = result.Error;
 		if (result.Output && pdf)
 		{
@@ -598,6 +748,7 @@ void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 		viewer.Zoom = 1;
 	}
 	viewer.Name = ProjectName();
+	viewer.Background = Archive.Render.BackgroundColour;
 
 	// the home note is given as a path, matched against the notes actually being built (so ignored or untitled files can't be home)
 	if (!Archive.Files.HomeNote.empty())

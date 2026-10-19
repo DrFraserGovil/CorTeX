@@ -6,6 +6,6 @@ template<typename Wrapper>
 void FieldList(Wrapper &&W)
 {
 	Name = "SyntaxSettings";
-	W(JSL::Interface::Field<bool>(ExtendedSyntax, "ExtendedSyntax", {"extended", "extended-syntax"}, false, "If true, notes may also use CorTeX's extended syntax: *italic*, **bold**, ***both***, _monospace_, __small caps__, and lines starting with stars as lists ([[links]] always work)"));
+	W(JSL::Interface::Field<bool>(ExtendedSyntax, "ExtendedSyntax", {"extended", "extended-syntax"}, false, "If true, notes may also use CorTeX's extended syntax: *italic*, **bold**, ***both***, _monospace_, __small caps__, lines starting with # as headings (# section, ## subsection, ...), and lines starting with stars as lists ([[links]] always work)"));
 	W(JSL::Interface::Field<std::string>(DefaultListType, "DefaultListType", {"list-type"}, "itemize", "The environment used for star lists (itemize or enumerate); a list can override it by starting with *ENUM or *ITEM"));
 }

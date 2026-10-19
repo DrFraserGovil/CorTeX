@@ -66,6 +66,9 @@ namespace
 		return true;
 	}
 
+	//! The sectioning commands for heading levels 1, 2, ...: everything the standard classes provide
+	constexpr std::string_view Headings[] = {"section", "subsection", "subsubsection", "paragraph", "subparagraph"};
+
 	//! How a line starts, as far as star lists are concerned
 	struct ListLine
 	{
@@ -159,6 +162,7 @@ namespace
 		}
 
 		std::string ProcessLine(const std::string &line);
+		bool Heading(const std::string &line, std::string &output);
 		std::string Link(const std::string &line, size_t &i);
 		std::string CloseLists(size_t toDepth);
 		std::string ListLineOutput(const std::string &line);
@@ -167,14 +171,37 @@ namespace
 	// Handles "[[" or "![[" at line[i], advancing i past what it consumed
 	std::string Processor::Link(const std::string &line, size_t &i)
 	{
-		/// RESERVED SYNTAX: TRANSCLUSION
+		/// TRANSCLUSION
 		if (line.compare(i, 3, "![[") == 0)
 		{
 			auto close = line.find("]]", i + 3);
-			size_t end = (close == std::string::npos) ? line.size() : close + 2;
-			Warn("transclusion (![[...]]) isn't supported yet; left as written");
-			auto out = line.substr(i, end - i);
-			i = end;
+			if (close == std::string::npos)
+			{
+				Warn("'![[' with no closing ']]' on the same line; left as written");
+				i += 3;
+				return "![[";
+			}
+			auto inner = line.substr(i + 3, close - i - 3);
+			std::string target = JSL::String::trim(inner.substr(0, inner.find('|'))); // any |text is meaningless here, and ignored
+			auto hash = target.find('#');
+			if (hash != std::string::npos)
+			{
+				Warn("section transclusion (![[note#section]]) isn't supported yet; transcluding the whole of '" + JSL::String::trim(target.substr(0, hash)) + "'");
+				target = JSL::String::trim(target.substr(0, hash));
+			}
+			std::string out;
+			if (Syntax::Slug(target).empty())
+			{
+				Warn("transclusion ![[" + inner + "]] has no target; left as written");
+				out = line.substr(i, close + 2 - i);
+			}
+			else
+			{
+				auto slug = Syntax::Slug(target);
+				Result.Transclusions.push_back({target, slug, LineNumber});
+				out = "\\CortexTransclude{" + Options.Origin + "}{" + slug + "}";
+			}
+			i = close + 2;
 			return out;
 		}
 
@@ -212,7 +239,7 @@ namespace
 			auto slug = Syntax::Slug(target);
 			Result.Links.push_back({target, slug, LineNumber});
 			// the link text is ordinary text, so it gets the same treatment (formatting, maths) as the rest of the line
-			out = "\\CortexLink{" + slug + "}{" + ProcessLine(text) + "}";
+			out = "\\CortexLink{" + Options.Origin + "}{" + slug + "}{" + ProcessLine(text) + "}";
 		}
 		i = close + 2;
 		return out;
@@ -336,6 +363,33 @@ namespace
 		return out;
 	}
 
+	// "<indent>#...# Title" or "<indent>#...#* Title": a heading. Returns false (output untouched) for any other line
+	bool Processor::Heading(const std::string &line, std::string &output)
+	{
+		auto start = line.find_first_not_of(" \t");
+		if (start == std::string::npos || line[start] != '#') return false;
+		size_t pos = start;
+		while (pos < line.size() && line[pos] == '#')
+		{
+			++pos;
+		}
+		size_t level = pos - start;
+		bool starred = (pos < line.size() && line[pos] == '*');
+		if (starred) ++pos;
+		if (pos >= line.size() || line[pos] != ' ') return false; // "#hashtag", "##" alone: not headings
+
+		constexpr size_t deepest = std::size(Headings);
+		if (level > deepest)
+		{
+			Warn("headings go " + std::to_string(deepest) + " levels deep (#####, \\subparagraph); this one is treated as that level");
+			level = deepest;
+		}
+		std::string title = JSL::String::trim(line.substr(pos + 1));
+		// a heading ends any open lists, like any other unindented non-list line
+		output = CloseLists(0) + line.substr(0, start) + "\\" + std::string(Headings[level - 1]) + (starred ? "*" : "") + "{" + ProcessLine(title) + "}";
+		return true;
+	}
+
 	std::string Processor::CloseLists(size_t toDepth)
 	{
 		std::string out;
@@ -406,7 +460,8 @@ namespace
 			}
 			else if (Options.Extended && State == Maths::None)
 			{
-				Result.Text += ListLineOutput(line);
+				std::string heading;
+				Result.Text += Heading(line, heading) ? heading : ListLineOutput(line);
 			}
 			else
 			{

@@ -30,13 +30,15 @@ class Index
 	struct Entry
 	{
 		std::string Id;
+		//! The note's key (a hex hash of its id), as written into its links and transclusions
+		std::string Key;
 		std::string Title;
 		std::string Path;
 		Status State;
 		std::string Diagnostic;
 		//! The slugs this note can be linked by: its title and aliases
 		std::vector<std::string> Names;
-		//! Each distinct target linked to from this note, in order of first appearance
+		//! Each distinct target linked to or transcluded by this note, in order of first appearance (resolved from this note's position)
 		std::vector<ResolvedLink> Links;
 		//! The ids of notes which link to this one (excluding itself), sorted
 		std::vector<std::string> Backlinks;

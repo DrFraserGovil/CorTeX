@@ -20,6 +20,10 @@ class Note
 	//! The explicit `id:` header if present, else a slug of the relative path (sans extension)
 	std::string Id;
 
+	//! A hash of the id: a name for the note made only of hex digits, so it is safe anywhere in TeX (macro names, file names)
+	//! and in URLs, whatever characters an explicit id contains
+	std::string Key;
+
 	//! The `title:` header. Empty if the note has none, which makes it unbuildable (it can't be referenced)
 	std::string Title;
 
@@ -37,6 +41,9 @@ class Note
 
 	//! The [[links]] found in the body
 	std::vector<Syntax::Link> Links;
+
+	//! The ![[transclusions]] found in the body
+	std::vector<Syntax::Link> Transclusions;
 
 	//! The 1-based line in the source file at which LocalPreamble starts (0 if there is none), for mapping TeX errors back to the source
 	size_t LocalPreambleLine = 0;

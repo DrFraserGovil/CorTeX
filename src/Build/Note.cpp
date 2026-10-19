@@ -1,5 +1,6 @@
 #include "Note.h"
 #include "../Settings/RuntimeSettings.h"
+#include "../Utility/Hash.h"
 #include "../Utility/Sanitise.h"
 #include <JSL.h>
 #include <algorithm>
@@ -10,8 +11,15 @@ static bool IsSeparator(std::string_view line)
 	auto trimmed = JSL::String::trim(line);
 	if (trimmed.size() < 5) return false;
 
-	std::vector<std::string> allowedSeparators = {"-", "="};
-	return trimmed.size() >= 5 && trimmed.find_first_not_of('-') == std::string::npos;
+	std::vector<char> allowedSeparators = {'-', '='};
+	for (auto &sep : allowedSeparators)
+	{
+		if (trimmed.find_first_not_of(sep) == std::string::npos)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 static std::string Join(std::vector<std::string>::const_iterator begin, std::vector<std::string>::const_iterator end)
@@ -67,9 +75,13 @@ Note::Note(const std::filesystem::path &root, const std::filesystem::path &noteP
 
 	/// APPLY THE EXTENDED SYNTAX
 	// purely local to this note: what the links point at is resolved later, by the Index
-	auto processed = Syntax::Process(Body, syntax);
+	Key = Utility::HashHex(Id);
+	auto options = syntax;
+	options.Origin = Key;
+	auto processed = Syntax::Process(Body, options);
 	ProcessedBody = std::move(processed.Text);
 	Links = std::move(processed.Links);
+	Transclusions = std::move(processed.Transclusions);
 	for (auto &warning : processed.Warnings)
 	{
 		LOG(WARN) << RelativePath.generic_string() << ":" << BodyLine + warning.Line - 1 << ": " << warning.Message;
