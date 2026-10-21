@@ -16,7 +16,8 @@ class Index
 	{
 		Ok,		//!< the output is up to date
 		Stale,	//!< the latest version failed to compile; the output is the last good version
-		Failed, //!< the note has never compiled; there is no output
+		Failed,	  //!< the note has never compiled; there is no output
+		Redirect, //!< a stub which forwards to another note (never compiled)
 	};
 
 	//! One distinct link target written in a note, and what it resolved to
@@ -25,6 +26,30 @@ class Index
 		std::string Slug;
 		//! The id of the note it points at, or empty if no note has that title or alias
 		std::string Target;
+	};
+
+	//! One sidebar link: written like a link target, optionally with a label ("target|Label")
+	struct SidebarItem
+	{
+		//! The target as written
+		std::string Text;
+		//! The explicit label, or empty to use the target note's title
+		std::string Label;
+		std::string Slug;
+		//! The id of the note it resolves to; empty if none
+		std::string Target;
+
+		//! Parses "target" or "target|Label"
+		static SidebarItem Parse(std::string_view entry);
+		//! What to show: the explicit label, else the target's title, else the text as written
+		std::string Shown(const std::map<std::string, std::string> &titles) const;
+	};
+
+	//! A run of sidebar items under an optional heading
+	struct SidebarGroup
+	{
+		std::string Heading;
+		std::vector<SidebarItem> Items;
 	};
 
 	struct Entry
@@ -42,9 +67,22 @@ class Index
 		std::vector<ResolvedLink> Links;
 		//! The ids of notes which link to this one (excluding itself), sorted
 		std::vector<std::string> Backlinks;
+		//! The ids of the notes this one transcludes (resolved from this note, not following redirects), in order; a subset of Links' targets
+		std::vector<std::string> Transcludes;
+		//! For a redirect stub: its redirect as written, and the id it resolves to (empty if no such note). Empty text for ordinary notes
+		std::string RedirectText;
+		std::string RedirectTarget;
+		//! Left out of every graph except its own (the note's `graph: hidden` header)
+		bool GraphHidden = false;
+		//! The note's own sidebar entries (its `sidebar:` header), resolved from the note, shown beneath the global sidebar when it is open
+		std::vector<SidebarItem> Sidebar;
 	};
 
-	Index(const std::vector<Note> &notes, const BuildState &state);
+	//! @param sidebar The project's global sidebar (from registry.ctx); its entries are resolved here, with no origin note
+	Index(const std::vector<Note> &notes, const BuildState &state, std::vector<SidebarGroup> sidebar = {});
+
+	//! The global sidebar, resolved
+	const std::vector<SidebarGroup> &Sidebar() const;
 
 	const std::vector<Entry> &Entries() const;
 
@@ -53,6 +91,10 @@ class Index
 
 	//! The number of links (counting each distinct target once per note) which match no note
 	size_t UnresolvedCount() const;
+
+	//! Follows redirect stubs from a note id to the note they finally point at
+	//! @returns The final id (the id itself if it isn't a stub); empty if a redirect is unresolved or the chain loops
+	std::string FollowRedirects(const std::string &id) const;
 
 	//! The contents of index.js: a call to CortexIndex([...]) with one object per note
 	std::string Serialise() const;
@@ -63,5 +105,6 @@ class Index
 
   private:
 	std::vector<Entry> List;
+	std::vector<SidebarGroup> GlobalSidebar;
 	std::map<std::string, std::vector<std::string>> ClashList;
 };

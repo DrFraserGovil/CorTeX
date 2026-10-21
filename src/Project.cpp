@@ -75,14 +75,42 @@ std::vector<Note> CortexProject::ScanNotes() const
 	return notes;
 }
 
+std::vector<Index::SidebarGroup> CortexProject::ReadSidebar() const
+{
+	std::vector<Index::SidebarGroup> groups;
+	auto registry = Root / ".cortex/registry.ctx";
+	if (!std::filesystem::exists(registry)) return groups;
+
+	bool inSidebar = false;
+	for (auto &raw : JSL::IO::getFileLines(registry))
+	{
+		auto line = JSL::String::trim(raw);
+		if (!inSidebar)
+		{
+			inSidebar = JSL::String::iEquals(line, "sidebar:");
+			continue;
+		}
+		if (line.empty() || line.starts_with("%")) continue;
+		if (line.starts_with("[") && line.ends_with("]"))
+		{
+			groups.push_back({JSL::String::trim(std::string_view(line).substr(1, line.size() - 2)), {}});
+			continue;
+		}
+		if (groups.empty()) groups.push_back({"", {}}); // entries before any heading form an untitled first group
+		groups.back().Items.push_back(Index::SidebarItem::Parse(line));
+	}
+	return groups;
+}
+
 std::string CortexProject::ProjectName() const
 {
-	// registry.ctx holds "name = <name>", written by cortex new
+	// registry.ctx holds "name = <name>", written by cortex new (and, after a "sidebar:" line, the global sidebar)
 	auto registry = Root / ".cortex/registry.ctx";
 	if (std::filesystem::exists(registry))
 	{
 		for (auto &line : JSL::IO::getFileLines(registry))
 		{
+			if (JSL::String::iEquals(JSL::String::trim(line), "sidebar:")) break;
 			auto eq = line.find('=');
 			if (eq != std::string::npos && JSL::String::trim(std::string_view(line).substr(0, eq)) == "name")
 			{
@@ -162,7 +190,11 @@ void CortexProject::PlanCompilations(const std::vector<Note> &notes)
 			resolved[notes[n].Id][link.Slug] = link.Target;
 		}
 	}
-	auto target = [&](const Note &from, const std::string &slug) { return resolved[from.Id][slug]; };
+	// where a link or transclusion finally lands: through any redirect stubs (there's no viewer to forward a PDF link, and a stub has no content to transclude)
+	auto target = [&](const Note &from, const std::string &slug) {
+		auto id = resolved[from.Id][slug];
+		return id.empty() ? id : index.FollowRedirects(id);
+	};
 
 	/// FIND CYCLES: STRONGLY CONNECTED COMPONENTS OF THE TRANSCLUSION GRAPH (TARJAN)
 	// an edge is circular if it stays within one component (or points at its own note), wherever the compilation starts
@@ -308,7 +340,7 @@ void CortexProject::WriteFragments(const std::vector<Note> &notes)
 bool CortexProject::AffectsBuild(const std::filesystem::path &relative) const
 {
 	auto path = relative.lexically_normal().generic_string();
-	if (path == ".cortex/preamble.tex" || path == ".cortex/settings.config")
+	if (path == ".cortex/preamble.tex" || path == ".cortex/settings.config" || path == ".cortex/registry.ctx")
 	{
 		return true;
 	}
@@ -551,6 +583,7 @@ void CortexProject::BuildLocked()
 	std::vector<Note> dirty;
 	for (auto &note : notes)
 	{
+		if (!note.Redirect.empty()) continue; // a redirect stub is never compiled
 		auto record = state.Records.find(note.Id);
 		bool isDirty = globalChanged											 // something every note depends on has changed
 					   || record == state.Records.end()							 // never built
@@ -581,10 +614,16 @@ void CortexProject::BuildLocked()
 	}
 	state.RetainOnly(ids);
 
-	WriteIndex(notes, state, OutputDir);
+	bool indexChanged = WriteIndex(notes, state, OutputDir);
 	SweepOutput(notes);
 	SweepScratch(notes);
 	state.Save(BuildStateFile);
+
+	// tell any open viewer to refresh, but only if something it shows changed; written last, once everything is in place
+	if (!pdf && (indexChanged || !dirty.empty()))
+	{
+		output.WriteVersion();
+	}
 	LOG(INFO) << "Output written to " << (pdf ? OutputDir : OutputDir / "index.html");
 }
 
@@ -620,10 +659,16 @@ void CortexProject::CleanRebuildLocked()
 	// a fresh state: nothing from earlier builds survives a rebuild
 	BuildState state;
 	state.GlobalHash = GlobalHash();
-	size_t failures = BuildFiles(notes, preamble, StagingDir, state);
+	std::vector<Note> compiled; // everything except redirect stubs, which are never compiled
+	std::copy_if(notes.begin(), notes.end(), std::back_inserter(compiled), [](auto &note) { return note.Redirect.empty(); });
+	size_t failures = BuildFiles(compiled, preamble, StagingDir, state);
 	WriteIndex(notes, state, StagingDir);
+	if (!Archive.Render.PdfOutput)
+	{
+		Emitter(StagingDir).WriteVersion(); // a rebuild always counts as a change, for any viewer open on the old output
+	}
 
-	if (notes.empty() || failures < notes.size()) // i.e. unless every note failed (which suggests a project-wide problem)
+	if (compiled.empty() || failures < compiled.size()) // i.e. unless every note failed (which suggests a project-wide problem)
 	{
 		SwapStagingIntoOutput();
 		SweepScratch(notes);
@@ -721,14 +766,41 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 	return failures;
 }
 
-void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir)
+bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir)
 {
-	Index index(notes, state);
+	Index index(notes, state, ReadSidebar());
 
 	/// REPORT ON THE LINK NETWORK
 	for (auto &[name, ids] : index.Clashes())
 	{
 		LOG(WARN) << "'" << name << "' is the title or alias of several notes (" << JSL::String::stitch(ids, 0, ids.size(), ", ") << "); links to it go to whichever is nearest the linking note";
+	}
+	for (auto &entry : index.Entries())
+	{
+		if (!entry.RedirectText.empty() && index.FollowRedirects(entry.Id).empty())
+		{
+			LOG(WARN) << entry.Path << ": redirects to '" << entry.RedirectText << "', which " << (entry.RedirectTarget.empty() ? "matches no note" : "leads into a loop of redirects");
+		}
+	}
+	for (auto &group : index.Sidebar())
+	{
+		for (auto &item : group.Items)
+		{
+			if (item.Target.empty())
+			{
+				LOG(WARN) << "Sidebar entry '" << item.Text << "' (in .cortex/registry.ctx) matches no note";
+			}
+		}
+	}
+	for (auto &entry : index.Entries())
+	{
+		for (auto &item : entry.Sidebar)
+		{
+			if (item.Target.empty())
+			{
+				LOG(WARN) << entry.Path << ": sidebar entry '" << item.Text << "' matches no note";
+			}
+		}
 	}
 	if (auto unresolved = index.UnresolvedCount(); unresolved > 0)
 	{
@@ -738,7 +810,7 @@ void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 	// PDF mode produces only the PDFs themselves; the index and viewer exist only for SVG output
 	if (Archive.Render.PdfOutput)
 	{
-		return;
+		return false;
 	}
 	Emitter::ViewerConfig viewer;
 	viewer.Zoom = Archive.Render.ViewerZoom;
@@ -763,7 +835,7 @@ void CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 			LOG(WARN) << "home '" << Archive.Files.HomeNote << "' isn't a note in this project (missing, ignored, or without a title); the viewer will open on the overview";
 		}
 	}
-	Emitter(targetDir).WriteIndex(index.Serialise(), viewer);
+	return Emitter(targetDir).WriteIndex(index.Serialise(), viewer);
 }
 
 // Removes now-empty directories under (but not including) root, deepest first
@@ -792,6 +864,7 @@ void CortexProject::SweepOutput(const std::vector<Note> &notes)
 	std::set<std::filesystem::path> expected;
 	for (auto &note : notes)
 	{
+		if (!note.Redirect.empty()) continue; // stubs have no output (a note turned into a stub loses its old one)
 		expected.insert(output.OutputFor(note, pdf));
 	}
 	if (!pdf)

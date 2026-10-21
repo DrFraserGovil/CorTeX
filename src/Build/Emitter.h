@@ -34,7 +34,12 @@ class Emitter
 	};
 
 	//! Writes index.js (the serialised Index, followed by the viewer's settings) and the stub index.html viewer
-	void WriteIndex(std::string_view indexJs, const ViewerConfig &config);
+	//! @returns true if index.js changed (so an open viewer should refresh)
+	bool WriteIndex(std::string_view indexJs, const ViewerConfig &config);
+
+	//! Writes version.js, which an open viewer polls: a new stamp tells it to reload the index and the note on show.
+	//! Written last in a build, so by the time the stamp changes, everything it refers to is in place
+	void WriteVersion();
 
 	//! The files the viewer needs besides the notes (index.js, index.html), so the sweep knows to keep them
 	std::vector<std::filesystem::path> ViewerFiles() const;

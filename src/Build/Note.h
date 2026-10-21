@@ -30,6 +30,17 @@ class Note
 	//! The `alias:` header entries (comma-separated), as written. Together with the title, these are what [[links]] can match
 	std::vector<std::string> Aliases;
 
+	//! The `redirect:` header, as written: if set, the note is a stub which points at that note (a title or alias) instead of
+	//! having content. Stubs are never compiled; the viewer forwards them, and links/transclusions in PDF mode resolve through them
+	std::string Redirect;
+
+	//! True if the header says `graph: hidden`: the note is left out of every graph except its own (for navigation pages
+	//! such as indexes, which everything links to and which would otherwise pull every graph into a star)
+	bool GraphHidden = false;
+
+	//! The `sidebar:` header entries (comma-separated, each "target" or "target|Label"), as written: extra sidebar links shown with this note
+	std::vector<std::string> Sidebar;
+
 	//! Preamble material specific to this note, placed after the project preamble (empty if absent)
 	std::string LocalPreamble;
 

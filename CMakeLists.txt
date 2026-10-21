@@ -52,6 +52,25 @@ endif()
 
 target_link_libraries(cortex PUBLIC JSL)
 
+#### The viewer
+### src/Viewer/viewer.{html,css,js} are embedded into the binary as raw string literals, in a generated header.
+### Editing any of them re-runs this step (CMAKE_CONFIGURE_DEPENDS), so they behave like ordinary sources.
+set(VIEWER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/Viewer")
+set(VIEWER_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/ViewerSource.h")
+set(VIEWER_TEXT "#pragma once\n// Generated from src/Viewer by CMakeLists.txt: edit those files, not this one\n#include <string_view>\nnamespace Viewer\n{\n")
+foreach(PART html css js)
+	file(READ "${VIEWER_DIR}/viewer.${PART}" CONTENT)
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${VIEWER_DIR}/viewer.${PART}")
+	string(SUBSTRING ${PART} 0 1 FIRST)
+	string(TOUPPER ${FIRST} FIRST)
+	string(SUBSTRING ${PART} 1 -1 REST)
+	string(APPEND VIEWER_TEXT "\tinline constexpr std::string_view ${FIRST}${REST} = R\"CORTEXVIEWER(${CONTENT})CORTEXVIEWER\";\n")
+endforeach()
+string(APPEND VIEWER_TEXT "}\n")
+file(WRITE "${VIEWER_HEADER}.tmp" "${VIEWER_TEXT}")
+configure_file("${VIEWER_HEADER}.tmp" "${VIEWER_HEADER}" COPYONLY) # only rewritten if changed, so nothing recompiles needlessly
+target_include_directories(cortex PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 
 # If your library needs specific standard features (like C++20)
 target_compile_features(cortex PUBLIC cxx_std_20)

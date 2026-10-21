@@ -82,6 +82,25 @@ Note::Note(const std::filesystem::path &root, const std::filesystem::path &noteP
 	ProcessedBody = std::move(processed.Text);
 	Links = std::move(processed.Links);
 	Transclusions = std::move(processed.Transclusions);
+
+	/// A REDIRECT STUB HAS NO CONTENT OF ITS OWN
+	// anything written in its body is ignored (and said so, so it isn't silently lost); its links and transclusions don't count
+	if (!Redirect.empty())
+	{
+		bool hasContent = false;
+		for (auto &line : JSL::String::split(Body, "\n"))
+		{
+			auto trimmed = JSL::String::trim(line);
+			if (!trimmed.empty() && !trimmed.starts_with("%")) hasContent = true;
+		}
+		if (hasContent)
+		{
+			LOG(WARN) << RelativePath.generic_string() << " redirects to '" << Redirect << "', so the text in its body is ignored";
+		}
+		ProcessedBody.clear();
+		Links.clear();
+		Transclusions.clear();
+	}
 	for (auto &warning : processed.Warnings)
 	{
 		LOG(WARN) << RelativePath.generic_string() << ":" << BodyLine + warning.Line - 1 << ": " << warning.Message;
@@ -101,6 +120,29 @@ void Note::ParseHeader(const std::vector<std::string> &lines)
 		if (JSL::String::iEquals(key, "title"))
 		{
 			Title = value;
+		}
+		else if (JSL::String::iEquals(key, "redirect"))
+		{
+			Redirect = value;
+		}
+		else if (JSL::String::iEquals(key, "graph"))
+		{
+			if (JSL::String::iEquals(value, "hidden"))
+			{
+				GraphHidden = true;
+			}
+			else
+			{
+				LOG(WARN) << RelativePath.generic_string() << ": unknown graph setting '" << value << "' (the only option is 'graph: hidden'); ignored";
+			}
+		}
+		else if (JSL::String::iEquals(key, "sidebar"))
+		{
+			for (auto &item : JSL::String::split(value, ","))
+			{
+				auto trimmed = JSL::String::trim(item);
+				if (!trimmed.empty()) Sidebar.push_back(trimmed);
+			}
 		}
 		else if (JSL::String::iEquals(key, "alias") || JSL::String::iEquals(key, "aliases"))
 		{

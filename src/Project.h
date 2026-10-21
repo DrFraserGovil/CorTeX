@@ -1,5 +1,6 @@
 #pragma once
 #include "Build/BuildState.h"
+#include "Build/Index.h"
 #include "Build/Note.h"
 #include "Build/TexRunner.h"
 #include "Build/ProjectLock.h"
@@ -32,6 +33,10 @@ class CortexProject
 
 	//! The project's name from .cortex/registry.ctx (falling back to the root folder's name)
 	std::string ProjectName() const;
+
+	//! The project's global sidebar from .cortex/registry.ctx: every line after "sidebar:" is an entry ("target" or "target|Label"),
+	//! except "[Heading]" lines, which start a new group; blank lines and lines starting % are ignored
+	std::vector<Index::SidebarGroup> ReadSidebar() const;
 
 	//! A hash of everything which affects every note: the preamble, cortex.cls, the width, the output mode and the engine version
 	//! @details If this changes between builds, every note must be recompiled
@@ -104,7 +109,8 @@ class CortexProject
 	size_t BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state);
 
 	//! Writes index.js and the viewer into targetDir (SVG mode only: PDF mode produces nothing but the PDFs)
-	void WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir);
+	//! @returns true if index.js changed (false in PDF mode, which has no index)
+	bool WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir);
 
 	//! Deletes everything in OutputDir which isn't an output of a current note (or the viewer), then any emptied directories
 	void SweepOutput(const std::vector<Note> &notes);

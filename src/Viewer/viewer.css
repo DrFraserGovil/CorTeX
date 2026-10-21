@@ -1,0 +1,65 @@
+body { font-family: sans-serif; margin: 0; display: flex; }
+nav { width: 16em; padding: 1em; border-right: 1px solid #ccc; min-height: 100vh; }
+nav li.current a { font-weight: bold; }
+#sidebar h4 { margin: 1em 0 0.3em 0; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; color: #666; }
+#sidebar ul { margin: 0; }
+#sidebar li.unresolved a { color: #c01c28; }
+#search { width: 100%; box-sizing: border-box; padding: 0.35em 0.5em; margin-bottom: 0.5em; font: inherit; border: 1px solid #bbb; border-radius: 4px; background: rgba(255,255,255,0.7); }
+#results ul { margin: 0; padding-left: 1.2em; }
+#results li.selected a { font-weight: bold; }
+#results .where { display: block; font-size: 0.8em; color: #777; }
+#results .none { color: #777; font-style: italic; }
+nav ul { padding-left: 1.2em; }
+#home-links { margin-bottom: 0.8em; font-weight: bold; }
+#home-links a { margin-right: 0.8em; }
+.overview h1 { margin-top: 0; }
+.overview h2 { font-size: 1.1em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
+.overview h3 { font-size: 1em; color: #555; margin-bottom: 0.2em; }
+.overview .stale a, .overview .failed a { color: #b35900; }
+.overview .note-error { color: #555; font-family: monospace; font-size: 0.9em; margin-left: 0.5em; }
+#zoom { display: flex; gap: 0.3em; align-items: center; margin-bottom: 1em; font-size: 0.9em; color: #555; }
+#zoom button { min-width: 2em; }
+nav .stale a, nav .failed a { color: #b35900; }
+.banner { background: #fff3cd; border: 1px solid #e0b252; padding: 0.5em 1em; margin-bottom: 1em; }
+.banner pre { white-space: pre-wrap; margin: 0.5em 0 0 0; }
+main { padding: 1em; flex: 1; }
+#note > svg { display: block; max-width: 100%; height: auto; margin-bottom: 1em; box-shadow: 0 0 4px #aaa; }
+/* links inside notes: the SVG text is coloured here, so resolved and unresolved links can differ */
+a.cortex-link text, a.cortex-link tspan { fill: #1a5fb4; }
+a.cortex-link.unresolved text, a.cortex-link.unresolved tspan { fill: #c01c28; }
+a.cortex-link:hover text, a.cortex-link:hover tspan { fill: #0b3d75; }
+.backlinks { border-top: 1px solid #ccc; padding-top: 0.5em; color: #555; }
+.backlinks h3 { margin: 0.2em 0; font-size: 1em; }
+.graph-page h1 { margin-top: 0; }
+.graph-box { position: relative; width: 100%; height: 420px; border: 1px solid #ccc; border-radius: 6px; background: transparent; overflow: hidden; } /* the page's background shows through */
+.graph-box.large { height: 75vh; }
+.local-graph h3 { margin: 1em 0 0.4em 0; font-size: 1em; color: #555; }
+svg.graph { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+svg.graph text { font: 11px sans-serif; fill: #333; pointer-events: none; }
+.graph-node { cursor: pointer; }
+.graph-node circle { stroke: #fff; stroke-width: 1.5; }
+.graph-node.centre circle { stroke: #222; stroke-width: 2.5; }
+.graph-node.stale circle, .graph-node.failed circle { stroke: #e66100; stroke-width: 3; }
+.graph-node.wanted circle, .graph-wanted-key { fill: none; stroke: #c01c28; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.graph-node.wanted text { fill: #c01c28; }
+.graph-edge { stroke: #999; stroke-width: 1.2; }
+.graph-edge.link { marker-end: url(#graph-arrow); }
+.graph-edge.link.out { stroke: #7f9a86; stroke-width: 1.8; marker-end: url(#graph-arrow-out); }
+.graph-edge.link.in { stroke: #a8888a; stroke-width: 1.8; marker-end: url(#graph-arrow-in); }
+.graph-edge.transclude { stroke: #613583; stroke-width: 3; }
+svg.graph.focused .graph-node:not(.near), svg.graph.focused .graph-edge:not(.near) { opacity: 0.15; }
+.graph-legend span { display: inline-flex; align-items: center; gap: 0.4em; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 1.2em; align-items: center; margin-bottom: 0.6em; font-size: 0.9em; color: #444; }
+.graph-legend .graph-hint { color: #888; font-style: italic; }
+.graph-empty { padding: 2em; color: #777; font-style: italic; }
+.graph-depth { font-size: 0.85em; color: #555; margin-top: 0.5em; }
+.graph-depth button { margin-left: 0.2em; min-width: 2.2em; }
+.graph-depth button.selected { font-weight: bold; border-width: 2px; }
+.graph-node.near2 { opacity: 0.7; }
+.graph-node.far { opacity: 0.35; }
+.graph-edge.near2 { opacity: 0.6; }
+.graph-edge.far { opacity: 0.25; }
+.linked-from { margin-top: 0.5em; color: #444; }
+.linked-from-label { color: #555; font-weight: bold; }
+.graph-edge.hub { opacity: 0.35; stroke-width: 0.8; }
+svg.graph.focused .graph-edge.hub.near { opacity: 1; }

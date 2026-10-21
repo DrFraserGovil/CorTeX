@@ -117,7 +117,10 @@ void PrepareCortex(bool writeSettings, bool writePreamble)
 void FinaliseCortex(std::string name)
 {
 	LOG(INFO) << JSL::Display::Green() << "Finalising CorTeX Registration";
-	JSL::IO::writeString(Runtime.RootPath / registryFile, "name = " + name + "\n");
+	JSL::IO::writeString(Runtime.RootPath / registryFile, "name = " + name + "\n\n"
+															 "% The sidebar shown on every page of the viewer: one entry per line after \"sidebar:\", each a note's title or alias\n"
+															 "% (optionally \"target|Label\"). A line \"[Heading]\" starts a new group. Notes can add their own with a sidebar: header line.\n"
+															 "sidebar:\n");
 }
 
 bool overwriteCheck(std::string name, std::filesystem::path path)
