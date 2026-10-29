@@ -73,7 +73,7 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state, std::vecto
 	/// ONE ENTRY PER NOTE, WITH ITS BUILD STATUS AND NAMES
 	for (auto &note : notes)
 	{
-		Entry entry{note.Id, note.Key, note.Title, note.RelativePath.generic_string(), Status::Failed, "not yet built", {}, {}, {}, {}, "", "", false, {}};
+		Entry entry{note.Id, note.Key, note.Title, note.RelativePath.generic_string(), Status::Failed, "not yet built", {}, {}, {}, {}, "", "", false, false, "", {}};
 
 		// the status comes from the last time the note was compiled, whether that was this run or an earlier one
 		auto record = state.Records.find(note.Id);
@@ -84,6 +84,8 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state, std::vecto
 			entry.Diagnostic = r.Diagnostic;
 		}
 		entry.GraphHidden = note.GraphHidden;
+		entry.Todo = note.Todo.has_value();
+		entry.TodoText = note.Todo.value_or("");
 		if (!note.Redirect.empty())
 		{
 			entry.State = Status::Redirect;
@@ -269,6 +271,10 @@ std::string Index::Serialise() const
 		if (e.GraphHidden)
 		{
 			js += ",\"graphHidden\":true";
+		}
+		if (e.Todo)
+		{
+			js += ",\"todo\":" + JsonString(e.TodoText);
 		}
 		if (!e.RedirectText.empty())
 		{

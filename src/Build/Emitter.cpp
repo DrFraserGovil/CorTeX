@@ -66,7 +66,7 @@ bool Emitter::WriteIndex(std::string_view indexJs, const ViewerConfig &viewer)
 {
 	JSL::IO::mkdir(OutputDir, JSL::IO::Policy::Generous);
 	// viewer settings ride along in index.js, which is rewritten on every build: changing them never recompiles a note
-	std::string config = "CortexConfig({\"zoom\":" + JSL::String::makeFrom(viewer.Zoom) + ",\"name\":" + Utility::JsonString(viewer.Name) + ",\"home\":" + Utility::JsonString(viewer.Home) + ",\"background\":" + Utility::JsonString(viewer.Background) + "});\n";
+	std::string config = "CortexConfig({\"zoom\":" + JSL::String::makeFrom(viewer.Zoom) + ",\"name\":" + Utility::JsonString(viewer.Name) + ",\"home\":" + Utility::JsonString(viewer.Home) + ",\"background\":" + Utility::JsonString(viewer.Background) + ",\"folderPull\":" + JSL::String::makeFrom(viewer.FolderPull) + "});\n";
 	std::string index = std::string(indexJs) + config;
 	auto indexFile = OutputDir / "index.js";
 	bool changed = !std::filesystem::exists(indexFile) || JSL::IO::getFile(indexFile) != index;

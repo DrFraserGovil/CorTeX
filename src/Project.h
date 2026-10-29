@@ -43,7 +43,7 @@ class CortexProject
 	std::string GlobalHash() const;
 
 	//! Bumped by hand whenever a change to the engine alters the TeX it generates, so existing projects recompile
-	static constexpr int EngineVersion = 7; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links; 6: fragments, transclusion, origin-keyed links; 7: # headings
+	static constexpr int EngineVersion = 11; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links; 6: fragments, transclusion, origin-keyed links; 7: # headings; 8: page margin setting (default 4pt -> 8pt); 9: maths environments, no format opener after '}'; 10: images embedded in SVG output, dvisvgm runs in the note's directory; 11: dvisvgm as a global class option
 
   private:
 	//! Runs a build (clean or incremental) while holding the lock, then any builds other commands requested meanwhile, until none are pending

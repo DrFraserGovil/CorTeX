@@ -11,4 +11,7 @@ namespace Utility
 
 	//! Encodes a string as a JSON string literal (which is also a valid JS string literal), quotes included
 	std::string JsonString(std::string_view input);
+
+	//! Encodes bytes as standard base64 (with '=' padding), e.g. for a data: URI
+	std::string Base64(std::string_view bytes);
 } // namespace Utility

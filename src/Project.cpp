@@ -127,6 +127,7 @@ std::string CortexProject::GlobalHash() const
 	std::string key = JSL::IO::getFile(Root / ".cortex/preamble.tex");
 	key += '\0' + std::string(TexRunner::ClassSource());
 	key += '\0' + JSL::String::makeFrom(Archive.Render.WidthCM);
+	key += '\0' + JSL::String::makeFrom(Archive.Render.MarginPT);
 	key += '\0' + std::string(Archive.Render.PdfOutput ? "pdf" : "svg");
 	key += '\0' + std::to_string(EngineVersion);
 	// the extended syntax and title change the generated TeX of every note
@@ -150,8 +151,10 @@ Syntax::Options CortexProject::SyntaxOptions()
 
 std::string CortexProject::NoteHash(const Note &note) const
 {
-	// the header isn't included: a new title changes the index, but not the compiled note
-	std::string key = note.LocalPreamble + '\0' + note.Body;
+	// the header isn't included (a new alias or sidebar changes the index, not the compiled note), except the title when it's
+	// typeset: whether it is (the project setting, or the note's show-title override) and, if so, its text
+	bool titled = note.ShowTitle.value_or(Archive.Render.InsertTitle);
+	std::string key = note.LocalPreamble + '\0' + note.Body + '\0' + (titled ? "title:" + note.Title : std::string("untitled"));
 	if (auto plan = Plans.find(note.Id); plan != Plans.end())
 	{
 		for (auto *hoisted : plan->second.Hoisted)
@@ -715,7 +718,7 @@ void CortexProject::SwapStagingIntoOutput()
 size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state)
 {
 	bool pdf = Archive.Render.PdfOutput;
-	TexRunner tex(BuildDir, preamble, pdf, Archive.Render.WidthCM, Archive.Render.InsertTitle);
+	TexRunner tex(BuildDir, preamble, pdf, Archive.Render.WidthCM, Archive.Render.MarginPT, Archive.Render.InsertTitle);
 	Emitter emitter(targetDir);
 
 	size_t failures = 0;
@@ -733,10 +736,14 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 		}
 		else if (result.Output)
 		{
-			auto svg = Svg::Convert(*result.Output);
-			if (svg)
+			auto svg = Svg::Convert(*result.Output, note.SourceAbsolutePath.parent_path(), result.Inputs);
+			for (auto &warning : svg.Warnings)
 			{
-				emitter.WriteNote(note, {*svg});
+				LOG(WARN) << note.RelativePath.generic_string() << ": " << warning;
+			}
+			if (svg.Svg)
+			{
+				emitter.WriteNote(note, {*svg.Svg});
 			}
 			else
 			{
@@ -802,6 +809,10 @@ bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 			}
 		}
 	}
+	if (auto todo = std::count_if(index.Entries().begin(), index.Entries().end(), [](auto &e) { return e.Todo; }); todo > 0)
+	{
+		LOG(INFO) << todo << (todo == 1 ? " note is" : " notes are") << " flagged todo";
+	}
 	if (auto unresolved = index.UnresolvedCount(); unresolved > 0)
 	{
 		LOG(INFO) << unresolved << (unresolved == 1 ? " link points at a note which doesn't" : " links point at notes which don't") << " exist yet";
@@ -821,6 +832,12 @@ bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 	}
 	viewer.Name = ProjectName();
 	viewer.Background = Archive.Render.BackgroundColour;
+	viewer.FolderPull = Archive.Render.FolderPull;
+	if (!(viewer.FolderPull >= 0 && viewer.FolderPull <= 1))
+	{
+		LOG(WARN) << "folder-pull must be between 0 and 1 (1 ignores folders); using 0.5";
+		viewer.FolderPull = 0.5;
+	}
 
 	// the home note is given as a path, matched against the notes actually being built (so ignored or untitled files can't be home)
 	if (!Archive.Files.HomeNote.empty())

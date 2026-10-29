@@ -31,6 +31,8 @@ class Emitter
 		std::string Home;
 		//! The page colour behind the notes, as any CSS colour; empty for the default
 		std::string Background;
+		//! The graph's pull between linked notes in neighbouring folders, relative to the same folder (0 to 1)
+		double FolderPull = 0.5;
 	};
 
 	//! Writes index.js (the serialised Index, followed by the viewer's settings) and the stub index.html viewer

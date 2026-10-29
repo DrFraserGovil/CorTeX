@@ -30,6 +30,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @brief The paperwidth of the rendered document
 	double WidthCM = 25;
 
+	//! @alias margin
+	//! @brief The blank margin around every rendered page, in points. Anything drawn further outside the text width than this is cut off, so raise it for boxes which deliberately hang into the margin (e.g. tcolorbox's oversize)
+	double MarginPT = 8;
+
 	//! @alias zoom
 	//! @brief How large notes are drawn in the viewer, relative to their true printed size (1 = actual size). A display setting only: changing it never recompiles notes, and readers can adjust it further with the viewer's zoom buttons
 	double ViewerZoom = 1.4;
@@ -37,6 +41,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @alias background, background-colour, background-color
 	//! @brief The viewer's page colour, behind and around the notes, as any CSS colour (e.g. #f4ecd8, or wheat); empty keeps the default white. A display setting only: changing it never recompiles notes
 	std::string BackgroundColour = "";
+
+	//! @alias folder-pull
+	//! @brief How strongly the graph pulls together linked notes in neighbouring folders, relative to notes in the same folder: 1 ignores folders, 0 lets folders drift fully apart. Notes further apart in the folder tree pull more weakly still. A display setting only: changing it never recompiles notes
+	double FolderPull = 0.5;
 
 	//! @alias insert-title, title
 	//! @brief If true, each note's title is typeset at the top of the note (using the CortexTitle macro, which the preamble may redefine)

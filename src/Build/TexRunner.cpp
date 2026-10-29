@@ -4,28 +4,30 @@
 #include <algorithm>
 #include <regex>
 
-// The class every note is compiled against. The [svg] option (the default) loads the dvisvgm drivers, which
-// must be in place before any user package loads pgf, graphicx or xcolor; [pdf] leaves the native drivers alone.
+// The class every note is compiled against. In SVG mode the generated \documentclass line also carries the global option dvisvgm, which every
+// driver-aware package (graphics, graphicx, color, xcolor, the LaTeX3 backend, ...) picks up whenever and by whomever it is loaded; pgf
+// reads \pgfsysdriver instead, set here. [pdf] leaves the native drivers alone.
 static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{cortex}[CorTeX note class]
 \newif\ifcortex@svg
 \cortex@svgtrue
 \def\cortex@width{25cm}
+\def\cortex@margin{8pt}
 \DeclareKeys[cortex]{
 	svg .code = \cortex@svgtrue,
 	pdf .code = \cortex@svgfalse,
 	width .store = \cortex@width,
+	margin .store = \cortex@margin,
 	unknown .code = \PassOptionsToClass{\CurrentOption}{standalone}
 }
 \ProcessKeyOptions[cortex]
 \ifcortex@svg
 	\def\pgfsysdriver{pgfsys-dvisvgm.def}
-	\PassOptionsToPackage{dvisvgm}{graphicx}
-	\PassOptionsToPackage{dvisvgm}{graphics}
-	\PassOptionsToPackage{dvisvgm}{xcolor}
 \fi
-% a small margin on every page: without it, glyphs touch the edge of the SVG and the browser clips their tops
-\PassOptionsToClass{border=4pt}{standalone}
+% a margin on every page (the margin setting): without one, glyphs touch the edge of the SVG and the browser clips their tops,
+% and anything drawn outside the text width (such as a tcolorbox with oversize, whose frame hangs out by its rule and padding) is cut off
+\edef\cortex@border{\noexpand\PassOptionsToClass{border=\cortex@margin}{standalone}}
+\cortex@border
 \LoadClass{standalone}
 
 % The engine wraps every note body in this, so all notes share one fixed width (and narrower content can be centred within it).
@@ -83,7 +85,7 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 		{\input{\csname cortex@transclude@#1@#2\endcsname}}}
 )tex";
 
-TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, bool insertTitle) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM), InsertTitle(insertTitle)
+TexRunner::TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, double marginPT, bool insertTitle) : BuildDir(std::move(buildDir)), Preamble(std::move(preamble)), ProducePdf(producePdf), WidthCM(widthCM), MarginPT(marginPT), InsertTitle(insertTitle)
 {
 	ClassDir = BuildDir.parent_path() / "class";
 	FragmentDir = BuildDir.parent_path() / "fragments";
@@ -286,7 +288,11 @@ TexRunner::Result TexRunner::Compile(const Note &note, const CompilePlan &plan)
 
 	/// WRITE TO TEX FILE
 	LOG(DEBUG) << "Writing tex file " << texFile;
-	std::string options = std::string(ProducePdf ? "pdf" : "svg") + ",width=" + JSL::String::makeFrom(WidthCM) + "cm";
+	// dvisvgm is a global option so that every package choosing a driver sees it (cortex.cls must not declare it as a key: \ProcessKeyOptions
+	// removes the options it uses from the global list): naming packages one by one misses
+	// any not on the list, which then fall back to XeTeX's native driver (e.g. color, loaded late by hyperref's colorlinks, replaced
+	// graphicx's image macros, and dvisvgm silently dropped the images)
+	std::string options = std::string(ProducePdf ? "pdf" : "svg,dvisvgm") + ",width=" + JSL::String::makeFrom(WidthCM) + "cm,margin=" + JSL::String::makeFrom(MarginPT) + "pt";
 	std::string documentClass = "\\documentclass[" + options + "]{cortex}\n";
 	// assembled line by line, recording where every line came from, so errors can be traced back to the user's files
 	std::string tex;
@@ -346,7 +352,7 @@ TexRunner::Result TexRunner::Compile(const Note &note, const CompilePlan &plan)
 	/// THE BODY: THE NOTE'S FRAGMENT, INPUT JUST AS A TRANSCLUSION WOULD BE
 	emit("\\begin{document}");
 	emit("\\begin{cortexbody}");
-	if (InsertTitle)
+	if (note.ShowTitle.value_or(InsertTitle))
 	{
 		emit("\\CortexTitle{" + note.Title + "}", {note.RelativePath.generic_string(), 1, "title"});
 	}

@@ -63,3 +63,6 @@ svg.graph.focused .graph-node:not(.near), svg.graph.focused .graph-edge:not(.nea
 .linked-from-label { color: #555; font-weight: bold; }
 .graph-edge.hub { opacity: 0.35; stroke-width: 0.8; }
 svg.graph.focused .graph-edge.hub.near { opacity: 1; }
+.banner.todo { background: #fbf7ee; border: 1px dashed #c01c28; }
+.graph-todo-ring, .graph-node circle.graph-todo-ring, .graph-node.centre circle.graph-todo-ring, .graph-node.stale circle.graph-todo-ring, .graph-node.failed circle.graph-todo-ring { fill: none; stroke: #c01c28; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.local-graph { max-width: 100%; }

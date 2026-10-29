@@ -31,9 +31,10 @@ class TexRunner
 	//! @param preamble The archive preamble (packages and macros; the \documentclass line is generated)
 	//! @param producePdf If true, xelatex runs to completion and produces a PDF; otherwise it stops at XDV
 	//! @param widthCM The fixed width of every note's body (the cortexbody minipage)
-	//! @param insertTitle If true, each note starts with \CortexTitle{<its title>}
+	//! @param marginPT The blank margin around each page, in points
+	//! @param insertTitle If true, each note starts with \CortexTitle{<its title>} (a note's `show-title:` header overrides this)
 	//! @throws runtime_error If cortex.cls cannot be written
-	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, bool insertTitle = false);
+	TexRunner(std::filesystem::path buildDir, std::string_view preamble, bool producePdf, double widthCM, double marginPT, bool insertTitle = false);
 
 	//! Compiles the note. The working directory is the note's source directory, so relative inputs and images resolve as they would for the author.
 	//! @details xelatex is rerun (up to MaxPasses times) while the log asks for it, so cross-references are correct regardless of what earlier builds left behind.
@@ -76,6 +77,7 @@ class TexRunner
 	std::string Preamble;
 	bool ProducePdf;
 	double WidthCM;
+	double MarginPT;
 	bool InsertTitle;
 
 	//! Writes ClassSource() to ClassDir/cortex.cls, unless an identical copy is already there

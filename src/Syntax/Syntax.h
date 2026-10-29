@@ -11,7 +11,7 @@
 //!  - transclusion: ![[target]] becomes \CortexTransclude{<origin>}{<slug>}, which inputs the target note's body (resolved by the engine)
 //! Only with Options::Extended (the ExtendedSyntax setting), and only in text (never in maths):
 //!  - inline formatting: *italic*, **bold**, ***bold italic***, _monospace_, __small caps__
-//!    (an opening marker must not follow a letter, digit or backslash, and must be followed by a non-space other than '}';
+//!    (an opening marker must not follow a letter, digit, backslash or '}', and must be followed by a non-space other than '}';
 //!    a closing one must follow a non-space; formats don't span lines. So \section*, 2*3 and \x*\x are never formatting)
 //!  - headings: a line starting with "# " is \section{...}, "## " \subsection, "### " \subsubsection, "#### " \paragraph, "##### " \subparagraph
 //!    (deeper levels warn and use \subparagraph); "#* ", "##* "... give the starred (unnumbered) forms. The title is processed like any text.
@@ -22,7 +22,8 @@
 //!  - nothing inside a % comment is touched (a % escaped as \% isn't a comment)
 //!  - a line consisting only of a "cortex off" / "cortex on" comment (any number of %, any case and spacing) switches the syntax off/on for the rest of the note
 //!  - a backslash and the character after it are always left alone, so \[[ is not a link (and \[[A,B]\] stays display maths), and \* \_ are never formatting
-//!  - maths is tracked only through its delimiters ($...$, $$...$$, \(...\), \[...\]); environments are never tracked. Problems produce warnings, never errors
+//!  - maths is tracked through its delimiters ($...$, $$...$$, \(...\), \[...\]) and the standard maths environments (equation, align, gather,
+//!    multline, flalign, alignat, eqnarray, math, displaymath, and starred forms); other environments are never tracked. Problems produce warnings, never errors
 namespace Syntax
 {
 	struct Options

@@ -6,12 +6,14 @@ let currentId = null;
 // Zoom: the project's default (from index.js), optionally overridden by this reader (remembered in browser storage, where available).
 // Notes are vector images, so any zoom is sharp, and it never changes where lines break.
 let projectZoom = 1;
+let folderPull = 0.5; // the graph's pull between neighbouring folders, relative to within a folder (the folder-pull setting)
 let readerZoom = null;
 try { const saved = parseFloat(localStorage.getItem("cortex-zoom")); if (saved > 0) readerZoom = saved; } catch (e) {}
 let projectName = "CorTeX";
 let homeId = "";
 function CortexConfig(config) {
 	if (config.zoom > 0) projectZoom = config.zoom;
+	if (config.folderPull >= 0 && config.folderPull <= 1) folderPull = config.folderPull;
 	if (config.name) projectName = config.name;
 	homeId = config.home || "";
 	// set as a style property (never inserted as text), so the setting can't inject anything; an invalid colour is simply ignored
@@ -29,10 +31,14 @@ function setReaderZoom(value) {
 // draw each note at its natural size (dvisvgm gives it in pt; 1pt = 4/3 CSS px) times the zoom; max-width still shrinks it to fit a narrow window
 function applyZoom() {
 	document.getElementById("zoom-level").textContent = Math.round(zoom() * 100) + "%";
+	let widest = 0;
 	for (const svg of document.querySelectorAll("#note > svg")) {
 		const natural = parseFloat(svg.getAttribute("width"));
 		if (natural > 0) svg.style.width = (natural * 4 / 3 * zoom()) + "px";
+		widest = Math.max(widest, natural * 4 / 3 * zoom());
 	}
+	// the Connections panel under a note is as wide as the note's page (never wider than the window: max-width in the stylesheet)
+	for (const panel of document.querySelectorAll("#note > .local-graph")) panel.style.width = widest > 0 ? widest + "px" : "";
 }
 document.getElementById("zoom-in").onclick = () => setReaderZoom(Math.round(zoom() * 110) / 100);
 document.getElementById("zoom-out").onclick = () => setReaderZoom(Math.round(zoom() / 1.1 * 100) / 100);
@@ -230,6 +236,11 @@ function CortexNote(note) {
 	main.innerHTML = note.pages.join("");
 	const entry = cortexNotes[note.id];
 	if (entry) {
+		if (entry.todo !== undefined) {
+			const flag = banner("Flagged as needing work" + (entry.todo ? ": " + entry.todo : "."));
+			flag.classList.add("todo");
+			main.prepend(flag);
+		}
 		if (entry.status === "stale") {
 			main.prepend(banner("This note failed to rebuild; showing the last version that compiled.", entry.diagnostic));
 		}
@@ -244,6 +255,7 @@ function CortexNote(note) {
 		const local = localGraph(note.id);
 		if (local) {
 			main.appendChild(local);
+			applyZoom(); // sizes the panel to match the page before the graph measures its box
 			local.draw();
 		}
 	}
@@ -375,10 +387,11 @@ function showOverview() {
 	const page = element("div", "", "overview");
 	page.appendChild(element("h1", projectName));
 
-	/// every note, grouped by folder (the folder structure as a table of contents)
+	/// every note, grouped by folder (the folder structure as a table of contents); redirect stubs are left out
 	page.appendChild(element("h2", "Notes"));
 	const folders = {};
 	for (const n of cortexOrder) {
+		if (n.status === "redirect") continue;
 		const folder = n.path.includes("/") ? n.path.slice(0, n.path.lastIndexOf("/")) : "";
 		(folders[folder] = folders[folder] || []).push(n);
 	}
@@ -388,11 +401,21 @@ function showOverview() {
 		for (const n of folders[folder].sort((a, b) => a.title.localeCompare(b.title))) {
 			const li = element("li", "", n.status);
 			li.appendChild(noteLink(n.id));
-			if (n.status === "redirect") {
-				const to = n.redirect && cortexNotes[n.redirect] ? cortexNotes[n.redirect].title : n.redirectText + " (missing)";
-				li.appendChild(document.createTextNode(" \u2192 " + to));
-			}
-			else if (n.status !== "ok") li.appendChild(document.createTextNode(" (" + n.status + ")"));
+			if (n.status !== "ok") li.appendChild(document.createTextNode(" (" + n.status + ")"));
+			ul.appendChild(li);
+		}
+		page.appendChild(ul);
+	}
+
+	/// notes flagged as needing work (they're listed above too)
+	const todo = cortexOrder.filter(n => n.todo !== undefined).sort((a, b) => a.title.localeCompare(b.title));
+	if (todo.length) {
+		page.appendChild(element("h2", "Needs work"));
+		const ul = element("ul");
+		for (const n of todo) {
+			const li = element("li", "", "todo");
+			li.appendChild(noteLink(n.id));
+			if (n.todo) li.appendChild(document.createTextNode(": " + n.todo));
 			ul.appendChild(li);
 		}
 		page.appendChild(ul);
@@ -471,7 +494,8 @@ window.addEventListener("hashchange", show);
 // ============================================================================================================
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const GRAPH_PALETTE = ["#1a5fb4", "#26a269", "#c64600", "#613583", "#a51d2d", "#986a44", "#1c71d8", "#5e5c64"];
+// Folder colours: hues evenly spaced around the colour wheel, all at the same saturation and lightness (so equally readable)
+const GRAPH_HUES = 24;
 let activeGraphs = []; // running simulations, stopped whenever the page changes
 
 function stopGraphs() {
@@ -516,7 +540,7 @@ function graphModel(centre = null) {
 	const folderOf = path => path.includes("/") ? path.slice(0, path.indexOf("/")) : "";
 	for (const n of cortexOrder) {
 		if (n.status === "redirect" || !shown(n)) continue;
-		nodes.set(n.id, { id: n.id, title: n.title, folder: folderOf(n.path), dirs: n.path.split("/").slice(0, -1), status: n.status, wanted: false });
+		nodes.set(n.id, { id: n.id, title: n.title, folder: folderOf(n.path), dirs: n.path.split("/").slice(0, -1), status: n.status, wanted: false, todo: n.todo });
 	}
 	for (const n of cortexOrder) {
 		if (n.status === "redirect" || !shown(n)) continue;
@@ -566,8 +590,20 @@ function neighbourhood(model, centre, depth) {
 	};
 }
 
-function folderColour(folder) {
-	return GRAPH_PALETTE[hashString(folder || "(top)") % GRAPH_PALETTE.length];
+// The colour of each top-level folder in the project. Each folder starts at the hue its name hashes to and, if another folder
+// already has that one, steps on (7 hues at a time, so a clash lands on a clearly different colour) to the first free hue: colours
+// only repeat once there are more folders than hues. Folders are placed in sorted order, so the result is the same on every build,
+// and across the whole project, so a note has the same colour in every graph
+function folderColours() {
+	const folders = [...new Set(cortexOrder.map(n => n.path.includes("/") ? n.path.slice(0, n.path.indexOf("/")) : ""))].sort();
+	const taken = new Set(), colours = new Map();
+	for (const folder of folders) {
+		let hue = hashString(folder || "(top)") % GRAPH_HUES;
+		for (let tries = 0; taken.has(hue) && tries < GRAPH_HUES; ++tries) hue = (hue + 7) % GRAPH_HUES;
+		taken.add(hue);
+		colours.set(folder, `hsl(${Math.round(hue * 360 / GRAPH_HUES)}, 55%, 45%)`);
+	}
+	return colours;
 }
 
 // Draws a model into a container and runs the layout. Returns an object with stop()
@@ -604,7 +640,8 @@ function drawGraph(container, model, options = {}) {
 	/// NODES: SIZED BY HOW CONNECTED THEY ARE, COLOURED BY TOP-LEVEL FOLDER
 	const degree = new Map(model.nodes.map(n => [n.id, 0]));
 	model.edges.forEach(e => { degree.set(e.from, degree.get(e.from) + 1); degree.set(e.to, degree.get(e.to) + 1); });
-	const hubDegree = Math.max(6, 0.25 * model.nodes.length); // connected to at least a quarter of the graph (and to 6+ notes)
+	const hubDegree = Math.max(6, 0.25 * model.nodes.length);
+	const colours = folderColours(); // connected to at least a quarter of the graph (and to 6+ notes)
 	const byId = new Map();
 	const spread = Math.min(width, height) / 3;
 	// start each folder in its own sector of the circle (folders sorted by path, so neighbouring folders start side by side):
@@ -621,13 +658,20 @@ function drawGraph(container, model, options = {}) {
 		g.setAttribute("class", "graph-node " + n.status + (n.id === options.centre ? " centre" : "") + farness(n.id));
 		const circle = document.createElementNS(SVG_NS, "circle");
 		circle.setAttribute("r", node.r);
-		if (!n.wanted) circle.setAttribute("fill", folderColour(n.folder));
+		if (!n.wanted) circle.setAttribute("fill", colours.get(n.folder) || "#888");
+		// flagged as needing work: the usual solid node, ringed in red dashes (a wanted note is the dashed ring alone)
+		if (n.todo !== undefined) {
+			const ring = document.createElementNS(SVG_NS, "circle");
+			ring.setAttribute("r", node.r + 3.5);
+			ring.setAttribute("class", "graph-todo-ring");
+			g.appendChild(ring);
+		}
 		const label = document.createElementNS(SVG_NS, "text");
 		label.textContent = n.title;
 		label.setAttribute("dy", node.r + 12);
 		label.setAttribute("text-anchor", "middle");
 		const tip = document.createElementNS(SVG_NS, "title");
-		tip.textContent = n.wanted ? `"${n.title}" doesn't exist yet` : n.title;
+		tip.textContent = n.wanted ? `"${n.title}" doesn't exist yet` : n.title + (n.todo !== undefined ? " (needs work" + (n.todo ? ": " + n.todo : "") + ")" : "");
 		g.append(circle, label, tip);
 		nodeLayer.appendChild(g);
 		node.element = g;
@@ -663,6 +707,12 @@ function drawGraph(container, model, options = {}) {
 	const nodes = [...byId.values()];
 	const spring = options.springLength || 90, repulsion = options.repulsion || 2600;
 	let alpha = 1, frame = null, stopped = false;
+	// hub repulsion: two nodes push apart in proportion to the product of their connectedness (as ForceAtlas2 does), relative to a
+	// typical (median) node, never less than the plain repulsion and capped. Hubs then push each other apart and clear a halo for their
+	// leaves, instead of sinking together into the middle (their springs are damped, so little else holds them apart)
+	const sorted = nodes.map(n => n.degree).sort((a, b) => a - b);
+	const typical = (1 + (sorted[Math.floor(sorted.length / 2)] || 1)) ** 2;
+	const push = (a, b) => Math.min(25, Math.max(1, (1 + a.degree) * (1 + b.degree) / typical));
 	function tick() {
 		for (let i = 0; i < nodes.length; ++i) {
 			const a = nodes[i];
@@ -670,7 +720,7 @@ function drawGraph(container, model, options = {}) {
 				const b = nodes[j];
 				let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
 				if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
-				const f = repulsion / d2 * alpha, d = Math.sqrt(d2);
+				const f = repulsion * push(a, b) / d2 * alpha, d = Math.sqrt(d2);
 				a.vx += dx / d * f; a.vy += dy / d * f;
 				b.vx -= dx / d * f; b.vy -= dy / d * f;
 			}
@@ -682,9 +732,12 @@ function drawGraph(container, model, options = {}) {
 			const busiest = Math.max(e.from.degree, e.to.degree);
 			// folder damping: the further apart two notes' folders are, the weaker and longer the spring, so folders settle
 			// into their own clusters (edges are still drawn as usual)
+			// with folder-pull p, a spring between folders d steps apart has strength 1 / (1 + k d), where k = (1 - p) / p: neighbouring
+			// folders (d = 1) pull with exactly p, further ones less; p = 1 switches folders off, p = 0 cuts the springs between them
 			const apart = e.folderDistance;
-			const rest = spring * (1 + 0.25 * Math.log(1 + busiest)) * (1 + 0.15 * apart);
-			const f = (d - rest) * 0.04 * alpha * (e.kind === "transclude" ? 1.5 : 1) / Math.sqrt(busiest) / (1 + apart);
+			const across = apart === 0 ? 1 : folderPull <= 0 ? 0 : 1 / (1 + (1 - folderPull) / folderPull * apart);
+			const rest = spring * (1 + 0.25 * Math.log(1 + busiest)) * (1 + 0.3 * (1 - folderPull) * apart);
+			const f = (d - rest) * 0.04 * alpha * (e.kind === "transclude" ? 1.5 : 1) / Math.sqrt(busiest) * across;
 			e.from.vx += dx / d * f; e.from.vy += dy / d * f;
 			e.to.vx -= dx / d * f; e.to.vy -= dy / d * f;
 		}
@@ -813,6 +866,7 @@ function graphLegend() {
 		'<span><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" class="graph-edge link out"/></svg> out of / <svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" class="graph-edge link in"/></svg> into the note under the pointer</span>' +
 		'<span><svg width="30" height="10"><line x1="0" y1="5" x2="30" y2="5" class="graph-edge transclude"/></svg> transclusion</span>' +
 		'<span><svg width="14" height="14"><circle cx="7" cy="7" r="5" class="graph-wanted-key"/></svg> wanted (doesn’t exist yet)</span>' +
+		'<span><svg width="18" height="18"><circle cx="9" cy="9" r="4" fill="#999"/><circle cx="9" cy="9" r="7.5" class="graph-todo-ring"/></svg> needs work</span>' +
 		'<span class="graph-hint">Scroll to zoom, drag the background to pan, drag a note to pin it, click to open</span>';
 	return legend;
 }

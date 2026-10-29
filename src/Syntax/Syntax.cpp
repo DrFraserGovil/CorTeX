@@ -22,15 +22,29 @@ std::string Syntax::Slug(std::string_view text)
 
 namespace
 {
-	//! Which kind of maths (if any) the scan is inside; tracked only through delimiters, and carried from line to line
+	//! Which kind of maths (if any) the scan is inside; tracked through delimiters and the standard maths environments (never a
+	//! general environment stack), and carried from line to line
 	enum class Maths
 	{
 		None,
-		Inline,	 //!< $ ... $
-		Display, //!< $$ ... $$
-		Paren,	 //!< \( ... \)
-		Bracket, //!< \[ ... \]
+		Inline,		 //!< $ ... $
+		Display,	 //!< $$ ... $$
+		Paren,		 //!< \( ... \)
+		Bracket,	 //!< \[ ... \]
+		Environment, //!< \begin{equation} ... \end{equation}, or another of MathsEnvironments
 	};
+
+	//! The environments whose contents are maths: \begin{X} opens maths like \[ does, and only the matching \end{X} closes it
+	bool IsMathsEnvironment(std::string_view name)
+	{
+		static const std::string_view names[] = {"equation", "align", "gather", "multline", "flalign", "alignat", "eqnarray", "math", "displaymath"};
+		if (!name.empty() && name.back() == '*') name.remove_suffix(1);
+		for (auto n : names)
+		{
+			if (name == n) return true;
+		}
+		return false;
+	}
 
 	//! Inline formatting markers and the LaTeX they become (salvaged from the original CorTeX generator)
 	struct Format
@@ -153,6 +167,8 @@ namespace
 		Syntax::Result Result;
 		Maths State = Maths::None;
 		size_t MathsOpenedOn = 0;
+		//! With State == Maths::Environment: the environment's name (so only its own \end closes it)
+		std::string MathsEnvironment;
 		std::vector<std::string> OpenLists;
 		size_t LineNumber = 0;
 
@@ -263,6 +279,27 @@ namespace
 			/// CONTROL SEQUENCES: LEFT ALONE, BUT SOME OPEN OR CLOSE MATHS
 			if (c == '\\')
 			{
+				// \begin{X} / \end{X} of a maths environment: copied whole, switching maths on or off
+				if (State == Maths::None && line.compare(i, 7, "\\begin{") == 0)
+				{
+					if (auto close = line.find('}', i + 7); close != std::string::npos && IsMathsEnvironment(std::string_view(line).substr(i + 7, close - i - 7)))
+					{
+						State = Maths::Environment;
+						MathsEnvironment = line.substr(i + 7, close - i - 7);
+						MathsOpenedOn = LineNumber;
+						out += line.substr(i, close + 1 - i);
+						i = close + 1;
+						continue;
+					}
+				}
+				else if (State == Maths::Environment && line.compare(i, 6 + MathsEnvironment.size() + 1, "\\end{" + MathsEnvironment + "}") == 0)
+				{
+					State = Maths::None;
+					size_t length = 6 + MathsEnvironment.size();
+					out += line.substr(i, length);
+					i += length;
+					continue;
+				}
 				auto pair = line.substr(i, 2);
 				if (State == Maths::None && (pair == "\\(" || pair == "\\["))
 				{
@@ -331,9 +368,9 @@ namespace
 					out += format->Close;
 					formatOpen = false;
 				}
-				// an opener can't directly follow a letter, digit or backslash: that keeps starred commands (\section*, \\*)
-				// and arithmetic (2*3, \x*\x in TikZ) from ever opening a format
-				else if (FindFormat(marker) && !std::isspace(static_cast<unsigned char>(after)) && after != '}' && !std::isalnum(static_cast<unsigned char>(before)) && before != '\\')
+				// an opener can't directly follow a letter, digit, backslash or closing brace: that keeps starred commands (\section*, \\*),
+				// arithmetic (2*3, \x*\x in TikZ) and subscripts in maths the scan doesn't recognise (\vec{b}_1) from ever opening a format
+				else if (FindFormat(marker) && !std::isspace(static_cast<unsigned char>(after)) && after != '}' && !std::isalnum(static_cast<unsigned char>(before)) && before != '\\' && before != '}')
 				{
 					if (formatOpen)
 					{

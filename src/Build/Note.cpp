@@ -136,6 +136,38 @@ void Note::ParseHeader(const std::vector<std::string> &lines)
 				LOG(WARN) << RelativePath.generic_string() << ": unknown graph setting '" << value << "' (the only option is 'graph: hidden'); ignored";
 			}
 		}
+		else if (JSL::String::iEquals(key, "show-title"))
+		{
+			auto is = [&](std::initializer_list<const char *> words) {
+				return std::any_of(words.begin(), words.end(), [&](const char *w) { return JSL::String::iEquals(value, w); });
+			};
+			if (is({"yes", "true", "on"}))
+			{
+				ShowTitle = true;
+			}
+			else if (is({"no", "false", "off"}))
+			{
+				ShowTitle = false;
+			}
+			else
+			{
+				LOG(WARN) << RelativePath.generic_string() << ": unknown show-title value '" << value << "' (use yes or no); ignored";
+			}
+		}
+		else if (JSL::String::iEquals(key, "todo"))
+		{
+			auto is = [&](std::initializer_list<const char *> words) {
+				return std::any_of(words.begin(), words.end(), [&](const char *w) { return JSL::String::iEquals(value, w); });
+			};
+			if (is({"no", "false", "off"}))
+			{
+				Todo.reset();
+			}
+			else
+			{
+				Todo = is({"yes", "true", "on"}) ? std::string() : std::string(value);
+			}
+		}
 		else if (JSL::String::iEquals(key, "sidebar"))
 		{
 			for (auto &item : JSL::String::split(value, ","))

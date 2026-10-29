@@ -74,6 +74,9 @@ class Index
 		std::string RedirectTarget;
 		//! Left out of every graph except its own (the note's `graph: hidden` header)
 		bool GraphHidden = false;
+		//! Flagged as needing work (the note's `todo:` header), and what's left to do (may be empty)
+		bool Todo = false;
+		std::string TodoText;
 		//! The note's own sidebar entries (its `sidebar:` header), resolved from the note, shown beneath the global sidebar when it is open
 		std::vector<SidebarItem> Sidebar;
 	};

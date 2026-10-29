@@ -1,6 +1,7 @@
 #pragma once
 #include "../Syntax/Syntax.h"
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,13 @@ class Note
 	//! True if the header says `graph: hidden`: the note is left out of every graph except its own (for navigation pages
 	//! such as indexes, which everything links to and which would otherwise pull every graph into a star)
 	bool GraphHidden = false;
+
+	//! The note's `show-title: yes|no` header, overriding the project's insert-title setting for this note; empty if absent
+	std::optional<bool> ShowTitle;
+
+	//! The note's `todo:` header: set if the note is flagged as needing work, holding what's left to do (empty if no reason was given;
+	//! `todo: yes` and a bare `todo:` flag it without one, `todo: no` doesn't flag it). Display-only: never recompiles the note
+	std::optional<std::string> Todo;
 
 	//! The `sidebar:` header entries (comma-separated, each "target" or "target|Label"), as written: extra sidebar links shown with this note
 	std::vector<std::string> Sidebar;
