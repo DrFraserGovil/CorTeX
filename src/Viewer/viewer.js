@@ -11,16 +11,84 @@ let readerZoom = null;
 try { const saved = parseFloat(localStorage.getItem("cortex-zoom")); if (saved > 0) readerZoom = saved; } catch (e) {}
 let projectName = "CorTeX";
 let homeId = "";
+let projectRoot = ""; // the absolute project root, which cortex:// links name
+let editors = [];     // the names of the project's editors (the commands stay in the settings)
 function CortexConfig(config) {
 	if (config.zoom > 0) projectZoom = config.zoom;
 	if (config.folderPull >= 0 && config.folderPull <= 1) folderPull = config.folderPull;
 	if (config.name) projectName = config.name;
+	document.getElementById("project-name").textContent = config.name || "";
 	homeId = config.home || "";
 	// set as a style property (never inserted as text), so the setting can't inject anything; an invalid colour is simply ignored
 	if (config.background) document.body.style.backgroundColor = config.background;
 	// with no home note, Home already is the overview, so a separate link would be redundant
 	document.getElementById("overview-link").style.display = homeId ? "" : "none";
+	projectRoot = config.root || "";
+	editors = Array.isArray(config.editors) ? config.editors : [];
+	const logo = document.getElementById("logo");
+	if (config.logo) logo.src = config.logo; else logo.removeAttribute("src");
+	logo.classList.toggle("shown", !!config.logo);
 	applyZoom();
+}
+
+// The editor this reader picked for the session (remembered per project, like zoom; the archive is never changed); else the project's first
+function chosenEditor() {
+	let saved = null;
+	try { saved = localStorage.getItem("cortex-editor:" + projectRoot); } catch (e) {}
+	return editors.includes(saved) ? saved : editors[0];
+}
+
+// A link to the cortex:// handler, which does what a file:// page can't (run an editor, change a file); it names only the project,
+// the note and an editor's name, and the handler checks all three against the project before acting
+function cortexAction(action, params) {
+	params = Object.assign({ root: projectRoot }, params);
+	return "cortex://" + action + "?" + Object.entries(params).map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
+}
+
+// The sidebar's Editor section for the open note, a list like the sidebar's groups: [editor choice] Edit (the choice only if the project
+// has several editors), then the needs-work toggle. On the page of a note which doesn't exist yet (wanted = {slug, dir}), Edit becomes
+// Create & edit, which writes the note into that folder first. Cleared (null) on every other page
+function setNoteTools(entry, wanted = null) {
+	const tools = document.getElementById("note-tools");
+	tools.replaceChildren();
+	if ((!entry && !wanted) || !projectRoot) return;
+	const items = [];
+	if (editors.length) {
+		const li = document.createElement("li");
+		const edit = element("a", wanted ? "Create & edit" : "Edit");
+		if (wanted) edit.title = "Writes " + (wanted.dir ? wanted.dir + "/" : "") + wanted.slug + ".tex (titled, and aliased, '" + wanted.slug + "') and opens it";
+		const update = () => {
+			edit.href = wanted ? cortexAction("create", { dir: wanted.dir, slug: wanted.slug, editor: chosenEditor() })
+				: cortexAction("edit", { note: entry.path, editor: chosenEditor() });
+		};
+		update();
+		if (editors.length > 1) {
+			const pick = document.createElement("select");
+			pick.title = "Which editor Edit opens (for this browser only)";
+			for (const name of editors) pick.appendChild(new Option(name, name, false, name === chosenEditor()));
+			pick.onchange = () => {
+				try { localStorage.setItem("cortex-editor:" + projectRoot, pick.value); } catch (e) {}
+				update();
+			};
+			li.appendChild(pick);
+		}
+		li.appendChild(edit);
+		items.push(li);
+	}
+	if (entry) {
+		const flagged = entry.todo !== undefined;
+		const toggle = element("a", flagged ? "Clear needs work" : "Mark needs work");
+		toggle.href = cortexAction("todo", { note: entry.path, set: flagged ? "off" : "on" });
+		toggle.title = "Changes the note's todo: header line (the page refreshes once the project rebuilds)";
+		const li = document.createElement("li");
+		li.appendChild(toggle);
+		items.push(li);
+	}
+	if (!items.length) return;
+
+	const list = document.createElement("ul");
+	list.append(...items);
+	tools.append(element("h4", "Editor"), list);
 }
 function zoom() { return readerZoom || projectZoom; }
 function setReaderZoom(value) {
@@ -244,6 +312,7 @@ function CortexNote(note) {
 		if (entry.status === "stale") {
 			main.prepend(banner("This note failed to rebuild; showing the last version that compiled.", entry.diagnostic));
 		}
+		setNoteTools(entry);
 		// mark links which point at no note, so they can be styled differently; each link is judged from the note it was written in
 		// (which, inside a transcluded note, isn't the note being shown)
 		for (const a of main.querySelectorAll("a.cortex-link")) {
@@ -259,6 +328,7 @@ function CortexNote(note) {
 			local.draw();
 		}
 	}
+	document.getElementById("zoom").classList.add("shown");
 	applyZoom();
 	restoreScroll(); // after a live refresh, stay where the reader was
 	document.title = note.title;
@@ -278,6 +348,7 @@ function showNote(id) {
 		return;
 	}
 	if (entry.status === "failed") {
+		setNoteTools(entry);
 		main.replaceChildren(banner("This note has not compiled successfully yet.", entry.diagnostic), noteList("Linked from", entry.backlinks));
 		document.title = entry.title;
 		return;
@@ -365,6 +436,9 @@ function followLink(value) {
 	currentId = null;
 	highlight(null);
 	const linkers = cortexOrder.filter(n => n.links[slug] === null).map(n => n.id);
+	// a new note goes beside the note whose link led here (else the first note wanting it): that's almost always where it belongs
+	const beside = (origin && cortexByKey[origin]) || cortexNotes[linkers[0]];
+	if (beside) setNoteTools(null, { slug: slug, dir: beside.path.split("/").slice(0, -1).join("/") });
 	document.getElementById("note").replaceChildren(banner("No note is called '" + slug + "' yet."), noteList("Linked from", linkers));
 	document.title = slug + " (missing)";
 }
@@ -463,6 +537,8 @@ function showOverview() {
 }
 
 function show() {
+	setNoteTools(null); // a note's own page puts them back once it has loaded
+	document.getElementById("zoom").classList.remove("shown"); // likewise the zoom control, which only means anything on a note
 	const hash = location.hash;
 	if (hash === "" || hash === "#" || hash === "#/") {
 		// the landing page: the chosen home note, or the overview if there isn't one
@@ -618,7 +694,7 @@ function drawGraph(container, model, options = {}) {
 		return { stop() {} };
 	}
 
-	// an arrowhead for links (transclusions are drawn heavier instead)
+	// an arrowhead for links (transclusions are dashed instead)
 	const defs = document.createElementNS(SVG_NS, "defs");
 	// arrowheads for links, one per colour: grey, and (relative to the focused note) outgoing green and incoming red;
 	// which one an edge uses is chosen in the stylesheet by its class. Transclusions are drawn heavier instead

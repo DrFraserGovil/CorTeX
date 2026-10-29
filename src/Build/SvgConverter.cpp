@@ -2,21 +2,10 @@
 #include "Shell.h"
 #include "../Utility/Files.h"
 #include <JSL.h>
-#include <map>
 #include <regex>
 
 namespace
 {
-	//! The media types the viewer can show from a data: URI, by (lowercase) file extension
-	const std::map<std::string, std::string> ImageTypes = {
-		{".png", "image/png"},
-		{".jpg", "image/jpeg"},
-		{".jpeg", "image/jpeg"},
-		{".gif", "image/gif"},
-		{".webp", "image/webp"},
-		{".svg", "image/svg+xml"},
-	};
-
 	//! Undoes the XML escaping of an attribute value (only the five predefined entities can appear in a file path)
 	std::string Unescape(std::string_view value)
 	{
@@ -65,9 +54,7 @@ namespace
 		for (std::sregex_iterator match(log.begin(), log.end(), placed), end; match != end; ++match)
 		{
 			std::filesystem::path file = (*match)[1].str();
-			auto extension = file.extension().string();
-			for (auto &c : extension) c = std::tolower(static_cast<unsigned char>(c));
-			if (ImageTypes.contains(extension)) names.insert(file.filename().string());
+			if (Utility::ImageMediaType(file)) names.insert(file.filename().string());
 		}
 		return names;
 	}
@@ -100,17 +87,15 @@ namespace
 				warnings.push_back("image '" + href + "' could not be found to embed; it won't show in the viewer");
 				continue;
 			}
-			auto extension = file->extension().string();
-			for (auto &c : extension) c = std::tolower(static_cast<unsigned char>(c));
-			auto type = ImageTypes.find(extension);
-			if (type == ImageTypes.end())
+			auto uri = Utility::ImageDataUri(*file);
+			if (!uri)
 			{
 				warnings.push_back("image '" + href + "' is not a type a browser can show (use PNG, JPEG, GIF, WebP or SVG); it won't show in the viewer");
 				continue;
 			}
 
 			out.append(svg, done, open + 1 - done);
-			out += "data:" + type->second + ";base64," + Utility::Base64(JSL::IO::getFile(*file));
+			out += *uri;
 			done = close;
 		}
 		out.append(svg, done);

@@ -31,6 +31,10 @@ class CortexProject
 	//! Asks whichever CorTeX process holds this project's lock (a watch or a build) to stop
 	void Shutdown();
 
+	//! True if some note links to this slug and no note has it as a title or alias (i.e. the project wants a note by that name).
+	//! Worked out from a fresh scan of the sources, not from the last build's output
+	bool IsWanted(const std::string &slug) const;
+
 	//! The project's name from .cortex/registry.ctx (falling back to the root folder's name)
 	std::string ProjectName() const;
 

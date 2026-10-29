@@ -1,7 +1,7 @@
 body { font-family: sans-serif; margin: 0; display: flex; }
-nav { width: 16em; padding: 1em; border-right: 1px solid #ccc; min-height: 100vh; }
+nav { width: 16em; flex-shrink: 0; padding: 1em; border-right: 1px solid #ccc; min-height: 100vh; } /* a wide note must never squeeze the sidebar */
 nav li.current a { font-weight: bold; }
-#sidebar h4 { margin: 1em 0 0.3em 0; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; color: #666; }
+#sidebar h4, #note-tools h4 { margin: 1em 0 0.3em 0; font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.05em; color: #666; }
 #sidebar ul { margin: 0; }
 #sidebar li.unresolved a { color: #c01c28; }
 #search { width: 100%; box-sizing: border-box; padding: 0.35em 0.5em; margin-bottom: 0.5em; font: inherit; border: 1px solid #bbb; border-radius: 4px; background: rgba(255,255,255,0.7); }
@@ -10,14 +10,23 @@ nav li.current a { font-weight: bold; }
 #results .where { display: block; font-size: 0.8em; color: #777; }
 #results .none { color: #777; font-style: italic; }
 nav ul { padding-left: 1.2em; }
-#home-links { margin-bottom: 0.8em; font-weight: bold; }
-#home-links a { margin-right: 0.8em; }
+#home-links { margin-bottom: 0.8em; font-weight: bold; display: flex; justify-content: space-evenly; } /* hidden links (Overview with no home note) take no share */
 .overview h1 { margin-top: 0; }
 .overview h2 { font-size: 1.1em; border-bottom: 1px solid #ccc; padding-bottom: 0.2em; }
 .overview h3 { font-size: 1em; color: #555; margin-bottom: 0.2em; }
 .overview .stale a, .overview .failed a { color: #b35900; }
 .overview .note-error { color: #555; font-family: monospace; font-size: 0.9em; margin-left: 0.5em; }
-#zoom { display: flex; gap: 0.3em; align-items: center; margin-bottom: 1em; font-size: 0.9em; color: #555; }
+#project-name { font-size: 1.25em; font-weight: bold; margin-bottom: 0.5em; text-align: center; }
+#project-name:empty { display: none; }
+/* the logo is scaled to the sidebar's width, never the other way round */
+#logo { display: none; width: 100%; height: auto; margin-bottom: 0.8em; }
+#logo.shown { display: block; }
+/* the open note's Edit / needs-work links in the sidebar (to the cortex:// handler), laid out like the sidebar's own lists */
+#note-tools ul { margin: 0 0 1em 0; } /* a gap before the sidebar's first group, which may have no heading */
+#note-tools select { font: inherit; font-size: 0.9em; padding: 0; margin-right: 0.4em; }
+/* zoom belongs to the page being read: pinned to the note area's top-right corner, and shown only on note pages */
+#zoom { display: none; gap: 0.3em; align-items: center; font-size: 0.9em; color: #555; position: fixed; top: 0.5em; right: 1em; z-index: 10; padding: 0.3em 0.5em; background: rgba(255,255,255,0.9); border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+#zoom.shown { display: flex; }
 #zoom button { min-width: 2em; }
 nav .stale a, nav .failed a { color: #b35900; }
 .banner { background: #fff3cd; border: 1px solid #e0b252; padding: 0.5em 1em; margin-bottom: 1em; }
@@ -46,7 +55,7 @@ svg.graph text { font: 11px sans-serif; fill: #333; pointer-events: none; }
 .graph-edge.link { marker-end: url(#graph-arrow); }
 .graph-edge.link.out { stroke: #7f9a86; stroke-width: 1.8; marker-end: url(#graph-arrow-out); }
 .graph-edge.link.in { stroke: #a8888a; stroke-width: 1.8; marker-end: url(#graph-arrow-in); }
-.graph-edge.transclude { stroke: #613583; stroke-width: 3; }
+.graph-edge.transclude { stroke-dasharray: 4 3; } /* as thin and grey as a link (no arrow): dashes tell them apart without shouting */
 svg.graph.focused .graph-node:not(.near), svg.graph.focused .graph-edge:not(.near) { opacity: 0.15; }
 .graph-legend span { display: inline-flex; align-items: center; gap: 0.4em; }
 .graph-legend { display: flex; flex-wrap: wrap; gap: 1.2em; align-items: center; margin-bottom: 0.6em; font-size: 0.9em; color: #444; }

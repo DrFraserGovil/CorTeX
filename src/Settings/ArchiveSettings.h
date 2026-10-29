@@ -16,6 +16,10 @@ class FileSettings : public JSL::Interface::Aggregator<FileSettings>
 	//! @alias home
 	//! @brief The note shown when the viewer opens, as a path relative to the project root (e.g. home.tex). If empty or invalid, the viewer opens on an automatically constructed overview of the project. A display setting only: changing it never recompiles notes
 	std::string HomeNote = "";
+
+	//! @alias editors
+	//! @brief The editors the viewer's Edit button can open a note in, each as 'name: command', e.g. [nvim: neovide {file}, code: code -g {file}]. The command runs without a shell; {file} is the note's full path (added at the end if the command doesn't use it), {dir} its folder, {root} the project root. The first is the default, and the viewer can pick another for the session. A command can't contain a comma
+	std::vector<std::string> Editors = {};
 #include "ArchiveSettings.FileSettings.autogen"
 };
 
@@ -41,6 +45,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @alias background, background-colour, background-color
 	//! @brief The viewer's page colour, behind and around the notes, as any CSS colour (e.g. #f4ecd8, or wheat); empty keeps the default white. A display setting only: changing it never recompiles notes
 	std::string BackgroundColour = "";
+
+	//! @alias logo
+	//! @brief An image (PNG, JPEG, GIF, WebP or SVG; path relative to the project root) shown at the top of the viewer's sidebar, scaled to its width. A display setting only: changing it never recompiles notes
+	std::string Logo = "";
 
 	//! @alias folder-pull
 	//! @brief How strongly the graph pulls together linked notes in neighbouring folders, relative to notes in the same folder: 1 ignores folders, 0 lets folders drift fully apart. Notes further apart in the folder tree pull more weakly still. A display setting only: changing it never recompiles notes

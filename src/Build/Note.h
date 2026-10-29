@@ -76,6 +76,12 @@ class Note
 	//! True if the file starts with a CorTeX header containing a title (i.e. it is a note, not a plain TeX fragment)
 	static bool HasNoteHeader(const std::filesystem::path &file);
 
+	//! Flags or unflags a note as needing work by rewriting only its header's `todo:` line(s): on adds a bare `todo:` (unless the note
+	//! is already flagged, when its reason is kept); off removes every `todo:` line. Nothing else in the file changes; written atomically
+	//! @returns true if the file was changed
+	//! @throws runtime_error If the file has no header
+	static bool SetTodo(const std::filesystem::path &file, bool on);
+
   private:
 	void ParseHeader(const std::vector<std::string> &lines);
 	static std::string Slug(const std::filesystem::path &relativePath);

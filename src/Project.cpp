@@ -4,6 +4,7 @@
 #include "Build/ProjectLock.h"
 #include "Build/SvgConverter.h"
 #include "Build/TexRunner.h"
+#include "Link.h"
 #include "Settings/ArchiveSettings.h"
 #include "Utility/Hash.h"
 #include "Utility/Files.h"
@@ -175,6 +176,19 @@ std::string CortexProject::NoteHash(const Note &note) const
 		}
 	}
 	return Utility::HashHex(key);
+}
+
+bool CortexProject::IsWanted(const std::string &slug) const
+{
+	Index index(ScanNotes(), BuildState{});
+	for (auto &entry : index.Entries())
+	{
+		for (auto &link : entry.Links)
+		{
+			if (link.Slug == slug && link.Target.empty()) return true;
+		}
+	}
+	return false;
 }
 
 void CortexProject::PlanCompilations(const std::vector<Note> &notes)
@@ -837,6 +851,32 @@ bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 	{
 		LOG(WARN) << "folder-pull must be between 0 and 1 (1 ignores folders); using 0.5";
 		viewer.FolderPull = 0.5;
+	}
+
+	viewer.Root = Root.string();
+	std::vector<std::string> problems;
+	for (auto &editor : Link::ParseEditors(Archive.Files.Editors, problems))
+	{
+		viewer.Editors.push_back(editor.Name);
+	}
+	for (auto &problem : problems)
+	{
+		LOG(WARN) << "editors setting: " << problem;
+	}
+
+	// the logo is embedded, like note images: the viewer never depends on a copy of a project file
+	if (!Archive.Render.Logo.empty())
+	{
+		auto logo = Root / Archive.Render.Logo;
+		auto uri = std::filesystem::is_regular_file(logo) ? Utility::ImageDataUri(logo) : std::nullopt;
+		if (uri)
+		{
+			viewer.Logo = *uri;
+		}
+		else
+		{
+			LOG(WARN) << "logo '" << Archive.Render.Logo << "' isn't an image file in the project (PNG, JPEG, GIF, WebP or SVG); the sidebar will have no logo";
+		}
 	}
 
 	// the home note is given as a path, matched against the notes actually being built (so ignored or untitled files can't be home)

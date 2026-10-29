@@ -1,5 +1,6 @@
 #include "Note.h"
 #include "../Settings/RuntimeSettings.h"
+#include "../Utility/Files.h"
 #include "../Utility/Hash.h"
 #include "../Utility/Sanitise.h"
 #include <JSL.h>
@@ -213,6 +214,68 @@ bool Note::HasNoteHeader(const std::filesystem::path &file)
 		}
 	}
 	return false;
+}
+
+bool Note::SetTodo(const std::filesystem::path &file, bool on)
+{
+	/// SPLIT INTO LINES, KEEPING WHETHER THE FILE ENDED WITH A NEWLINE
+	auto text = JSL::IO::getFile(file);
+	std::vector<std::string> lines;
+	for (size_t start = 0; start < text.size();)
+	{
+		auto end = text.find('\n', start);
+		if (end == std::string::npos) end = text.size();
+		lines.push_back(text.substr(start, end - start));
+		start = end + 1;
+	}
+	bool finalNewline = !text.empty() && text.back() == '\n';
+
+	/// FIND THE HEADER AND ITS TODO LINES
+	auto separator = std::find_if(lines.begin(), lines.end(), [](auto &l) { return IsSeparator(l); });
+	if (separator == lines.end())
+	{
+		throw std::runtime_error(file.string() + " has no header (no separator line)");
+	}
+	auto isTodo = [](const std::string &line) {
+		auto delim = line.find(':');
+		return delim != std::string::npos && JSL::String::iEquals(JSL::String::trim(std::string_view(line).substr(0, delim)), "todo");
+	};
+	auto todoValue = [](const std::string &line) { return JSL::String::getLower(JSL::String::trim(std::string_view(line).substr(line.find(':') + 1))); };
+	size_t headerEnd = separator - lines.begin();
+
+	/// REWRITE THEM
+	bool changed = false;
+	if (on)
+	{
+		// the first todo line is the one that counts (as in ParseHeader); a 'no' there is replaced, any other value is already flagged
+		auto first = std::find_if(lines.begin(), lines.begin() + headerEnd, isTodo);
+		if (first == lines.begin() + headerEnd)
+		{
+			lines.insert(lines.begin() + headerEnd, "todo:");
+			changed = true;
+		}
+		else if (auto value = todoValue(*first); value == "no" || value == "false" || value == "off")
+		{
+			*first = "todo:";
+			changed = true;
+		}
+	}
+	else
+	{
+		auto end = std::remove_if(lines.begin(), lines.begin() + headerEnd, isTodo);
+		changed = end != lines.begin() + headerEnd;
+		lines.erase(end, lines.begin() + headerEnd);
+	}
+	if (!changed) return false;
+
+	std::string out;
+	for (size_t i = 0; i < lines.size(); ++i)
+	{
+		out += lines[i];
+		if (i + 1 < lines.size() || finalNewline) out += "\n";
+	}
+	Utility::WriteAtomic(file, out);
+	return true;
 }
 
 std::string Note::Slug(const std::filesystem::path &relativePath)

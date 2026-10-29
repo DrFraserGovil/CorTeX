@@ -1,3 +1,4 @@
+#include "Link.h"
 #include "Project.h"
 #include "Settings/ArchiveSettings.h"
 #include "Settings/RuntimeSettings.h"
@@ -13,6 +14,8 @@ enum class Mode
 	New,
 	Settings,
 	Watch,
+	Link,
+	InstallHandler,
 };
 void ConfigureLog()
 {
@@ -57,6 +60,8 @@ Mode ProcessCommands()
 		{"settings", {"Updating the settings of an archive", Mode::Settings}},
 		{"shutdown", {"Locating running process to terminate", Mode::Shutdown}},
 		{"watch", {"Initialising watcher process", Mode::Watch}},
+		{"link", {"Following a link from the viewer", Mode::Link}},
+		{"install-handler", {"Registering the cortex:// link handler", Mode::InstallHandler}},
 
 	};
 
@@ -83,6 +88,11 @@ bool RootIsCortex()
 
 void ValidateCortexDirectory(Mode mode)
 {
+	// these name their project themselves (a link carries its root), or need none
+	if (mode == Mode::Link || mode == Mode::InstallHandler)
+	{
+		return;
+	}
 	bool isCortex = RootIsCortex();
 
 	if (mode == Mode::New)
@@ -145,6 +155,12 @@ int main(int argc, char **argv)
 				break;
 			case Mode::Rebuild:
 				CortexProject(Runtime.RootPath).CleanRebuild();
+				break;
+			case Mode::Link:
+				Link::Handle(Runtime.Url);
+				break;
+			case Mode::InstallHandler:
+				Link::InstallHandler();
 				break;
 			default:
 				throw std::runtime_error("End of the line");

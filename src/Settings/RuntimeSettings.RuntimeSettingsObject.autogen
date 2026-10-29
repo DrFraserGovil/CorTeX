@@ -8,6 +8,8 @@ void FieldList([[maybe_unused]] Wrapper &&W)
 {
 	Name = "Settings";
 	HelpData.Commands["build"] = "A one-shot build command that builds any out-of-date files";
+	HelpData.Commands["install-handler"] = "Registers this cortex as the desktop's handler for cortex:// links, so the viewer's Edit and todo buttons work";
+	HelpData.Commands["link"] = "Carries out a cortex:// link from the viewer (given with -url): opens a note in an editor, or flags it as needing work";
 	HelpData.Commands["new"] = "Begins the process of opening a new CorTeX archive";
 	HelpData.Commands["rebuild"] = "Force a rebuild of the entire project";
 	HelpData.Commands["settings"] = "Open the settings-modification interface";
@@ -15,6 +17,7 @@ void FieldList([[maybe_unused]] Wrapper &&W)
 	HelpData.Commands["watch"] = "Begins a persistent process which watches the current archive for changes to the source file";
 	W(JSL::Interface::Field<bool>(Verbose, "Verbose", {"v", "verbose"}, false, "If true, recieve DEBUG level logs to the output stream. Takes priority over Quiet mode."));
 	W(JSL::Interface::Field<bool>(Quiet, "Quiet", {"q", "quiet"}, false, "If true, recieve only ERROR logs to the output stream; everything else is suppressed unless Verbose is also set to true"));
+	W(JSL::Interface::Field<std::string>(Url, "Url", {"url"}, "", "The cortex:// link to carry out (with the link command)"));
 	W(JSL::Interface::Field<std::filesystem::path>(RootPath, "RootPath", {"dir", "root"}, {}, "The directory to target as the root (if none provided, uses the current working directory)"));
 }
 // END AUTOGEN

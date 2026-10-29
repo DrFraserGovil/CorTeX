@@ -10,5 +10,6 @@ void FieldList([[maybe_unused]] Wrapper &&W)
 	W(JSL::Interface::Field<std::vector<std::string>>(AllowedFilePatterns, "AllowedFilePatterns", {"allowed", "allowed-files"}, {"*.tex"}, "Files which match these globs will be added into the archive"));
 	W(JSL::Interface::Field<std::vector<std::string>>(IgnoredFilePatterns, "IgnoredFilePatterns", {"ignored", "ignored-files"}, {".*"}, "Files which match these globs can never be added (even if they meet the matching criteria)"));
 	W(JSL::Interface::Field<std::string>(HomeNote, "HomeNote", {"home"}, "", "The note shown when the viewer opens, as a path relative to the project root (e.g. home.tex). If empty or invalid, the viewer opens on an automatically constructed overview of the project. A display setting only: changing it never recompiles notes"));
+	W(JSL::Interface::Field<std::vector<std::string>>(Editors, "Editors", {"editors"}, {}, "The editors the viewer's Edit button can open a note in, each as 'name: command', e.g. [nvim: neovide {file}, code: code -g {file}]. The command runs without a shell; {file} is the note's full path (added at the end if the command doesn't use it), {dir} its folder, {root} the project root. The first is the default, and the viewer can pick another for the session. A command can't contain a comma"));
 }
 // END AUTOGEN

@@ -2,6 +2,7 @@
 #include <JSL.h>
 #include <cstdint>
 #include <cstdio>
+#include <map>
 
 void Utility::WriteAtomic(const std::filesystem::path &target, std::string_view content)
 {
@@ -67,4 +68,28 @@ std::string Utility::Base64(std::string_view bytes)
 		out += i + 2 < bytes.size() ? digits[group & 63] : '=';
 	}
 	return out;
+}
+
+std::optional<std::string> Utility::ImageMediaType(const std::filesystem::path &file)
+{
+	static const std::map<std::string, std::string> types = {
+		{".png", "image/png"},
+		{".jpg", "image/jpeg"},
+		{".jpeg", "image/jpeg"},
+		{".gif", "image/gif"},
+		{".webp", "image/webp"},
+		{".svg", "image/svg+xml"},
+	};
+	auto extension = file.extension().string();
+	for (auto &c : extension) c = std::tolower(static_cast<unsigned char>(c));
+	auto type = types.find(extension);
+	if (type == types.end()) return std::nullopt;
+	return type->second;
+}
+
+std::optional<std::string> Utility::ImageDataUri(const std::filesystem::path &file)
+{
+	auto type = ImageMediaType(file);
+	if (!type) return std::nullopt;
+	return "data:" + *type + ";base64," + Base64(JSL::IO::getFile(file));
 }
