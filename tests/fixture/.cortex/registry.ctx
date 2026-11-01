@@ -1,0 +1,9 @@
+name = Fixture
+
+% The sidebar shown on every page of the viewer
+sidebar:
+[Start]
+Alpha
+Euler|Euler (label)
+[Elsewhere]
+No Such Note
