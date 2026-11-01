@@ -71,7 +71,7 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 		\fi}
 \fi
 
-% ![[transclusions]] are rewritten into \CortexTransclude{<origin>}{<slug>}. The engine resolves each one before compiling (from its origin,
+% [[!transclusions]] are rewritten into \CortexTransclude{<origin>}{<slug>}. The engine resolves each one before compiling (from its origin,
 % like links) and declares the fragment to \input with \CortexTranscludeTarget, or why it can't be made (no such note; it would loop back on
 % itself) with \CortexTranscludeProblem; the problem is shown in place with \CortexTransclusionProblem, which users may \renewcommand.
 \newcommand{\CortexTranscludeTarget}[3]{\expandafter\def\csname cortex@transclude@#1@#2\endcsname{#3}}

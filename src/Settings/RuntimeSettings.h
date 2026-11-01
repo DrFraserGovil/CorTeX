@@ -9,6 +9,7 @@
 //! @command settings Open the settings-modification interface
 //! @command watch Begins a persistent process which watches the current archive for changes to the source file
 //! @command link Carries out a cortex:// link from the viewer (given with -url): opens a note in an editor, or flags it as needing work
+//! @command export Copies the built viewer (given with -to) as a copy to share: no project path, no editor controls, no live refresh
 //! @command install-handler Registers this cortex as the desktop's handler for cortex:// links, so the viewer's Edit and todo buttons work
 class RuntimeSettingsObject: public JSL::Interface::Aggregator<RuntimeSettingsObject>
 {
@@ -24,6 +25,10 @@ class RuntimeSettingsObject: public JSL::Interface::Aggregator<RuntimeSettingsOb
 	//! @alias root dir
 	//! @brief The directory to target as the root (if none provided, uses the current working directory)
 	std::filesystem::path RootPath;
+
+	//! @alias to
+	//! @brief The folder to export into (with the export command); it must be empty, new, or an earlier export
+	std::filesystem::path ExportFolder;
 
 	//! @alias url
 	//! @brief The cortex:// link to carry out (with the link command)

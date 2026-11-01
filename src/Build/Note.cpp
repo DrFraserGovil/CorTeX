@@ -128,13 +128,22 @@ void Note::ParseHeader(const std::vector<std::string> &lines)
 		}
 		else if (JSL::String::iEquals(key, "graph"))
 		{
-			if (JSL::String::iEquals(value, "hidden"))
+			// a comma-separated list, e.g. `graph: hidden, loose`
+			for (auto &part : JSL::String::split(value, ","))
 			{
-				GraphHidden = true;
-			}
-			else
-			{
-				LOG(WARN) << RelativePath.generic_string() << ": unknown graph setting '" << value << "' (the only option is 'graph: hidden'); ignored";
+				auto setting = JSL::String::trim(part);
+				if (JSL::String::iEquals(setting, "hidden"))
+				{
+					GraphHidden = true;
+				}
+				else if (JSL::String::iEquals(setting, "loose"))
+				{
+					GraphLoose = true;
+				}
+				else if (!setting.empty())
+				{
+					LOG(WARN) << RelativePath.generic_string() << ": unknown graph setting '" << setting << "' (the options are 'hidden' and 'loose'); ignored";
+				}
 			}
 		}
 		else if (JSL::String::iEquals(key, "show-title"))

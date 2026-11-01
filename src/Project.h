@@ -31,6 +31,11 @@ class CortexProject
 	//! Asks whichever CorTeX process holds this project's lock (a watch or a build) to stop
 	void Shutdown();
 
+	//! Brings the output up to date, then copies it into folder as a copy to share: its index has no project root or editor names (so the
+	//! Edit/todo controls disappear and nothing names your machine), and no live refresh. If a watch is running, it is asked to do the export
+	//! @details folder must be empty, missing, or an earlier export (it is then replaced); never the project root, the output or .cortex
+	void Export(const std::filesystem::path &folder);
+
 	//! True if some note links to this slug and no note has it as a title or alias (i.e. the project wants a note by that name).
 	//! Worked out from a fresh scan of the sources, not from the last build's output
 	bool IsWanted(const std::string &slug) const;
@@ -47,7 +52,7 @@ class CortexProject
 	std::string GlobalHash() const;
 
 	//! Bumped by hand whenever a change to the engine alters the TeX it generates, so existing projects recompile
-	static constexpr int EngineVersion = 11; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links; 6: fragments, transclusion, origin-keyed links; 7: # headings; 8: page margin setting (default 4pt -> 8pt); 9: maths environments, no format opener after '}'; 10: images embedded in SVG output, dvisvgm runs in the note's directory; 11: dvisvgm as a global class option
+	static constexpr int EngineVersion = 12; // 2: [[links]]; 3: extended syntax, title; 4: formatting never opens after a letter/digit/backslash; 5: PDF links; 6: fragments, transclusion, origin-keyed links; 7: # headings; 8: page margin setting (default 4pt -> 8pt); 9: maths environments, no format opener after '}'; 10: images embedded in SVG output, dvisvgm runs in the note's directory; 11: dvisvgm as a global class option; 12: [[!x]] transclusion and [[~x]]/[[+x]] link markers
 
   private:
 	//! Runs a build (clean or incremental) while holding the lock, then any builds other commands requested meanwhile, until none are pending
@@ -58,6 +63,9 @@ class CortexProject
 
 	//! The body of CleanRebuild(), for callers which already hold the lock
 	void CleanRebuildLocked();
+
+	//! Export's work, with the lock held and the output up to date
+	void ExportLocked(const std::filesystem::path &folder);
 
 	//! True if a changed path (relative to Root) could affect the build: anything except the output, the engine's own scratch space,
 	//! and hidden files; within .cortex, only the preamble and settings count
@@ -113,8 +121,9 @@ class CortexProject
 	size_t BuildFiles(const std::vector<Note> &notes, std::string_view preamble, const std::filesystem::path &targetDir, BuildState &state);
 
 	//! Writes index.js and the viewer into targetDir (SVG mode only: PDF mode produces nothing but the PDFs)
+	//! @param forSharing If true, the index leaves out everything tied to this machine: the project root, the editor names, live refresh
 	//! @returns true if index.js changed (false in PDF mode, which has no index)
-	bool WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir);
+	bool WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir, bool forSharing = false);
 
 	//! Deletes everything in OutputDir which isn't an output of a current note (or the viewer), then any emptied directories
 	void SweepOutput(const std::vector<Note> &notes);

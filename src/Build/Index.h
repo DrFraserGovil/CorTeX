@@ -26,6 +26,9 @@ class Index
 		std::string Slug;
 		//! The id of the note it points at, or empty if no note has that title or alias
 		std::string Target;
+		//! Left off the graph: every time the note links to or transcludes this target, it is marked [[~loose]], or unmarked with
+		//! the target (after redirects) set `graph: loose`. A single strong reference makes the whole connection strong
+		bool Loose = false;
 	};
 
 	//! One sidebar link: written like a link target, optionally with a label ("target|Label")
@@ -79,6 +82,8 @@ class Index
 		std::string TodoText;
 		//! The note's own sidebar entries (its `sidebar:` header), resolved from the note, shown beneath the global sidebar when it is open
 		std::vector<SidebarItem> Sidebar;
+		//! References into this note are loose unless marked strong (the note's `graph: loose` header)
+		bool GraphLoose = false;
 	};
 
 	//! @param sidebar The project's global sidebar (from registry.ctx); its entries are resolved here, with no origin note

@@ -184,53 +184,61 @@ namespace
 		std::string ListLineOutput(const std::string &line);
 	};
 
-	// Handles "[[" or "![[" at line[i], advancing i past what it consumed
+	// Handles "[[" at line[i], advancing i past what it consumed
+	// Markers at the start of the brackets give the kind and strength: ! a transclusion, ~ loose, + strong. They can come in any order,
+	// but each at most once, and never both ~ and +
 	std::string Processor::Link(const std::string &line, size_t &i)
 	{
-		/// TRANSCLUSION
-		if (line.compare(i, 3, "![[") == 0)
+		auto open = i + 2;
+		auto close = line.find("]]", open);
+		if (close == std::string::npos)
 		{
-			auto close = line.find("]]", i + 3);
-			if (close == std::string::npos)
-			{
-				Warn("'![[' with no closing ']]' on the same line; left as written");
-				i += 3;
-				return "![[";
-			}
-			auto inner = line.substr(i + 3, close - i - 3);
+			Warn("'[[' with no closing ']]' on the same line; left as written (to write a literal [[, use \\[[ or [ [)");
+			i = open;
+			return "[[";
+		}
+		auto written = line.substr(i, close + 2 - i);
+		auto inner = line.substr(open, close - open);
+		i = close + 2;
+
+		/// READ THE MARKERS
+		bool transclusion = false, loose = false, strong = false, valid = true;
+		size_t markers = 0;
+		for (; markers < inner.size() && (inner[markers] == '!' || inner[markers] == '~' || inner[markers] == '+'); ++markers)
+		{
+			bool &flag = inner[markers] == '!' ? transclusion : inner[markers] == '~' ? loose : strong;
+			if (flag) valid = false;
+			flag = true;
+		}
+		if (!valid || (loose && strong))
+		{
+			Warn("link " + written + " has repeated or contradictory markers (! transcludes, ~ is loose, + is strong; each at most once, and not both ~ and +); left as written");
+			return written;
+		}
+		inner = inner.substr(markers);
+		auto strength = loose ? Syntax::Strength::Loose : strong ? Syntax::Strength::Strong : Syntax::Strength::Default;
+
+		/// TRANSCLUSION
+		if (transclusion)
+		{
 			std::string target = JSL::String::trim(inner.substr(0, inner.find('|'))); // any |text is meaningless here, and ignored
 			auto hash = target.find('#');
 			if (hash != std::string::npos)
 			{
-				Warn("section transclusion (![[note#section]]) isn't supported yet; transcluding the whole of '" + JSL::String::trim(target.substr(0, hash)) + "'");
+				Warn("section transclusion ([[!note#section]]) isn't supported yet; transcluding the whole of '" + JSL::String::trim(target.substr(0, hash)) + "'");
 				target = JSL::String::trim(target.substr(0, hash));
 			}
-			std::string out;
 			if (Syntax::Slug(target).empty())
 			{
-				Warn("transclusion ![[" + inner + "]] has no target; left as written");
-				out = line.substr(i, close + 2 - i);
+				Warn("transclusion " + written + " has no target; left as written");
+				return written;
 			}
-			else
-			{
-				auto slug = Syntax::Slug(target);
-				Result.Transclusions.push_back({target, slug, LineNumber});
-				out = "\\CortexTransclude{" + Options.Origin + "}{" + slug + "}";
-			}
-			i = close + 2;
-			return out;
+			auto slug = Syntax::Slug(target);
+			Result.Transclusions.push_back({target, slug, LineNumber, strength});
+			return "\\CortexTransclude{" + Options.Origin + "}{" + slug + "}";
 		}
 
 		/// LINKS
-		auto close = line.find("]]", i + 2);
-		if (close == std::string::npos)
-		{
-			Warn("'[[' with no closing ']]' on the same line; left as written (to write a literal [[, use \\[[ or [ [)");
-			i += 2;
-			return "[[";
-		}
-
-		auto inner = line.substr(i + 2, close - i - 2);
 		auto bar = inner.find('|');
 		std::string target = JSL::String::trim(inner.substr(0, bar));
 		std::string text = (bar == std::string::npos) ? target : inner.substr(bar + 1);
@@ -244,21 +252,15 @@ namespace
 			if (bar == std::string::npos) text = target;
 		}
 
-		std::string out;
 		if (target.empty() || Syntax::Slug(target).empty())
 		{
-			Warn("link [[" + inner + "]] has no target; left as written");
-			out = line.substr(i, close + 2 - i);
+			Warn("link " + written + " has no target; left as written");
+			return written;
 		}
-		else
-		{
-			auto slug = Syntax::Slug(target);
-			Result.Links.push_back({target, slug, LineNumber});
-			// the link text is ordinary text, so it gets the same treatment (formatting, maths) as the rest of the line
-			out = "\\CortexLink{" + Options.Origin + "}{" + slug + "}{" + ProcessLine(text) + "}";
-		}
-		i = close + 2;
-		return out;
+		auto slug = Syntax::Slug(target);
+		Result.Links.push_back({target, slug, LineNumber, strength});
+		// the link text is ordinary text, so it gets the same treatment (formatting, maths) as the rest of the line
+		return "\\CortexLink{" + Options.Origin + "}{" + slug + "}{" + ProcessLine(text) + "}";
 	}
 
 	// Rewrites one line (or the text of a list item), tracking maths as it goes
@@ -345,7 +347,16 @@ namespace
 			}
 
 			/// LINKS: EVERYWHERE, EVEN IN MATHS
-			if (line.compare(i, 2, "[[") == 0 || line.compare(i, 3, "![[") == 0)
+			// the wiki-style ![[x]] is not a transclusion here (every marker goes inside the brackets): it's a '!' and then a link,
+			// which is almost certainly a mistake, so it's pointed out
+			if (line.compare(i, 3, "![[") == 0)
+			{
+				Warn("'![[...]]' is not a transclusion: write the ! inside the brackets, as [[!...]]. Treated as a '!' followed by a link");
+				out += '!';
+				++i;
+				continue;
+			}
+			if (line.compare(i, 2, "[[") == 0)
 			{
 				out += Link(line, i);
 				continue;

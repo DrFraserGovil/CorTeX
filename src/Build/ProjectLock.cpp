@@ -3,6 +3,7 @@
 #include "../Utility/Sanitise.h"
 #include <JSL.h>
 #include <format>
+#include <utility>
 
 ProjectLock::ProjectLock(const std::filesystem::path &root, bool quiet)
 {
@@ -15,6 +16,11 @@ ProjectLock::ProjectLock(const std::filesystem::path &root, bool quiet)
 			if (message == "rerun") Rerun = true;
 			else if (message == "rebuild") Rebuild = true;
 			else if (message == "shutdown") Shutdown = true;
+			else if (message.starts_with("export "))
+			{
+				std::lock_guard guard(ExportMutex);
+				Exports.push_back(std::string(message.substr(7)));
+			}
 			else
 			{
 				LOG(WARN) << "Ignoring unknown message '" << message << "' on the project lock";
@@ -95,4 +101,10 @@ std::string ProjectLock::SocketName(const std::filesystem::path &root)
 		label = label.substr(0, 32);
 	}
 	return std::format("cortex-{}-{:016x}", label, hash);
+}
+
+std::vector<std::filesystem::path> ProjectLock::TakeExports()
+{
+	std::lock_guard guard(ExportMutex);
+	return std::exchange(Exports, {});
 }

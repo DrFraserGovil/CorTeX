@@ -54,6 +54,14 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @brief How strongly the graph pulls together linked notes in neighbouring folders, relative to notes in the same folder: 1 ignores folders, 0 lets folders drift fully apart. Notes further apart in the folder tree pull more weakly still. A display setting only: changing it never recompiles notes
 	double FolderPull = 0.5;
 
+	//! @alias graph-layout
+	//! @brief Where the project graph places each folder: centre pulls every note towards the middle; rings gives each folder its own point, as in a sunburst chart (the top-level notes in the middle, top-level folders on a ring around them, each subfolder further out beside its parent). With rings, folder-pull blends between the two (1 is the same as centre). A display setting only: changing it never recompiles notes
+	std::string GraphLayout = "centre";
+
+	//! @alias folder-repulsion
+	//! @brief How much harder notes in different folders push each other apart in the graph than notes in the same folder, per step through the folder tree between them: 0 treats every pair alike, 1 doubles the push between neighbouring folders, and so on. Opens up space between folder clusters. A display setting only: changing it never recompiles notes
+	double FolderRepulsion = 0;
+
 	//! @alias insert-title, title
 	//! @brief If true, each note's title is typeset at the top of the note (using the CortexTitle macro, which the preamble may redefine)
 	bool InsertTitle = true;

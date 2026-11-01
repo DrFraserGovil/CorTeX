@@ -8,7 +8,10 @@
 //!  - links: [[target]] and [[target|text]] become \CortexLink{<origin>}{<slug>}{<text>} (defined in cortex.cls), where origin is the
 //!    key of the note the link was written in: a link resolves from where it was written, even when its note is transcluded elsewhere.
 //!    [[note#section]] links to the note, ignoring the section (sections aren't supported yet).
-//!  - transclusion: ![[target]] becomes \CortexTransclude{<origin>}{<slug>}, which inputs the target note's body (resolved by the engine)
+//!  - transclusion: [[!target]] becomes \CortexTransclude{<origin>}{<slug>}, which inputs the target note's body (resolved by the engine)
+//!  - strength: [[~target]] is a loose link (kept off the graph), [[+target]] a strong one (on it even if the target is `graph: loose`);
+//!    unmarked links take their strength from the target. Markers combine in any order, e.g. [[!~target]] is a loose transclusion.
+//!    Every marker goes inside the brackets: the wiki-style ![[target]] is a '!' followed by a link, with a warning
 //! Only with Options::Extended (the ExtendedSyntax setting), and only in text (never in maths):
 //!  - inline formatting: *italic*, **bold**, ***bold italic***, _monospace_, __small caps__
 //!    (an opening marker must not follow a letter, digit, backslash or '}', and must be followed by a non-space other than '}';
@@ -36,6 +39,14 @@ namespace Syntax
 		std::string Origin;
 	};
 
+	//! How a link counts on the graph, as marked where it was written
+	enum class Strength
+	{
+		Default, //!< unmarked: strong, unless the target note is `graph: loose`
+		Loose,	 //!< [[~x]]: a real link, but left off the graph
+		Strong,	 //!< [[+x]]: on the graph, even if the target note is `graph: loose`
+	};
+
 	struct Link
 	{
 		//! The target as written, e.g. "Euler's Identity"
@@ -44,6 +55,7 @@ namespace Syntax
 		std::string Slug;
 		//! 1-based line within the processed text
 		size_t Line;
+		Strength Marked = Strength::Default;
 	};
 
 	struct Warning
@@ -58,7 +70,7 @@ namespace Syntax
 		//! The text with all extended syntax rewritten into LaTeX; always has the same number of lines as the input
 		std::string Text;
 		std::vector<Link> Links;
-		//! The ![[transclusions]] found, in order (Line and Slug as for links)
+		//! The [[!transclusions]] found, in order (Line and Slug as for links)
 		std::vector<Link> Transclusions;
 		std::vector<Warning> Warnings;
 	};

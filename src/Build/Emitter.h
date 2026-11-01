@@ -33,12 +33,18 @@ class Emitter
 		std::string Background;
 		//! The graph's pull between linked notes in neighbouring folders, relative to the same folder (0 to 1)
 		double FolderPull = 0.5;
+		//! How the project graph places folders: centre (all around the middle) or rings (each folder at its own point)
+		std::string GraphLayout = "centre";
+		//! The graph's extra push between notes in different folders, per step through the folder tree (0 for none)
+		double FolderRepulsion = 0;
 		//! The sidebar logo as a data: URI; empty for none
 		std::string Logo;
 		//! The names of the editors the Edit button offers (the commands stay in the settings: links carry only a name)
 		std::vector<std::string> Editors;
 		//! The project's absolute root, which the viewer's cortex:// links name
 		std::string Root;
+		//! If true, the viewer polls version.js and refreshes after each build (the author's own copy); false in a copy to share
+		bool Live = true;
 	};
 
 	//! Writes index.js (the serialised Index, followed by the viewer's settings) and the stub index.html viewer

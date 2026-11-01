@@ -16,6 +16,7 @@ enum class Mode
 	Watch,
 	Link,
 	InstallHandler,
+	Export,
 };
 void ConfigureLog()
 {
@@ -60,6 +61,7 @@ Mode ProcessCommands()
 		{"settings", {"Updating the settings of an archive", Mode::Settings}},
 		{"shutdown", {"Locating running process to terminate", Mode::Shutdown}},
 		{"watch", {"Initialising watcher process", Mode::Watch}},
+		{"export", {"Exporting a copy to share", Mode::Export}},
 		{"link", {"Following a link from the viewer", Mode::Link}},
 		{"install-handler", {"Registering the cortex:// link handler", Mode::InstallHandler}},
 
@@ -155,6 +157,10 @@ int main(int argc, char **argv)
 				break;
 			case Mode::Rebuild:
 				CortexProject(Runtime.RootPath).CleanRebuild();
+				break;
+			case Mode::Export:
+				if (Runtime.ExportFolder.empty()) throw std::runtime_error("export needs a folder: cortex export -to <folder>");
+				CortexProject(Runtime.RootPath).Export(Runtime.ExportFolder);
 				break;
 			case Mode::Link:
 				Link::Handle(Runtime.Url);

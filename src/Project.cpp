@@ -420,6 +420,18 @@ void CortexProject::Watch()
 			{
 				build(true);
 			}
+			else if (message.starts_with("export "))
+			{
+				build(false);
+				try
+				{
+					ExportLocked(message.substr(7));
+				}
+				catch (std::exception &e)
+				{
+					LOG(ERROR) << "Export failed: " << e.what() << "\nStill watching for changes";
+				}
+			}
 			else
 			{
 				LOG(WARN) << "Ignoring unknown message '" << message << "'";
@@ -502,13 +514,64 @@ void CortexProject::WarnAboutInputs(const Note &note, const std::vector<std::pai
 
 		if (Note::HasNoteHeader(file))
 		{
-			LOG(WARN) << note.RelativePath.generic_string() << " uses \\input on " << path << ", which is a CorTeX note: its header (title, separator line) will be typeset as text. To include a note, transclude it with ![[...]]";
+			LOG(WARN) << note.RelativePath.generic_string() << " uses \\input on " << path << ", which is a CorTeX note: its header (title, separator line) will be typeset as text. To include a note, transclude it with [[!...]]";
 		}
 		else if (!Syntax::Process(JSL::IO::getFile(file)).Links.empty())
 		{
 			LOG(WARN) << path << " (\\input by " << note.RelativePath.generic_string() << ") contains [[links]], which are only processed in notes: in an \\input file they appear as literal brackets";
 		}
 	}
+}
+
+void CortexProject::Export(const std::filesystem::path &folder)
+{
+	// sent as an absolute path: a running watch has its own working directory
+	auto target = std::filesystem::weakly_canonical(std::filesystem::absolute(folder));
+	std::optional<ProjectLock> lock;
+	if (!ProjectLock::AcquireOrSend(Root, lock, "export " + target.string()))
+	{
+		LOG(INFO) << "A CorTeX watch (or build) is running on this project; it will export to " << target << " once its build is up to date";
+		return;
+	}
+	RunHoldingLock(*lock, false);
+	ExportLocked(target);
+}
+
+void CortexProject::ExportLocked(const std::filesystem::path &folder)
+{
+	/// CHECK THE DESTINATION
+	auto target = std::filesystem::weakly_canonical(folder);
+	auto root = std::filesystem::weakly_canonical(Root);
+	auto inside = [](const std::filesystem::path &path, const std::filesystem::path &dir) {
+		auto relative = path.lexically_relative(dir);
+		return !relative.empty() && *relative.begin() != "..";
+	};
+	if (target == root || inside(target, std::filesystem::weakly_canonical(OutputDir)) || inside(target, root / ".cortex"))
+	{
+		throw std::runtime_error("can't export into the project root, its output folder or .cortex; choose a folder of its own");
+	}
+	auto marker = target / ".cortex-export";
+	if (std::filesystem::exists(target))
+	{
+		if (!std::filesystem::is_directory(target)) throw std::runtime_error(target.string() + " is a file, not a folder");
+		if (!std::filesystem::is_empty(target) && !std::filesystem::exists(marker))
+		{
+			throw std::runtime_error(target.string() + " already has files in it which aren't an earlier export; not touching them");
+		}
+		// an earlier export: replaced wholesale, so notes deleted since don't linger in it
+		for (auto &entry : std::filesystem::directory_iterator(target)) std::filesystem::remove_all(entry.path());
+	}
+
+	/// COPY THE OUTPUT, THEN REWRITE ITS INDEX WITHOUT ANYTHING TIED TO THIS MACHINE
+	std::filesystem::create_directories(target);
+	std::filesystem::copy(OutputDir, target, std::filesystem::copy_options::recursive);
+	std::filesystem::remove(target / "version.js"); // live refresh is for the author's own copy
+	if (!Archive.Render.PdfOutput)
+	{
+		WriteIndex(ScanNotes(), BuildState::Load(BuildStateFile), target, true);
+	}
+	JSL::IO::writeString(marker, "Exported by CorTeX. This file lets the next export replace this folder\n");
+	LOG(INFO) << "Exported a copy to share to " << target;
 }
 
 void CortexProject::Build()
@@ -537,6 +600,17 @@ void CortexProject::RunHoldingLock(ProjectLock &lock, bool clean)
 			BuildLocked();
 		}
 
+		for (auto &folder : lock.TakeExports())
+		{
+			try
+			{
+				ExportLocked(folder);
+			}
+			catch (std::exception &e)
+			{
+				LOG(ERROR) << "Export to " << folder << " failed: " << e.what();
+			}
+		}
 		if (lock.ShutdownRequested())
 		{
 			LOG(INFO) << "Shutdown requested; stopping";
@@ -787,7 +861,7 @@ size_t CortexProject::BuildFiles(const std::vector<Note> &notes, std::string_vie
 	return failures;
 }
 
-bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir)
+bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState &state, const std::filesystem::path &targetDir, bool forSharing)
 {
 	Index index(notes, state, ReadSidebar());
 
@@ -852,16 +926,33 @@ bool CortexProject::WriteIndex(const std::vector<Note> &notes, const BuildState 
 		LOG(WARN) << "folder-pull must be between 0 and 1 (1 ignores folders); using 0.5";
 		viewer.FolderPull = 0.5;
 	}
-
-	viewer.Root = Root.string();
-	std::vector<std::string> problems;
-	for (auto &editor : Link::ParseEditors(Archive.Files.Editors, problems))
+	viewer.GraphLayout = Archive.Render.GraphLayout;
+	if (viewer.GraphLayout != "centre" && viewer.GraphLayout != "rings")
 	{
-		viewer.Editors.push_back(editor.Name);
+		LOG(WARN) << "graph-layout must be centre or rings; using centre";
+		viewer.GraphLayout = "centre";
 	}
-	for (auto &problem : problems)
+	viewer.FolderRepulsion = Archive.Render.FolderRepulsion;
+	if (!(viewer.FolderRepulsion >= 0))
 	{
-		LOG(WARN) << "editors setting: " << problem;
+		LOG(WARN) << "folder-repulsion must be 0 or more (0 treats every folder alike); using 0";
+		viewer.FolderRepulsion = 0;
+	}
+
+	// the Edit/todo controls only work on this machine (a cortex:// handler, and this root): a copy to share leaves them out entirely
+	viewer.Live = !forSharing;
+	if (!forSharing)
+	{
+		viewer.Root = Root.string();
+		std::vector<std::string> problems;
+		for (auto &editor : Link::ParseEditors(Archive.Files.Editors, problems))
+		{
+			viewer.Editors.push_back(editor.Name);
+		}
+		for (auto &problem : problems)
+		{
+			LOG(WARN) << "editors setting: " << problem;
+		}
 	}
 
 	// the logo is embedded, like note images: the viewer never depends on a copy of a project file

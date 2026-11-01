@@ -84,6 +84,7 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state, std::vecto
 			entry.Diagnostic = r.Diagnostic;
 		}
 		entry.GraphHidden = note.GraphHidden;
+		entry.GraphLoose = note.GraphLoose;
 		entry.Todo = note.Todo.has_value();
 		entry.TodoText = note.Todo.value_or("");
 		if (!note.Redirect.empty())
@@ -127,16 +128,21 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state, std::vecto
 
 	/// RESOLVE EACH NOTE'S LINKS, AND RECORD THE BACKLINKS
 	std::map<std::string, std::set<std::string>> backlinks;
+	// for each note, how its references to each slug were marked: (any marked strong, any unmarked); the strength is settled once redirects are known
+	std::vector<std::map<std::string, std::pair<bool, bool>>> marks(notes.size());
 	for (size_t n = 0; n < notes.size(); ++n)
 	{
 		auto &entry = List[n];
-		std::set<std::string> seen;
 		// a transclusion is a kind of link: it resolves the same way, counts as a backlink, and if unresolved it's a wanted note
 		auto references = notes[n].Links;
 		references.insert(references.end(), notes[n].Transclusions.begin(), notes[n].Transclusions.end());
 		for (auto &link : references)
 		{
-			if (!seen.insert(link.Slug).second) continue;
+			bool seen = marks[n].contains(link.Slug);
+			auto &[strong, unmarked] = marks[n][link.Slug];
+			strong = strong || link.Marked == Syntax::Strength::Strong;
+			unmarked = unmarked || link.Marked == Syntax::Strength::Default;
+			if (seen) continue;
 
 			ResolvedLink resolved{link.Slug, ""};
 			auto claim = claims.find(link.Slug);
@@ -173,6 +179,23 @@ Index::Index(const std::vector<Note> &notes, const BuildState &state, std::vecto
 		if (entry.RedirectText.empty()) continue;
 		auto claim = claims.find(Syntax::Slug(entry.RedirectText));
 		if (claim != claims.end()) entry.RedirectTarget = Nearest(entry.Path, claim->second);
+	}
+
+	/// HOW STRONG EACH CONNECTION IS: LOOSE ONLY IF EVERY REFERENCE IS (MARKED LOOSE, OR UNMARKED INTO A `graph: loose` NOTE)
+	std::map<std::string, const Entry *> byId;
+	for (auto &entry : List) byId[entry.Id] = &entry;
+	auto looseNote = [&](const std::string &id) {
+		auto found = byId.find(id);
+		if (found != byId.end() && found->second->State == Status::Redirect) found = byId.find(FollowRedirects(id));
+		return found != byId.end() && found->second->GraphLoose;
+	};
+	for (size_t n = 0; n < notes.size(); ++n)
+	{
+		for (auto &link : List[n].Links)
+		{
+			auto [strong, unmarked] = marks[n][link.Slug];
+			link.Loose = !strong && (!unmarked || (!link.Target.empty() && looseNote(link.Target)));
+		}
 	}
 
 	/// RESOLVE THE SIDEBARS: A NOTE'S OWN FROM THE NOTE (LIKE ITS LINKS), THE GLOBAL ONE FROM NOWHERE (THE SHALLOWEST MATCH)
@@ -289,7 +312,15 @@ std::string Index::Serialise() const
 			auto &link = e.Links[l];
 			js += (l > 0 ? "," : "") + JsonString(link.Slug) + ":" + (link.Target.empty() ? "null" : JsonString(link.Target));
 		}
-		js += "},\"backlinks\":" + JsonArray(e.Backlinks) + ",\"transcludes\":" + JsonArray(e.Transcludes);
+		js += "}";
+		// the slugs of the loose connections, which the graph leaves out (only written when there are any)
+		std::vector<std::string> loose;
+		for (auto &link : e.Links)
+		{
+			if (link.Loose) loose.push_back(link.Slug);
+		}
+		if (!loose.empty()) js += ",\"loose\":" + JsonArray(loose);
+		js += ",\"backlinks\":" + JsonArray(e.Backlinks) + ",\"transcludes\":" + JsonArray(e.Transcludes);
 		js += ",\"sidebar\":" + SidebarJson(e.Sidebar, titles) + "}";
 	}
 	js += "\n]);\n";

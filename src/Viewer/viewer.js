@@ -7,6 +7,8 @@ let currentId = null;
 // Notes are vector images, so any zoom is sharp, and it never changes where lines break.
 let projectZoom = 1;
 let folderPull = 0.5; // the graph's pull between neighbouring folders, relative to within a folder (the folder-pull setting)
+let graphLayout = "centre"; // where the project graph places folders: "centre" or "rings" (the graph-layout setting)
+let folderRepulsion = 0;    // the graph's extra push between notes in different folders, per folder step (the folder-repulsion setting)
 let readerZoom = null;
 try { const saved = parseFloat(localStorage.getItem("cortex-zoom")); if (saved > 0) readerZoom = saved; } catch (e) {}
 let projectName = "CorTeX";
@@ -16,6 +18,8 @@ let editors = [];     // the names of the project's editors (the commands stay i
 function CortexConfig(config) {
 	if (config.zoom > 0) projectZoom = config.zoom;
 	if (config.folderPull >= 0 && config.folderPull <= 1) folderPull = config.folderPull;
+	if (config.graphLayout === "rings") graphLayout = "rings";
+	if (config.folderRepulsion >= 0) folderRepulsion = config.folderRepulsion;
 	if (config.name) projectName = config.name;
 	document.getElementById("project-name").textContent = config.name || "";
 	homeId = config.home || "";
@@ -24,6 +28,7 @@ function CortexConfig(config) {
 	// with no home note, Home already is the overview, so a separate link would be redundant
 	document.getElementById("overview-link").style.display = homeId ? "" : "none";
 	projectRoot = config.root || "";
+	live = config.live !== false;
 	editors = Array.isArray(config.editors) ? config.editors : [];
 	const logo = document.getElementById("logo");
 	if (config.logo) logo.src = config.logo; else logo.removeAttribute("src");
@@ -405,7 +410,8 @@ function restoreScroll() {
 	window.scrollTo(0, pendingScroll);
 	pendingScroll = null;
 }
-setInterval(() => { if (document.visibilityState === "visible") loadScript("version.js"); }, 1000);
+let live = true; // false in an exported copy, which has no version.js (and nothing will ever rebuild it)
+setInterval(() => { if (live && document.visibilityState === "visible") loadScript("version.js"); }, 1000);
 
 // A link route is "<origin key>/<slug>" (from a note) or just "<slug>" (typed, or from the overview)
 function parseLink(value) {
@@ -608,6 +614,7 @@ function folderDistance(a, b) {
 
 // Nodes and edges for the whole project: notes (stubs folded into their targets), plus "wanted" nodes for link targets
 // which don't exist yet. Each edge is a link or a transclusion (if a note does both, it counts as a transclusion).
+// Loose connections ([[~x]], or into a `graph: loose` note) are left out: they still work as links, and still count as backlinks
 // Notes marked `graph: hidden` (and their edges) are left out, except for `centre`: a hidden note still has its own graph
 function graphModel(centre = null) {
 	const shown = n => !n.graphHidden || n.id === centre;
@@ -620,7 +627,9 @@ function graphModel(centre = null) {
 	}
 	for (const n of cortexOrder) {
 		if (n.status === "redirect" || !shown(n)) continue;
+		const loose = new Set(n.loose || []);
 		for (const [slug, target] of Object.entries(n.links)) {
+			if (loose.has(slug)) continue;
 			let to;
 			if (target === null) {
 				to = "wanted:" + slug;
@@ -682,7 +691,63 @@ function folderColours() {
 	return colours;
 }
 
+// The rings layout's point for each folder (by path; "" for the project's top level), as in a sunburst chart: the top-level notes
+// at the centre, each top-level folder on the first ring and each subfolder on the next ring out, inside its parent's wedge (so near
+// it in angle). A wedge is sized by the room its folder and subfolders need, and each ring is far enough out for every folder on it
+// to fit beside its neighbours, and clear of the rings either side. Also returns each folder's cluster radius, to start its notes in
+function folderPoints(nodes, spring, cx, cy) {
+	const own = new Map(), children = new Map([["", []]]);
+	for (const n of nodes) {
+		const dirs = n.dirs || [];
+		own.set(dirs.join("/"), (own.get(dirs.join("/")) || 0) + 1);
+		for (let i = 1; i <= dirs.length; ++i) {
+			const path = dirs.slice(0, i).join("/"), parent = dirs.slice(0, i - 1).join("/");
+			if (!children.has(path)) { children.set(path, []); children.get(parent).push(path); }
+		}
+	}
+	// a folder of n notes settles into a cluster about spring * sqrt(n) across
+	const radius = path => 0.5 * spring * Math.sqrt(own.get(path) || 0);
+	const across = path => 2 * radius(path) + spring;
+	const room = new Map(); // the arc a folder's wedge needs: its own cluster, or its subfolders' (further out), whichever is wider
+	(function measure(path) {
+		let sum = 0;
+		for (const child of children.get(path)) sum += measure(child);
+		room.set(path, Math.max(across(path), sum));
+		return room.get(path);
+	})("");
+
+	/// SPLIT THE CIRCLE INTO WEDGES, BY FOLDER
+	const place = new Map(), depths = [];
+	(function split(path, from, to, depth) {
+		place.set(path, { angle: (from + to) / 2, wedge: to - from, depth });
+		(depths[depth] = depths[depth] || []).push(path);
+		const kids = children.get(path).sort(), total = kids.reduce((sum, k) => sum + room.get(k), 0);
+		let at = from;
+		for (const k of kids) {
+			const share = (to - from) * room.get(k) / total;
+			split(k, at, at + share, depth + 1);
+			at += share;
+		}
+	})("", -Math.PI / 2, 1.5 * Math.PI, 0);
+
+	/// PLACE THE RINGS
+	const rings = [0];
+	const widest = d => Math.max(...depths[d].map(radius));
+	for (let d = 1; d < depths.length; ++d) {
+		let r = rings[d - 1] + widest(d - 1) + widest(d) + spring;
+		for (const path of depths[d]) r = Math.max(r, across(path) / Math.min(place.get(path).wedge, Math.PI));
+		rings.push(r);
+	}
+	const points = new Map();
+	for (const [path, { angle, depth }] of place) {
+		points.set(path, { x: cx + rings[depth] * Math.cos(angle), y: cy + rings[depth] * Math.sin(angle), radius: Math.max(spring / 2, radius(path)) });
+	}
+	return points;
+}
+
 // Draws a model into a container and runs the layout. Returns an object with stop()
+// options.rings gives each folder its own point (folderPoints), instead of pulling every note towards the middle;
+// options.pin holds one note fixed in the middle (unlike options.centre, it changes nothing else about the drawing)
 function drawGraph(container, model, options = {}) {
 	const width = container.clientWidth || 800, height = container.clientHeight || 500;
 	const svg = document.createElementNS(SVG_NS, "svg");
@@ -724,12 +789,40 @@ function drawGraph(container, model, options = {}) {
 	// the layout cools quickly, so a tangled start stays tangled, and folder damping alone can't separate them
 	const folders = [...new Set(model.nodes.map(n => n.dirs ? n.dirs.join("/") : ""))].sort();
 	const sector = 2 * Math.PI / folders.length;
+	// with rings, a wanted note (which has no folder) belongs to the folder most of its linkers are in, so it is placed with them,
+	// and its springs to other folders are weakened like any other; otherwise one linked from several folders would tie them together
+	const homes = new Map();
+	if (options.rings) {
+		const dirsOf = new Map(model.nodes.map(n => [n.id, n.dirs]));
+		const votes = new Map();
+		for (const e of model.edges) {
+			if (!e.to.startsWith("wanted:") || !dirsOf.get(e.from)) continue;
+			const tally = votes.get(e.to) || votes.set(e.to, new Map()).get(e.to), path = dirsOf.get(e.from).join("/");
+			tally.set(path, (tally.get(path) || 0) + 1);
+		}
+		for (const [id, tally] of votes) homes.set(id, [...tally].sort((a, b) => b[1] - a[1])[0][0]);
+	}
+	const points = options.rings ? folderPoints(model.nodes.map(n => homes.has(n.id) ? { dirs: homes.get(n.id) ? homes.get(n.id).split("/") : [] } : n), options.springLength || 90, width / 2, height / 2) : null;
 	for (const n of model.nodes) {
-		const h = hashString(n.id), radius = spread * (0.3 + (h % 997) / 997 * 0.7);
-		const angle = (folders.indexOf(n.dirs ? n.dirs.join("/") : "") + 0.15 + 0.7 * (h % 1009) / 1009) * sector;
-		const node = { ...n, x: width / 2 + Math.cos(angle) * radius, y: height / 2 + Math.sin(angle) * radius, vx: 0, vy: 0, pinned: false, degree: Math.max(1, degree.get(n.id)) };
+		const h = hashString(n.id);
+		const dirs = homes.has(n.id) ? (homes.get(n.id) ? homes.get(n.id).split("/") : []) : n.dirs;
+		let x, y, point = null;
+		if (points) {
+			// start in a disc around the folder's own point
+			point = points.get(dirs ? dirs.join("/") : "");
+			const angle = 2 * Math.PI * (h % 1009) / 1009, radius = point.radius * Math.sqrt((h % 997) / 997);
+			x = point.x + Math.cos(angle) * radius; y = point.y + Math.sin(angle) * radius;
+		} else {
+			const radius = spread * (0.3 + (h % 997) / 997 * 0.7);
+			const angle = (folders.indexOf(n.dirs ? n.dirs.join("/") : "") + 0.15 + 0.7 * (h % 1009) / 1009) * sector;
+			x = width / 2 + Math.cos(angle) * radius; y = height / 2 + Math.sin(angle) * radius;
+		}
+		const node = { ...n, dirs, x, y, vx: 0, vy: 0, pinned: false, degree: Math.max(1, degree.get(n.id)) };
+		// where the layout pulls the note: the middle, or (with rings) its folder's point, moved towards the middle by folder-pull
+		node.homeX = point ? point.x + (width / 2 - point.x) * folderPull : width / 2;
+		node.homeY = point ? point.y + (height / 2 - point.y) * folderPull : height / 2;
 		node.r = 5 + Math.sqrt(degree.get(n.id)) * 2.5 + (n.id === options.centre ? 3 : 0);
-		if (n.id === options.centre) { node.x = width / 2; node.y = height / 2; node.pinned = true; }
+		if (n.id === options.centre || n.id === options.pin) { node.x = width / 2; node.y = height / 2; node.pinned = true; }
 		const g = document.createElementNS(SVG_NS, "g");
 		g.setAttribute("class", "graph-node " + n.status + (n.id === options.centre ? " centre" : "") + farness(n.id));
 		const circle = document.createElementNS(SVG_NS, "circle");
@@ -779,7 +872,7 @@ function drawGraph(container, model, options = {}) {
 	const neighbours = new Map(model.nodes.map(n => [n.id, new Set([n.id])]));
 	edges.forEach(e => { neighbours.get(e.from.id).add(e.to.id); neighbours.get(e.to.id).add(e.from.id); });
 
-	/// THE LAYOUT: REPULSION BETWEEN ALL NODES, SPRINGS ALONG EDGES, A PULL TOWARDS THE CENTRE; COOLS AND STOPS
+	/// THE LAYOUT: REPULSION BETWEEN ALL NODES, SPRINGS ALONG EDGES, A PULL TOWARDS THE CENTRE (OR, WITH RINGS, THE FOLDER); COOLS AND STOPS
 	const nodes = [...byId.values()];
 	const spring = options.springLength || 90, repulsion = options.repulsion || 2600;
 	let alpha = 1, frame = null, stopped = false;
@@ -788,7 +881,16 @@ function drawGraph(container, model, options = {}) {
 	// leaves, instead of sinking together into the middle (their springs are damped, so little else holds them apart)
 	const sorted = nodes.map(n => n.degree).sort((a, b) => a - b);
 	const typical = (1 + (sorted[Math.floor(sorted.length / 2)] || 1)) ** 2;
-	const push = (a, b) => Math.min(25, Math.max(1, (1 + a.degree) * (1 + b.degree) / typical));
+	// folder repulsion: notes in different folders push harder still, by 1 + r d for folders d steps apart (folder-repulsion r), which
+	// opens up space between the folders' clusters. The distances are worked out once per pair of folders, not per pair of notes
+	const folderIndex = new Map(), folderDirs = [];
+	for (const n of nodes) {
+		const path = n.dirs ? n.dirs.join("/") : null; // a wanted note with no folder is 0 steps from everything
+		if (!folderIndex.has(path)) { folderIndex.set(path, folderDirs.length); folderDirs.push({ dirs: n.dirs }); }
+		n.folderIndex = folderIndex.get(path);
+	}
+	const apartness = folderDirs.map(a => folderDirs.map(b => 1 + folderRepulsion * folderDistance(a, b)));
+	const push = (a, b) => Math.min(25, Math.max(1, (1 + a.degree) * (1 + b.degree) / typical)) * apartness[a.folderIndex][b.folderIndex];
 	function tick() {
 		for (let i = 0; i < nodes.length; ++i) {
 			const a = nodes[i];
@@ -818,8 +920,8 @@ function drawGraph(container, model, options = {}) {
 			e.to.vx -= dx / d * f; e.to.vy -= dy / d * f;
 		}
 		for (const n of nodes) {
-			n.vx += (width / 2 - n.x) * 0.006 * alpha;
-			n.vy += (height / 2 - n.y) * 0.006 * alpha;
+			n.vx += (n.homeX - n.x) * 0.006 * alpha;
+			n.vy += (n.homeY - n.y) * 0.006 * alpha;
 			if (n.pinned) { n.vx = n.vy = 0; continue; }
 			n.vx *= 0.82; n.vy *= 0.82;
 			n.x += n.vx; n.y += n.vy;
@@ -959,7 +1061,8 @@ function showGraph() {
 	page.appendChild(box);
 	document.getElementById("note").replaceChildren(page);
 	document.title = projectName + " (graph)";
-	drawGraph(box, graphModel());
+	// the home note (if there is one) is held in the middle, as the project's starting point
+	drawGraph(box, graphModel(), { rings: graphLayout === "rings", pin: homeId });
 }
 
 // A note's place in the graph, under the note: the note pinned at the centre, everything within the chosen depth around it

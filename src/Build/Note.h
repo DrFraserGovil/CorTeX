@@ -39,6 +39,10 @@ class Note
 	//! such as indexes, which everything links to and which would otherwise pull every graph into a star)
 	bool GraphHidden = false;
 
+	//! True if the header says `graph: loose`: links and transclusions into the note are loose (left off the graph) unless marked
+	//! [[+strong]]. For background notes which everything mentions in passing (a planet, a units table), so they don't become hubs
+	bool GraphLoose = false;
+
 	//! The note's `show-title: yes|no` header, overriding the project's insert-title setting for this note; empty if absent
 	std::optional<bool> ShowTitle;
 
@@ -61,7 +65,7 @@ class Note
 	//! The [[links]] found in the body
 	std::vector<Syntax::Link> Links;
 
-	//! The ![[transclusions]] found in the body
+	//! The [[!transclusions]] found in the body
 	std::vector<Syntax::Link> Transclusions;
 
 	//! The 1-based line in the source file at which LocalPreamble starts (0 if there is none), for mapping TeX errors back to the source
