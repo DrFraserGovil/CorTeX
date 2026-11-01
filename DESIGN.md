@@ -606,7 +606,7 @@ With `pdf` on, each note compiles to a standalone PDF in the output folder, at t
 | `new` | Asks for a project name and creates a project in the current folder, optionally editing the settings first. Refuses if one already exists |
 | `build` | Brings the output up to date ([§6.6](#66-when-notes-are-recompiled)), then exits |
 | `rebuild` | Recompiles every note from scratch. The previous output stays in place until the new one is complete |
-| `watch` | Builds, then rebuilds whenever anything in the project changes (one build per burst of saves). A failing build is reported and watching continues. Stops on `q` + Enter, or `cortex shutdown`. `settings` + Enter pauses watching to edit the settings exactly as `cortex settings` does, then resumes |
+| `watch` | Builds, then rebuilds whenever anything in the project changes (one build per burst of saves). A failing build is reported and watching continues. Stops on `q` + Enter, or `cortex shutdown`. `settings` + Enter edits the settings exactly as `cortex settings` does, while the watch waits: changes and requests that arrive meanwhile are handled once the menu closes |
 | `shutdown` | Stops the running watch or build on this project |
 | `settings` | Edits the project settings interactively |
 | `export -to <folder>` | Copies the viewer as a self-contained copy to share ([§13.3](#133-exporting)) |

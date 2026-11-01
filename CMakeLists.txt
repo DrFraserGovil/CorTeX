@@ -22,7 +22,7 @@ if((NOT FORCE_JSL_CLONE) AND (EXISTS "${LOCAL_JSL}/CMakeLists.txt"))
 	add_subdirectory("${LOCAL_JSL}" "${CMAKE_CURRENT_BINARY_DIR}/jsl_build")
 else()
 	message(STATUS "Using JSL from github")
-	FetchContent_Declare(JSL GIT_REPOSITORY https://github.com/DrFraserGovil/JSL.git GIT_TAG v3.3.4)
+	FetchContent_Declare(JSL GIT_REPOSITORY https://github.com/DrFraserGovil/JSL.git GIT_TAG v3.6.0)
 	FetchContent_MakeAvailable(JSL)
 endif()
 

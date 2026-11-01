@@ -166,70 +166,40 @@ void App::Shutdown(const std::filesystem::path &root)
 
 namespace
 {
-	//! One round of watching: builds, then rebuilds on every change, until it's stopped
-	//! @returns true if it stopped because the author asked to edit the settings (so watching should resume afterwards)
-	bool WatchRound(const std::filesystem::path &root)
+	enum class SettingsChange
 	{
-		JSL::Async::Watcher::Panopticon eye;
-		bool editSettings = false;
+		Unchanged,
+		Saved,
+		//! saved, and the change recompiles every note, which the author has agreed to: the caller rebuilds from scratch
+		SavedNeedsRebuild
+	};
 
-		// one build, which never takes the watch down with it: problems are reported, and the next change tries again. Settings are read
-		// afresh by every build: another command may have just saved new ones, and its message can arrive before the file event
-		auto build = [&](bool clean) {
-			try
-			{
-				BuildOnce(root, clean);
-			}
-			catch (std::exception &e)
-			{
-				LOG(ERROR) << "Build failed: " << e.what() << "\nStill watching for changes";
-			}
-		};
-
-		/// THE LOCK, AND MESSAGES FROM OTHER CORTEX COMMANDS: THEY ARRIVE ON THIS THREAD, BETWEEN BUILDS
-		std::optional<Project::Lock> lock;
-		try
-		{
-			lock.emplace(root, eye, [&]() {
-				if (!Serve(root, *lock, build)) eye.Stop();
-			});
-		}
-		catch (std::exception &)
-		{
-			throw std::runtime_error("another CorTeX process (a build or watch) is already working on this project");
-		}
-
-		/// FILE CHANGES: CALLBACKS RUN ON THIS THREAD, ONE BATCH AT A TIME, SO CHANGES MADE DURING A BUILD QUEUE UP FOR THE NEXT ONE
+	//! The settings menu: edits the project's settings interactively, and saves them
+	SettingsChange EditSettingsMenu(const std::filesystem::path &root)
+	{
+		auto file = root / ".cortex/settings.config";
+		ProjectSettings settings;
+		settings.Reset();
+		if (std::filesystem::exists(file)) settings.Configure(file, " ");
 		Report::Log ignored;
-		auto output = Settings::Config::Load(root, ignored).Output;
-		eye.SetFileBatchCallback(root, true, [&](std::set<JSL::Async::Watcher::FileChange> batch) {
-			for (auto &change : batch)
-			{
-				if (!AffectsBuild(root, output, change.Path)) continue;
-				LOG(INFO) << "Change detected: " << change.Path.lexically_relative(root).generic_string();
-				build(false);
-				output = Settings::Config::Load(root, ignored).Output; // the output setting may have been what changed
-				return; // one build covers the whole batch
-			}
-		});
-		eye.SetDebounceTime(300); // editors often save as several quick writes: one build per save
-		eye.SetInputCallback([&](std::string line) {
-			auto command = JSL::String::trim(line);
-			if (command == "q") eye.Stop();
-			else if (command == "settings")
-			{
-				editSettings = true;
-				eye.Stop();
-			}
-			else if (!command.empty())
-			{
-				LOG(INFO) << "Type q and Enter to stop watching, or settings and Enter to change the project's settings";
-			}
-		});
+		auto before = Settings::Config::From(root, settings, ignored).Compilation.Key();
+		settings = JSL::Interface::Console(settings);
 
-		build(false); // bring the output up to date before waiting for changes (including any made while the settings were edited)
-		eye.Start();
-		return editSettings;
+		/// CHANGES WHICH RECOMPILE EVERY NOTE ARE ONLY SAVED WITH A REBUILD (once a project has been built: a new one has nothing to rebuild)
+		bool built = std::filesystem::exists(root / ".cortex/buildstate.tsv");
+		if (built && Settings::Config::From(root, settings, ignored).Compilation.Key() != before)
+		{
+			LOG(WARN) << "These changes affect every note, so the whole project must be rebuilt from scratch";
+			if (!App::Confirm("Save the changes and rebuild now?", false))
+			{
+				LOG(INFO) << "Changes discarded; the settings are unchanged";
+				return SettingsChange::Unchanged;
+			}
+			settings.Export(file, true); // saved first: the rebuild must read the new settings
+			return SettingsChange::SavedNeedsRebuild;
+		}
+		settings.Export(file, true);
+		return SettingsChange::Saved;
 	}
 } // namespace
 
@@ -237,21 +207,78 @@ void App::Watch(const std::filesystem::path &root)
 {
 	LOG(INFO) << "Watching the project, and rebuilding whenever it changes. Type q and Enter (or run 'cortex shutdown') to stop, or settings "
 				 "and Enter to change the project's settings";
-	// the settings are edited between rounds of watching, with nothing else reading the terminal (the menu needs every line typed), and
-	// with the lock released, so that a change which recompiles every note can rebuild just as 'cortex settings' would
-	while (WatchRound(root))
-	{
-		LOG(INFO) << "Watching paused while the settings are edited";
+	JSL::Async::Watcher::Panopticon eye;
+
+	// one build, which never takes the watch down with it: problems are reported, and the next change tries again. Settings are read
+	// afresh by every build: another command may have just saved new ones, and its message can arrive before the file event
+	auto build = [&](bool clean) {
 		try
 		{
-			EditSettings(root);
+			BuildOnce(root, clean);
 		}
 		catch (std::exception &e)
 		{
-			LOG(ERROR) << "Settings not changed: " << e.what();
+			LOG(ERROR) << "Build failed: " << e.what() << "\nStill watching for changes";
 		}
-		LOG(INFO) << "Watching again. Type q and Enter to stop, or settings and Enter to change the settings";
+	};
+
+	/// THE LOCK, AND MESSAGES FROM OTHER CORTEX COMMANDS: THEY ARRIVE ON THIS THREAD, BETWEEN BUILDS
+	std::optional<Project::Lock> lock;
+	try
+	{
+		lock.emplace(root, eye, [&]() {
+			if (!Serve(root, *lock, build)) eye.Stop();
+		});
 	}
+	catch (std::exception &)
+	{
+		throw std::runtime_error("another CorTeX process (a build or watch) is already working on this project");
+	}
+
+	/// FILE CHANGES: CALLBACKS RUN ON THIS THREAD, ONE BATCH AT A TIME, SO CHANGES MADE DURING A BUILD QUEUE UP FOR THE NEXT ONE
+	Report::Log ignored;
+	auto output = Settings::Config::Load(root, ignored).Output;
+	eye.SetFileBatchCallback(root, true, [&](std::set<JSL::Async::Watcher::FileChange> batch) {
+		for (auto &change : batch)
+		{
+			if (!AffectsBuild(root, output, change.Path)) continue;
+			LOG(INFO) << "Change detected: " << change.Path.lexically_relative(root).generic_string();
+			build(false);
+			output = Settings::Config::Load(root, ignored).Output; // the output setting may have been what changed
+			return; // one build covers the whole batch
+		}
+	});
+	eye.SetDebounceTime(300); // editors often save as several quick writes: one build per save
+
+	/// THE AUTHOR'S COMMANDS. The settings menu runs here, on the watch's own thread, with the input watcher paused so the menu gets
+	/// every line typed; the lock stays held, and file changes and other commands' requests wait until the menu closes
+	eye.SetInputCallback([&](std::string line) {
+		auto command = JSL::String::trim(line);
+		if (command == "q") eye.Stop();
+		else if (command == "settings")
+		{
+			eye.PauseInput();
+			auto change = SettingsChange::Unchanged;
+			try
+			{
+				change = EditSettingsMenu(root);
+			}
+			catch (std::exception &e)
+			{
+				LOG(ERROR) << "Settings not changed: " << e.what();
+			}
+			eye.ResumeInput();
+			if (change == SettingsChange::SavedNeedsRebuild) build(true);
+			LOG(INFO) << "Still watching. Type q and Enter to stop, or settings and Enter to change the settings";
+		}
+		else if (!command.empty())
+		{
+			LOG(INFO) << "Type q and Enter to stop watching, or settings and Enter to change the project's settings";
+		}
+	});
+
+	build(false); // bring the output up to date before waiting for changes
+	eye.Start();
 	LOG(INFO) << "Stopped watching";
 }
 
@@ -290,30 +317,7 @@ void App::New(const std::filesystem::path &root)
 
 void App::EditSettings(const std::filesystem::path &root)
 {
-	auto file = root / ".cortex/settings.config";
-	ProjectSettings settings;
-	settings.Reset();
-	if (std::filesystem::exists(file)) settings.Configure(file, " ");
-	Report::Log ignored;
-	auto before = Settings::Config::From(root, settings, ignored).Compilation.Key();
-	settings = JSL::Interface::Console(settings);
-
-	/// CHANGES WHICH RECOMPILE EVERY NOTE ARE ONLY SAVED WITH A REBUILD (once a project has been built: a new one has nothing to rebuild)
-	bool built = std::filesystem::exists(root / ".cortex/buildstate.tsv");
-	if (built && Settings::Config::From(root, settings, ignored).Compilation.Key() != before)
-	{
-		LOG(WARN) << "These changes affect every note, so the whole project must be rebuilt from scratch";
-		if (!Confirm("Save the changes and rebuild now?", false))
-		{
-			LOG(INFO) << "Changes discarded; the settings are unchanged";
-			return;
-		}
-		// saved first: whoever does the rebuild (this process, or a watch holding the lock) must read the new settings
-		settings.Export(file, true);
-		Build(root, true);
-		return;
-	}
-	settings.Export(file, true);
+	if (EditSettingsMenu(root) == SettingsChange::SavedNeedsRebuild) Build(root, true); // or a watch holding the lock is asked to
 }
 
 void App::Link(const std::string &url)
