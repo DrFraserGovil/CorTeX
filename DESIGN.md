@@ -125,6 +125,9 @@ strength; they may come in any order, each at most once.
 | `[[+target]]` | strong link |
 | `[[!~target]]`, `[[~!target]]` | loose transclusion |
 | `[[!+target]]` | strong transclusion |
+| `[[#label]]` | reference to the `\label{label}` in whichever note has it; shown as its number ([§4.4](#44-labels)) |
+| `[[target#label]]` | reference to the `\label{label}` in the note *target* |
+| `[[#label\|text]]`, `[[target#label\|text]]` | the same, shown as *text* |
 
 (In the tables, `\|` is only Markdown escaping: the syntax is a plain `|`.)
 
@@ -134,9 +137,11 @@ Rules:
 - `\[[` is never a link (so `\[[a,b]\]` stays display maths). `[ [` is two brackets.
 - Links work everywhere in the body, including inside maths.
 - Text inside a `%` comment is never a link, nor is anything between `% cortex off` and `% cortex on` ([§7.4](#74-switching-it-off)).
-- `[[target#section]]` links to the whole note (section links aren't supported), with a warning.
 - Repeated or contradictory markers (`[[!!x]]`, `[[~+x]]`), or a link with no target, are left as written, with a warning.
 - `|text` on a transclusion is ignored.
+- Transclusion is of whole notes only: `[[!target#label]]` is left as written, with a warning. To include part of a note in
+  several places, make that part a note of its own and transclude it into each.
+- The strength markers apply to references too (`[[~#eq:euler]]` is a loose reference).
 - The wiki-style `![[target]]` is **not** a transclusion: it is a literal `!` followed by an ordinary link, with a warning
   suggesting `[[!target]]`.
 
@@ -151,6 +156,45 @@ A link resolves **from the note it was written in**, even when that text is show
 
 Resolution depends only on the current set of notes and their names. Renaming or re-aliasing a note changes where links point
 without recompiling the notes containing them.
+
+### 4.4 Labels
+
+A `#` reaches a place inside a note: one the author has marked with `\label`, exactly as LaTeX's `\ref` does. Headings and other
+places without a label can't be reached; there is no matching by heading text.
+
+- **Matching** is exact (case and punctuation matter), as LaTeX's labels are. Unlike names, labels are not slugs.
+- **Ownership.** A label belongs to the note whose text it is written in, even when that text is shown elsewhere by transclusion.
+- **`[[#label]]`** finds the note that owns the label, anywhere in the project. If several notes do (labels such as `fig:main` are
+  commonly reused), it picks the nearest, by the same rule as names ([§4.3](#43-resolution)), and warns about that one reference.
+  Labels shared between notes are not warned about otherwise.
+- **`[[target#label]]`** resolves *target* as a note name, then looks for the label in that note only. A *target* that matches no
+  note is a wanted note, as for any link.
+- **Shown as** what `\ref{label}` prints in the note that owns the label (its number: "3", "2.1"), unless `|text` is given. The
+  number is always current after a build.
+- **Unresolved.** A label that can't be found is shown as `??` (as LaTeX does), with a warning. The reference still opens the
+  target note, if there is one. A missing label never makes a wanted note.
+- **Following** a reference opens the note at the label's position and briefly highlights it. In PDF mode, it opens the target
+  file at that position.
+- On the graph, a reference is a link to the note that owns the label, with the usual strength rules.
+- **On the same page.** If the label appears on the page being shown (written in the note itself, or in text transcluded into it),
+  the reference is local: it shows the number from this page and scrolls within it, exactly as `\ref{label}` would. Only a label
+  that isn't on the page takes the reader to its owner. So a reference never shows one number beside an equation numbered
+  differently.
+
+#### Labels and transclusion
+
+CorTeX extends LaTeX's syntax; it never changes what LaTeX's own commands do. Transcluded text is compiled as part of the page that
+includes it, so:
+
+- its equations, figures and sections are numbered by the including page's counters, continuing in order (an equation that is (2)
+  in its own note may be (5) where it is transcluded);
+- its labels join the including page's labels. Plain `\label` and `\ref` behave exactly as LaTeX makes them: if two notes shown on
+  one page use the same label (or one note is transcluded twice), LaTeX reports multiply-defined labels and `\ref` picks one;
+- elsewhere in the project, a label still belongs to the note it was written in: `[[#label]]` from a page that doesn't show it
+  goes to that note, with that note's number, and a label is never counted twice because it is also shown inside another note.
+
+LaTeX's warnings about labels (multiply defined, or referenced but never defined) are reported in the build output, naming the note
+whose page they arose in ([§13.3](#133-build-messages)).
 
 ---
 
@@ -179,6 +223,7 @@ Every note records its **backlinks**: the notes that link to or transclude it (e
 - Transcluding a stub includes the note the stub finally forwards to.
 - Changing a transcluded note recompiles every note that includes it.
 - The note's title is not included, only its body.
+- Its numbering and labels become part of the including page; see [Labels and transclusion](#labels-and-transclusion).
 
 ### 5.3 Redirects
 
@@ -270,6 +315,7 @@ A build compiles only what is out of date. A note is recompiled if:
 
 - its local preamble, body, or (when typeset) title changed;
 - anything it transcludes changed, or where its transclusions point changed (in PDF mode, also where its links point);
+- the number of a label it refers to changed, or which note that reference resolves to changed;
 - a file inside the project that it read changed;
 - it failed last time;
 - its output is missing.
@@ -343,7 +389,7 @@ The default output (`index.html` in the output folder) is a single web page that
 | `#/` | The home note (the `home` setting), or the overview if there is none |
 | `#/overview` | The overview |
 | `#/graph` | The project graph |
-| `#/n/<id>` | A note |
+| `#/n/<id>` | A note; with a label, the note opened at that label |
 | `#/a/<slug>`, `#/a/<origin>/<slug>` | Follows a link: the note it resolves to, or the wanted note page |
 
 The browser's Back and Forward work throughout; following a link or a stub doesn't leave an intermediate page in the history.
@@ -581,7 +627,8 @@ current ones.
 
 Every build writes a full account to the build log, `.cortex/build.log`, replacing the previous one: each note compiled, each
 failure with its diagnosis, and every warning in full (with file and line where it belongs to the author's source), including
-shared names, broken redirects and sidebar entries, skipped candidates, how many notes need work and how many links are unresolved.
+shared names, broken redirects and sidebar entries, skipped candidates, LaTeX's label warnings, how many notes need work and how
+many links are unresolved.
 
 The terminal is kept quiet: it shows progress, one line per failed note with its diagnosis, and a short summary of everything else
 by kind and count (e.g. "12 warnings, 3 shared names, 40 unresolved links"), pointing at the build log for the details.
@@ -596,8 +643,7 @@ and `install-handler` and `link` say they aren't supported.
 
 ## 14. Open questions
 
-1. **Section and label links.** `[[note#section]]` currently goes to the whole note, with a warning. What `#section` should match,
-   and whether a `\label` should itself be linkable, is undecided.
+None at present.
 
 ## 15. Not yet built
 
@@ -610,4 +656,7 @@ Behaviour described above which CorTeX doesn't have yet:
 5. The `id:` header is still accepted ([§2.3](#23-note-identity)).
 6. Hubs are still treated specially: busy notes' edges are drawn faintly and they are laid out differently.
 7. The graph page has no layout controls; the layout comes only from the project's settings ([§9.4](#94-the-project-graph)).
-8. Building assumes Linux ([§13.4](#134-platforms)), and the viewer shows its Editor tools whatever the platform.
+8. References to labels ([§4.4](#44-labels)): `[[target#label]]` goes to the top of the target note with a warning, and
+   `[[#label]]` is left as written. Section transclusion (`[[!target#label]]`) transcludes the whole note with a warning.
+9. LaTeX's warnings about labels (multiply defined, undefined references) aren't reported; only errors are.
+10. Building assumes Linux ([§13.4](#134-platforms)), and the viewer shows its Editor tools whatever the platform.
