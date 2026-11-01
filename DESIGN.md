@@ -3,7 +3,8 @@
 This document describes what CorTeX does: what it reads, what it produces, the syntax it accepts, and how it responds to the
 author and the reader. It deliberately says nothing about how any of this is achieved. Where behaviour is undecided or known to
 be wrong, it is listed under [Open questions](#14-open-questions) rather than described as intended. Behaviour described here which
-CorTeX doesn't yet have is listed under [Not yet built](#15-not-yet-built).
+CorTeX doesn't yet have is listed under [Not yet built](#15-not-yet-built). Kinds of note CorTeX doesn't have, but must be able to
+gain without upheaval, are described under [Room to grow](#16-room-to-grow).
 
 ---
 
@@ -40,7 +41,7 @@ may be deleted or rewritten at any time.
   (default: hidden files, `.*`). `.cortex` and the output folder are never candidates.
 - A candidate is a *note* only if it has a header containing a `title:` line ([§3](#3-the-note-file)). Candidates without one are
   skipped. These are usually `\input` fragments rather than mistakes, so they appear only in the build's summary count and are
-  listed in the build log ([§13.3](#133-build-messages)).
+  listed in the build log ([§13.4](#134-build-messages)).
 - Other files in the project (images, packages, `\input` fragments, bibliographies) are not notes, but notes may use them as
   ordinary LaTeX would ([§6.4](#64-other-files-a-note-uses)).
 
@@ -194,7 +195,7 @@ includes it, so:
   goes to that note, with that note's number, and a label is never counted twice because it is also shown inside another note.
 
 LaTeX's warnings about labels (multiply defined, or referenced but never defined) are reported in the build output, naming the note
-whose page they arose in ([§13.3](#133-build-messages)).
+whose page they arose in ([§13.4](#134-build-messages)).
 
 ---
 
@@ -389,7 +390,8 @@ The default output (`index.html` in the output folder) is a single web page that
 | `#/` | The home note (the `home` setting), or the overview if there is none |
 | `#/overview` | The overview |
 | `#/graph` | The project graph |
-| `#/n/<id>` | A note; with a label, the note opened at that label |
+| `#/n/<id>` | A note |
+| `#/l/<id>/<label>` | A note, scrolled to a label (the label's name in hexadecimal), whose line is briefly highlighted |
 | `#/a/<slug>`, `#/a/<origin>/<slug>` | Follows a link: the note it resolves to, or the wanted note page |
 
 The browser's Back and Forward work throughout; following a link or a stub doesn't leave an intermediate page in the history.
@@ -457,8 +459,10 @@ position. An exported copy never refreshes.
 - **Edges**: one per pair of connected notes, drawn as an arrow from the linking note. A transclusion is drawn dashed. If a note
   both links to and transcludes another, the edge is a transclusion.
 - **Size**: a node grows with its number of connections.
-- **Colour**: nodes are coloured by top-level folder. Colours are distinct until the folders outnumber the available hues, and are
-  the same on every build and in every graph.
+- **Colour**: nodes are coloured by folder, in one of three schemes (the `graph-colours` control, [§9.4](#94-the-project-graph)):
+  `top`, a colour per top-level folder, shared by its subfolders; `shades`, a colour per top-level folder, with each subfolder a
+  shade of it; `every`, a colour per folder. Colours are distinct until the folders outnumber the available hues (or, for
+  `shades`, a folder's subfolders outnumber the shades), and are the same on every build and in every graph.
 - **Marks**: a note needing work has a dashed red ring; a wanted note is a hollow dashed circle.
 - A note with `graph: hidden` and all its edges are left out of every graph except its own.
 
@@ -486,15 +490,17 @@ pans out to see the rest.
 
 All notes. If the project has a home note, it is fixed at the centre.
 
-Layout is governed by three controls. The project's settings give their defaults; the graph page lets the reader change them,
+Layout and colour are governed by four controls. The project's settings give their defaults; the graph page lets the reader change them,
 and the reader's choices are remembered in their browser (and never change the project), with a way to return to the project's
-defaults.
+defaults. Where the viewer can act on the project ([§10](#10-acting-on-the-project-from-the-viewer)), the reader can also save their
+choices as the project's settings; their browser then forgets each choice the project has taken on.
 
 | Control (setting) | Effect |
 |---|---|
 | `graph-layout` | `centre`: every note is drawn towards the middle. `rings`: each folder has a place of its own, like a sunburst chart: top-level notes in the middle, top-level folders on a ring around them, each subfolder further out at the same angle as its parent. A folder's share of the circle grows with its contents |
 | `folder-pull` | 0 to 1: how strongly linked notes in different folders draw together, relative to notes in the same folder (1 ignores folders). With `rings`, also how far each folder is drawn from its place towards the middle (1 is the same as `centre`) |
 | `folder-repulsion` | 0 or more: how much harder notes in different folders push apart, per step through the folder tree between them (0 treats all notes alike) |
+| `graph-colours` | `top`, `shades` or `every`: how notes are coloured by folder ([§9.1](#91-what-it-shows)). It applies to a note's own graph too |
 
 With `rings`, a wanted note is placed with the folder most of its linkers are in.
 
@@ -512,14 +518,15 @@ With `rings`, a wanted note is placed with the folder most of its linkers are in
 
 ## 10. Acting on the project from the viewer
 
-The viewer can ask CorTeX to perform three actions, through `cortex://` links handled by the `cortex` program on the author's
-machine. These appear in the sidebar's *Editor* section, only in the author's own copy, only on Linux ([§13.4](#134-platforms)),
+The viewer can ask CorTeX to perform four actions, through `cortex://` links handled by the `cortex` program on the author's
+machine. These appear only in the author's own copy, only on Linux ([§13.5](#135-platforms)),
 and only once the handler is installed (`cortex install-handler`).
 
 | Action | Where | Effect |
 |---|---|---|
-| **Edit** | a note | Opens the note's source file in an editor |
+| **Edit** | a note (in the sidebar's *Editor* section) | Opens the note's source file in an editor |
 | **Mark / Clear needs work** | a note | Adds a bare `todo:` header line, or removes every `todo:` line. Nothing else in the file changes |
+| **Save as project defaults** | the graph page | Writes the graph controls' four values into the project's settings ([§9.4](#94-the-project-graph)). Nothing is recompiled |
 | **Create & edit** | a wanted note | Writes a new note `<slug>.tex` beside the note whose link led there (or the first note wanting it), with `title: <slug>` and `alias: <slug>` (so links still find it once retitled), rebuilds, and opens it |
 
 **Editors** come from the `editors` setting: named commands, e.g. `[nvim: neovide {file}, code: code -g {file}]`. If there are several,
@@ -530,17 +537,19 @@ substituted paths are always single arguments.
 
 **Safety.** Any web page could construct a `cortex://` link, so every link is treated as hostile:
 
-- a link names only a project root, a note (or a folder and slug), and an editor *name*; commands only ever come from the project's
+- a link names only a project root, a note (or a folder and slug), an editor *name*, or graph settings; commands only ever come from the project's
   own settings;
 - the root must be an absolute path to a CorTeX project; the note must be a `.tex` file with a note header, inside the root, not
   reached through anything that leads outside it;
+- saving graph settings changes only `graph-layout`, `graph-colours`, `folder-pull` and `folder-repulsion`, each to a valid value
+  (an invalid one refuses the whole link), and nothing else in the settings;
 - create only writes a note the project currently wants, with a file name made only of the slug's safe characters, into an existing
   folder inside the project, and never overwrites a file;
 - a link that breaks any rule does nothing.
 
 Failures are reported as a desktop notification, since there is no terminal to report to.
 
-After a todo change or a creation, the project is rebuilt (a running watch is asked to do it), so an open viewer refreshes.
+After a todo change, a creation or a save of graph settings, the project is rebuilt (a running watch is asked to do it), so an open viewer refreshes.
 
 ---
 
@@ -568,6 +577,7 @@ editing the file. Invalid values are warned about and replaced by the default.
 | `graph-layout` | centre | `centre` or `rings` ([§9.4](#94-the-project-graph)) | no |
 | `folder-pull` | 0.5 | 0 to 1 ([§9.4](#94-the-project-graph)) | no |
 | `folder-repulsion` | 0 | 0 or more ([§9.4](#94-the-project-graph)) | no |
+| `graph-colours` | top | `top`, `shades` or `every` ([§9.1](#91-what-it-shows)) | no |
 
 When `cortex settings` changes a setting that recompiles every note, it says so and offers to rebuild. Declining discards the
 change.
@@ -596,10 +606,10 @@ With `pdf` on, each note compiles to a standalone PDF in the output folder, at t
 | `new` | Asks for a project name and creates a project in the current folder, optionally editing the settings first. Refuses if one already exists |
 | `build` | Brings the output up to date ([§6.6](#66-when-notes-are-recompiled)), then exits |
 | `rebuild` | Recompiles every note from scratch. The previous output stays in place until the new one is complete |
-| `watch` | Builds, then rebuilds whenever anything in the project changes (one build per burst of saves). A failing build is reported and watching continues. Stops on `q` + Enter, or `cortex shutdown` |
+| `watch` | Builds, then rebuilds whenever anything in the project changes (one build per burst of saves). A failing build is reported and watching continues. Stops on `q` + Enter, or `cortex shutdown`. `settings` + Enter pauses watching to edit the settings exactly as `cortex settings` does, then resumes |
 | `shutdown` | Stops the running watch or build on this project |
 | `settings` | Edits the project settings interactively |
-| `export -to <folder>` | Copies the viewer as a self-contained copy to share ([§13.2](#132-exporting)) |
+| `export -to <folder>` | Copies the viewer as a self-contained copy to share ([§13.3](#133-exporting)) |
 | `install-handler` | Registers this `cortex` as the desktop's handler for `cortex://` links (Linux only) |
 | `link -url <url>` | Performs a `cortex://` action ([§10](#10-acting-on-the-project-from-the-viewer)); run by the desktop, not the author (Linux only) |
 
@@ -609,13 +619,18 @@ With `pdf` on, each note compiles to a standalone PDF in the output folder, at t
 | `-v`, `-verbose` | Show debugging output |
 | `-q`, `-quiet` | Show only warnings and errors |
 
-### 13.1 One process per project
+### 13.1 Prerequisites
+
+Before building, CorTeX checks that the programs it needs (XeLaTeX, and dvisvgm unless producing PDFs) can be found, and if not,
+says which are missing and stops, rather than reporting every note as failed.
+
+### 13.2 One process per project
 
 Only one CorTeX process works on a project at a time. A `build`, `rebuild` or `export` started while another is running (typically
 a watch) hands its request to that process and exits, saying so. Settings are re-read before each build, so a watch always uses the
 current ones.
 
-### 13.2 Exporting
+### 13.3 Exporting
 
 `export` copies the built viewer into a folder of its own, for sharing:
 
@@ -623,7 +638,7 @@ current ones.
 - the destination must be new, empty, or an earlier export (which is replaced entirely); it may not be the root, the output folder or `.cortex`;
 - the project is brought up to date first.
 
-### 13.3 Build messages
+### 13.4 Build messages
 
 Every build writes a full account to the build log, `.cortex/build.log`, replacing the previous one: each note compiled, each
 failure with its diagnosis, and every warning in full (with file and line where it belongs to the author's source), including
@@ -633,7 +648,7 @@ many links are unresolved.
 The terminal is kept quiet: it shows progress, one line per failed note with its diagnosis, and a short summary of everything else
 by kind and count (e.g. "12 warnings, 3 shared names, 40 unresolved links"), pointing at the build log for the details.
 
-### 13.4 Platforms
+### 13.5 Platforms
 
 CorTeX builds, watches and exports on Linux, macOS and Windows, and the viewer works in any modern browser. Acting on the project
 from the viewer ([§10](#10-acting-on-the-project-from-the-viewer)) is Linux only: elsewhere, the viewer has no Editor tools at all,
@@ -647,16 +662,54 @@ None at present.
 
 ## 15. Not yet built
 
-Behaviour described above which CorTeX doesn't have yet:
+Nothing at present.
 
-1. Relative paths inside transcluded text resolve from the *including* note's folder, not their own ([§5.2](#52-transclusion)).
-2. There is no build log, and the terminal shows every warning in full ([§13.3](#133-build-messages)).
-3. A note's own graph fits everything to its box, rather than framing the immediate neighbours ([§9.3](#93-a-notes-own-graph)).
-4. The output folder is always `view/`; there is no `output` setting ([§11](#11-settings)).
-5. The `id:` header is still accepted ([§2.3](#23-note-identity)).
-6. Hubs are still treated specially: busy notes' edges are drawn faintly and they are laid out differently.
-7. The graph page has no layout controls; the layout comes only from the project's settings ([§9.4](#94-the-project-graph)).
-8. References to labels ([§4.4](#44-labels)): `[[target#label]]` goes to the top of the target note with a warning, and
-   `[[#label]]` is left as written. Section transclusion (`[[!target#label]]`) transcludes the whole note with a warning.
-9. LaTeX's warnings about labels (multiply defined, undefined references) aren't reported; only errors are.
-10. Building assumes Linux ([§13.4](#134-platforms)), and the viewer shows its Editor tools whatever the platform.
+---
+
+## 16. Room to grow
+
+Today every note is a `.tex` file. Three further kinds of note are expected, and nothing CorTeX does should make them hard to add.
+None is designed in detail; what follows is their intended shape, and the principles the rest of this document must keep to so they
+fit.
+
+### 16.1 Principles
+
+1. **A note is anything CorTeX can turn into a LaTeX body, with a title and the other header fields.** How a file provides those
+   depends on its kind; everything after that is the same for every kind. Links, transclusion, labels, redirects, the graph, the
+   viewer, the Editor tools, incremental builds and failure handling ([§4](#4-links-and-transclusions)–[§10](#10-acting-on-the-project-from-the-viewer))
+   never ask what kind of file a note came from.
+2. **The kind of a file is given by its name, by convention rather than configuration.** The final extension is the *format*,
+   which CorTeX understands (`.tex`, `.json`, image formats). An optional middle extension, letters only, is a *type*: the name of
+   an environment or macro the author defines in the preamble (`pythagoras.theorem.tex`). Anything else between the stem and the
+   extension is part of the name (`notes-v1.2.tex` has no type).
+3. **New types need no change to CorTeX**, only a definition in the preamble. An undefined type is an ordinary LaTeX error in the
+   notes that use it.
+4. **New formats change only how a file is read.** Adding one never changes what a note is, or how notes relate.
+5. **Every format can carry every header field** ([§3.1](#31-header-fields)), in whatever way suits it, so no kind of note is a
+   lesser citizen: each can have aliases, be flagged as needing work, be loose on the graph, and so on.
+6. **Transcluding a note includes its body as its format produces it**, so any kind of note can be transcluded into any other.
+
+### 16.2 Expected kinds
+
+| File | Format, type | Becomes |
+|---|---|---|
+| `euler.tex` | LaTeX | the body as written (today's notes) |
+| `pythagoras.theorem.tex` | LaTeX, `theorem` | the body wrapped in `\begin{theorem}` … `\end{theorem}` |
+| `gorgenthar.statblock.json` | data, `statblock` | the data's values, then `\statblock`, which lays them out |
+| `heaven.png` | image | a page showing the image; transcluded, the image itself |
+
+**Wrapped notes.** The same as LaTeX notes, with the body placed inside the type's environment. Useful when many notes share one
+form (theorems, definitions, recipes) and should all change together.
+
+**Data notes.** For structured material written once and typeset many ways (monster statistics, character sheets, tables of
+constants). The file holds data, not LaTeX:
+
+- each value becomes available to the type's macro by name (`\CortexGet{hp}`); values are LaTeX source, so may contain markup and
+  maths; lists and nested values are reachable by numbered and dotted names (`actions.1.name`), with a count for each list;
+- the values of one note never leak into another, even when one is transcluded into the other;
+- header fields are ordinary values (`title`, `alias`, `todo`, …);
+- the type's macro does all the layout, so changing it in the preamble restyles every note of that type.
+
+**Image notes.** An image in the project becomes a note of its own: it can be linked to, appears on the graph, and has a page in the
+viewer showing the image. Transcluding it places the image. Its title comes from its file name unless given another way.
+

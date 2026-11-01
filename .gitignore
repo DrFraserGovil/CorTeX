@@ -1,10 +1,9 @@
 *.build/
 *.vscode
-*cortex
+/cortex
+/.cortex/
 *compiled
-*test
+/test/
 view/
 
 *jvim.session
-node_modules/
-out/

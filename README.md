@@ -1,104 +1,75 @@
-# CorTeX: A LaTeX Second Brain
+# CorTeX: a LaTeX second brain
 
-CorTeX is a LaTeX-native knowledge system of individually compiled notes, connected via an internal graph-linkage system. 
+CorTeX is a knowledge base of small LaTeX notes, linked like a wiki. Each note compiles on its own; the results are gathered into a
+viewer (a web page that runs from local files, with no server) with links, backlinks, search, transclusion and a graph of how notes
+connect.
 
-## **Core Functionality**
+What CorTeX does, in full, is described in [DESIGN.md](DESIGN.md), which is the specification.
 
-1. **Note-Centric Workflow**
+## A note
 
-   * CorTeX is built around small, modular units of knowledge (“notes”), similar to systems like Obsidian or Foam. Each note represents a discrete idea and should be lightweight to create and edit.
-
-2. **LaTeX-Native Authoring**
-
-   * Notes are written in LaTeX and treated as structured text
-     * Minor extensions to the LaTeX syntax are supported (i.e. wikilinking resolves to ``ref``, simplified typeface manipulation)
-   * CorTeX is not intended to replace computational environments (e.g. notebooks).
-
-3. **Per-Note Compilation**
-
-   * Each note compiles independently into a PDF.
-   * Compiled outputs are easily viewable outside the editor.
-
-4. **Linking and Referencing**
-
-   * The system supports:
-
-     * Wikilinks (`[[note]]`)
-     * Transclusions (embedding content across notes)
-     * Native LaTeX referencing (`\ref{}`, `\label{}`, etc.)
-   <!-- * These mechanisms should be unified under a consistent internal model, with the Sentinel responsible for resolving and validating links. -->
-   * Each file has an *identifier* which can be used as a link target. The *title* of a note is always a valid identifier, but additional identifiers can be provided through the *alias* metadata.
-     * Collisions in *alias* data should result in an error message, whilst collisions in *title*-identifiers should lead to a disambiguation page.
-5. **System Architecture**
-   CorTeX consists of two primary components:
-
-   * **Sentinel**
-
-     * A background process that monitors the workspace for file changes
-     * Handles incremental compilation
-     * Maintains the dependency graph and metadata index
-   * **VSCode Interface**
-
-     * Provides syntax highlighting and editing support
-     * Visualizes links, backlinks, and orphaned notes
-     * Exposes graph/network views of the knowledge base
-
-6. **Standardized Preamble Management**
-
-   * The Sentinel injects a global preamble into every note at compile time
-   * Notes may include a minimal local preamble for overrides
-   * Local redefinitions are scoped to the current note only
-   * Notes use the following metadata syntax
-
-```
-title: ... //required
-alias: ... //optional
-tags: [...] //optional
----
-[local preamble]
---- 
-[Note text]
+```latex
+title: Euler's Identity
+alias: euler
+-----
+\usepackage{tikz}          % a local preamble, for this note only (optional)
+-----
+\begin{equation} e^{i\pi} + 1 = 0 \label{eq:euler} \end{equation}
+It follows from [[Calculus]]; see also [[#eq:euler]], and [[!Units]] is transcluded here.
 ```
 
-7. **Single Source of Truth (SSoT) for Macros**
+## Requirements
 
-   * All shared macros and definitions are maintained centrally
-   * Per-note macro definitions are discouraged to ensure consistency and maintainability
+- To build CorTeX: CMake 3.15 or later and a C++20 compiler. [JSL](https://github.com/DrFraserGovil/JSL) is fetched automatically.
+- To build a project: XeLaTeX and dvisvgm (both part of TeX Live).
 
-8. **Failure-Safe Compilation**
-   * The system can accept incomplete or malformed links without catastrophic failure 
-   * Failed links (`orphans') are be collated and highlighted. 
-   * Individual notes which fail to compile are highlighted. We do not attempt to explicitly fix the errors
-     * If a file fails to compile, we attempt to extract the `minimal compiling snippet' (MCS), and then insert an error message, containing the full latex error.
-     * MCS is generated internally by recursively removing lines from the end of the internally-resolved snippet until the file compiles.
+CorTeX builds on Linux, macOS and Windows; opening notes in an editor from the viewer is Linux only.
 
+## Building CorTeX
 
-## **Extended Functionality (Secondary Priorities)**
+```sh
+make          # builds ./cortex
+make test     # builds and runs the tests (the end-to-end ones need XeLaTeX and dvisvgm)
+make test TEST_FLAGS="[syntax]"   # just some of them
+```
 
-1. **Multi-Format Support and Translation Layer**
+## Using it
 
-   * The system should support multiple input formats (e.g. `.tex`, `.md`, `.tikz`)
-   * A translation layer converts supported formats into LaTeX or otherwise makes them transcludable
-   <!-- * File types are categorized by level of support (native, convertible, embedded) -->
-2. **Form Input Integration**
-   * The VS code interface and sentinel should make it easy to establish `structured' metatypes which evaluate to json files that can be viewed as forms in the viewer, but resolve to more complex datatypes in the compiled latex 
-  
-3. **Daily Notes Integration**
+```sh
+cortex new               # make the current folder a project
+cortex watch             # build, then rebuild whenever a note changes (q + Enter stops)
+cortex build             # build once; cortex rebuild starts from scratch
+cortex export -to DIR    # a copy of the viewer to share
+cortex install-handler   # lets the viewer open notes in your editor (Linux)
+cortex -h                # everything else
+```
 
-   * The VSCode interface should support automatic generation of daily notes
-   * Notes are named and organized by date for quick capture and journaling
+Then open `view/index.html` in a browser. A build reports problems briefly; `.cortex/build.log` has the details.
 
-4. **Search and Query Engine**
+## Source layout
 
-   * A structured query system for filtering and retrieving notes
-   * Supports tags, categories, and metadata-based queries
+| Folder | Contents |
+|---|---|
+| `src/App` | The commands |
+| `src/Settings` | Command-line and project settings, read and checked into a `Config` |
+| `src/Project` | The project's paths, its registry (name, sidebar), and the lock that keeps one process per project |
+| `src/Notes` | Reading notes: the header, the extended syntax and links; one reader per file format |
+| `src/Network` | Resolving links into a network: names, redirects, backlinks, wanted notes, labels |
+| `src/Build` | The build: what to compile and with what, the record of past builds, and sweeping old output |
+| `src/Tex` | Running XeLaTeX and dvisvgm |
+| `src/Output` | Writing the viewer's files, or PDFs |
+| `src/Report` | Warnings and failures, the build log, and the terminal summary |
+| `src/Platform` | Running programs, and the desktop integration |
+| `src/Link` | The `cortex://` link handler |
+| `src/Viewer` | The viewer, whose `js/` files are joined in name order into one script |
+| `tests` | Unit tests, and end-to-end tests that build `tests/fixture` |
 
-5. **External Reference Integration**
+## Ideas
 
-   * Tools for annotating external documents (e.g. papers, PDFs)
-   * Integration into a unified bibliography and citation system
+Beyond what DESIGN.md describes (including its [Room to grow](DESIGN.md#16-room-to-grow)):
 
-6. **Full Document Compilation**
-
-   * Ability to compile a subset or the entirety (or a subset meeting query requirements) of the knowledge base into a single structured document
-   * Requires mechanisms for ordering, hierarchy, and inclusion control
+- structured notes, edited as forms in the viewer and compiled into richer LaTeX;
+- daily notes, named and organised by date;
+- queries over notes' metadata;
+- annotating external documents, with a shared bibliography;
+- compiling a chosen set of notes into one structured document.
