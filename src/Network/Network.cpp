@@ -106,7 +106,7 @@ Network::Network Network::Resolve(const std::vector<Notes::Note> &notes, const s
 	}
 
 	/// WHICH NOTES CLAIM EACH NAME, AND OWN EACH LABEL
-	std::map<std::string, std::vector<const Node *>> owners;
+	auto &owners = network.LabelOwners;
 	for (auto &node : network.Nodes)
 	{
 		for (auto &name : node.Names) network.Claims[name].push_back(&node);
@@ -240,9 +240,15 @@ Network::Network Network::Resolve(const std::vector<Notes::Note> &notes, const s
 			network.Sidebar.back().Items.push_back(item(entry, ""));
 			if (network.Sidebar.back().Items.back().Target.empty())
 			{
-				report.Add(Report::Kind::Sidebar, "sidebar entry '" + entry.Text + "' matches no note", ".cortex/registry.ctx");
+				report.Add(Report::Kind::Sidebar, "sidebar entry '" + entry.Text + "' matches no note", ".cortex/registry.config");
 			}
 		}
 	}
 	return network;
+}
+
+std::string Network::Network::LabelOwner(const std::string &label, const std::filesystem::path &fromPath) const
+{
+	auto found = LabelOwners.find(label);
+	return found == LabelOwners.end() ? "" : Nearest(fromPath, found->second)->Id;
 }

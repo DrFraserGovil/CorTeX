@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include "Notes/Reader.h"
 #include "Notes/Syntax.h"
 #include "Output/Layout.h"
 #include "Output/Viewer.h"
@@ -160,7 +161,7 @@ namespace
 			for (auto &[path, hash] : dependencies)
 			{
 				auto file = Scan.Paths.Root / path;
-				if (file.extension() != ".tex") continue; // packages, images, bibliographies: plain TeX's business
+				if (!Notes::ReaderFor(file)) continue; // packages, images, bibliographies: plain TeX's business
 				auto text = JSL::IO::getFile(file);
 				auto sections = Notes::Split(text);
 				std::vector<Notes::HeaderProblem> ignored;

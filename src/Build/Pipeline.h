@@ -5,7 +5,7 @@
 namespace Build
 {
 	//! Bumped whenever a change to CorTeX changes what notes compile to, so every note is recompiled
-	constexpr int EngineVersion = 13;
+	constexpr int EngineVersion = 14;
 
 	//! Checks the programs a build needs can be found (DESIGN.md §13.1)
 	//! @throws runtime_error Naming those which can't

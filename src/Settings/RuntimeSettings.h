@@ -10,6 +10,8 @@
 //! @command watch Begins a persistent process which watches the project, rebuilding whenever it changes
 //! @command link Carries out a cortex:// link from the viewer (given with -url): opens a note in an editor, flags it as needing work, or creates a wanted note
 //! @command export Copies the built viewer (given with -to) as a copy to share: no project path, no editor controls, no live refresh
+//! @command format Re-indents a note (given with -file) in place, by its headings, environments and lists; without -file, formats the text on standard input to standard output
+//! @command lsp Runs CorTeX as a language server for editors, on standard input and output (started by the editor, not the author)
 //! @command install-handler Registers this cortex as the desktop's handler for cortex:// links, so the viewer's Edit and todo buttons work
 //! The command line: the command, and the options which apply to this run only
 class RuntimeSettings : public JSL::Interface::Aggregator<RuntimeSettings>
@@ -30,6 +32,10 @@ class RuntimeSettings : public JSL::Interface::Aggregator<RuntimeSettings>
 	//! @alias to
 	//! @brief The folder to export into (with the export command); it must be empty, new, or an earlier export
 	std::filesystem::path ExportFolder;
+
+	//! @alias file
+	//! @brief The note to format (with the format command)
+	std::filesystem::path File;
 
 	//! @alias url
 	//! @brief The cortex:// link to carry out (with the link command)

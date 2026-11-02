@@ -7,7 +7,7 @@ class FileSettings : public JSL::Interface::Aggregator<FileSettings>
   public:
 	//! @alias allowed, allowed-files
 	//! @brief Files which match these globs are notes in the project
-	std::vector<std::string> AllowedFilePatterns = {"*.tex"};
+	std::vector<std::string> AllowedFilePatterns = {"*.ctx", "*.tex"};
 
 	//! @alias ignored, ignored-files
 	//! @brief Files which match these globs can never be added (even if they meet the matching criteria)
@@ -18,7 +18,7 @@ class FileSettings : public JSL::Interface::Aggregator<FileSettings>
 	std::string Output = "view";
 
 	//! @alias home
-	//! @brief The note shown when the viewer opens, as a path relative to the project root (e.g. home.tex). If empty or invalid, the viewer opens on an automatically constructed overview of the project. A display setting only: changing it never recompiles notes
+	//! @brief The note shown when the viewer opens, as a path relative to the project root (e.g. home.ctx). If empty or invalid, the viewer opens on an automatically constructed overview of the project. A display setting only: changing it never recompiles notes
 	std::string HomeNote = "";
 
 	//! @alias editors
@@ -89,6 +89,31 @@ class SyntaxSettings : public JSL::Interface::Aggregator<SyntaxSettings>
 #include "ProjectSettings.SyntaxSettings.autogen"
 };
 
+class FormatSettings : public JSL::Interface::Aggregator<FormatSettings>
+{
+  public:
+	//! @alias format-indent
+	//! @brief What `cortex format` (and the editor's format command) indents by: tab, or a number of spaces. Formatting only: changing it never recompiles notes
+	std::string Indent = "tab";
+
+	//! @alias format-headings
+	//! @brief The deepest heading level whose contents `cortex format` indents (1 = section, 2 = subsection, 3 = subsubsection, ... ; 0 = none); applies to LaTeX sectioning commands and # headings alike
+	int Headings = 3;
+
+	//! @alias format-environments
+	//! @brief If true, `cortex format` indents the contents of every environment (begin ... end)
+	bool Environments = true;
+
+	//! @alias format-braces
+	//! @brief If true, `cortex format` indents the lines after an opening brace left unclosed at the end of a line, until it closes
+	bool Braces = true;
+
+	//! @alias format-verbatim
+	//! @brief Environments whose contents `cortex format` leaves exactly as written (as it does everything between % cortex off and % cortex on)
+	std::vector<std::string> Verbatim = {"verbatim", "lstlisting", "minted", "comment"};
+#include "ProjectSettings.FormatSettings.autogen"
+};
+
 //! The project's settings, as written in .cortex/settings.config (DESIGN.md §11). Read these through Config, which checks them
 class ProjectSettings : public JSL::Interface::Aggregator<ProjectSettings>
 {
@@ -96,5 +121,6 @@ class ProjectSettings : public JSL::Interface::Aggregator<ProjectSettings>
 	SyntaxSettings Syntax;
 	RenderSettings Render;
 	FileSettings Files;
+	FormatSettings Format;
 #include "ProjectSettings.ProjectSettings.autogen"
 };

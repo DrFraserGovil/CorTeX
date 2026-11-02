@@ -132,5 +132,22 @@ Settings::Config Settings::Config::From(const std::filesystem::path &root, const
 		else invalid("logo '" + settings.Render.Logo + "' isn't an image file in the project (PNG, JPEG, GIF, WebP or SVG); the sidebar will have no logo");
 	}
 	display.Home = settings.Files.HomeNote;
+
+	auto &format = config.Format;
+	auto indent = JSL::String::getLower(JSL::String::trim(settings.Format.Indent));
+	if (indent == "tab") format.Indent = "\t";
+	else if (!indent.empty() && indent.size() <= 2 && std::all_of(indent.begin(), indent.end(), [](char c) { return c >= '0' && c <= '9'; }) && std::stoi(indent) > 0)
+	{
+		format.Indent = std::string(std::stoi(indent), ' ');
+	}
+	else invalid("format-indent must be tab or a number of spaces; using tab");
+	if (settings.Format.Headings < 0)
+	{
+		invalid("format-headings must be 0 or more (0 indents after no heading); using 3");
+	}
+	else format.Headings = settings.Format.Headings;
+	format.Environments = settings.Format.Environments;
+	format.Braces = settings.Format.Braces;
+	format.Verbatim = settings.Format.Verbatim;
 	return config;
 }

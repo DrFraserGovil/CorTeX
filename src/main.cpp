@@ -27,6 +27,7 @@ int main(int argc, char **argv)
 {
 	RuntimeSettings runtime;
 	ConfigureLog(runtime);
+	int exitCode = 0;
 	try
 	{
 		runtime.Parse(argc, argv);
@@ -51,6 +52,8 @@ int main(int argc, char **argv)
 			{"new", [&] { App::New(root); }},
 			{"link", [&] { App::Link(runtime.Url); }},
 			{"install-handler", [&] { App::InstallHandler(); }},
+			{"format", [&] { App::Format(runtime.File, runtime.RootPath); }},
+			{"lsp", [&] { exitCode = App::Lsp(); }},
 		};
 
 		if (auto action = onProject.find(command); action != onProject.end())
@@ -72,5 +75,5 @@ int main(int argc, char **argv)
 		LOG(ERROR) << JSL::Display::Red() << "CorTeX stopped: " << e.what();
 		return 1;
 	}
-	return 0;
+	return exitCode;
 }

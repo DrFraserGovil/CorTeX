@@ -6,7 +6,7 @@
 const Notes::Reader *Notes::ReaderFor(const std::filesystem::path &file)
 {
 	static const TexReader tex;
-	static const std::map<std::string, const Reader *> readers = {{".tex", &tex}};
+	static const std::map<std::string, const Reader *> readers = {{".ctx", &tex}, {".tex", &tex}}; // .ctx: a LaTeX note, named so editors can tell it from plain LaTeX
 	auto reader = readers.find(JSL::String::getLower(file.extension().string()));
 	return reader == readers.end() ? nullptr : reader->second;
 }

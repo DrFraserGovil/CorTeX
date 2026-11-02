@@ -9,7 +9,7 @@ std::optional<Notes::Note> Notes::TexReader::Read(const std::filesystem::path &r
 	Note note;
 	note.Source = source;
 	note.Path = source.lexically_relative(root);
-	note.Format = "tex";
+	note.Format = JSL::String::getLower(source.extension().string().substr(1));
 	auto file = note.Path.generic_string();
 
 	auto sections = Split(JSL::IO::getFile(source));

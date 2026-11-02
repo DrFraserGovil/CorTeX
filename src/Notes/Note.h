@@ -15,7 +15,7 @@ namespace Notes
 		std::filesystem::path Path;
 		//! Absolute
 		std::filesystem::path Source;
-		//! The format it was read from: its extension, without the dot ("tex")
+		//! The format it was read from: its extension, lowercased and without the dot ("ctx", "tex")
 		std::string Format;
 		//! From the path (see IdOf): how the viewer addresses the note
 		std::string Id;

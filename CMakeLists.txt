@@ -54,12 +54,16 @@ function(cortex_embed_viewer HTML CSS JS_FILES HEADER)
 	configure_file("${HEADER}.tmp" "${HEADER}" COPYONLY) # only rewritten if changed, so nothing recompiles needlessly
 endfunction()
 
+#### nlohmann/json: reading and writing the language server's messages (cortex lsp)
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
 #### CorTeX: a library of everything but main, so the tests can use it, and the cortex binary
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 list(REMOVE_ITEM CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 add_library(cortex_core STATIC ${CORE_SOURCES})
 target_include_directories(cortex_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(cortex_core PUBLIC JSL)
+target_link_libraries(cortex_core PUBLIC JSL nlohmann_json::nlohmann_json)
 cortex_warnings(cortex_core)
 file(GLOB VIEWER_JS CONFIGURE_DEPENDS "src/Viewer/js/*.js")
 list(SORT VIEWER_JS)
@@ -75,11 +79,10 @@ option(CORTEX_TESTS "Build the test suite" OFF)
 set(CORTEX_TEST_BINARY "${CMAKE_CURRENT_SOURCE_DIR}/cortex" CACHE FILEPATH "The binary the end-to-end tests run")
 if(CORTEX_TESTS)
 	FetchContent_Declare(Catch2 GIT_REPOSITORY https://github.com/catchorg/Catch2.git GIT_TAG v3.12.0)
-	FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz)
-	FetchContent_MakeAvailable(Catch2 json)
+	FetchContent_MakeAvailable(Catch2)
 	file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "tests/*.cpp")
 	add_executable(cortex_tests ${TEST_SOURCES})
-	target_link_libraries(cortex_tests PRIVATE Catch2::Catch2WithMain nlohmann_json::nlohmann_json cortex_core)
+	target_link_libraries(cortex_tests PRIVATE Catch2::Catch2WithMain cortex_core)
 	target_include_directories(cortex_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 	target_compile_definitions(cortex_tests PRIVATE
 		CORTEX_BINARY="${CORTEX_TEST_BINARY}"

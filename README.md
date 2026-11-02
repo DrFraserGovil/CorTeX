@@ -40,11 +40,16 @@ cortex new               # make the current folder a project
 cortex watch             # build, then rebuild whenever a note changes (q + Enter stops)
 cortex build             # build once; cortex rebuild starts from scratch
 cortex export -to DIR    # a copy of the viewer to share
+cortex format -file N    # re-indent a note by its headings, environments and lists
 cortex install-handler   # lets the viewer open notes in your editor (Linux)
 cortex -h                # everything else
 ```
 
 Then open `view/index.html` in a browser. A build reports problems briefly; `.cortex/build.log` has the details.
+
+Notes are `.ctx` files (`.tex` works too). For editing them, `cortex lsp` is a language server: completion of links and labels,
+go to definition, hover, backlinks, diagnostics and formatting. While an editor is open it also builds the project, so you don't
+need a separate `cortex watch`. `editor/nvim` sets it up for Neovim; see its README.
 
 ## Source layout
 
@@ -58,6 +63,9 @@ Then open `view/index.html` in a browser. A build reports problems briefly; `.co
 | `src/Build` | The build: what to compile and with what, the record of past builds, and sweeping old output |
 | `src/Tex` | Running XeLaTeX and dvisvgm |
 | `src/Output` | Writing the viewer's files, or PDFs |
+| `src/Format` | `cortex format`: re-indenting notes |
+| `src/Lsp` | `cortex lsp`: the language server's transport, features and server loop |
+| `editor/nvim` | The Neovim plugin |
 | `src/Report` | Warnings and failures, the build log, and the terminal summary |
 | `src/Platform` | Running programs, and the desktop integration |
 | `src/Link` | The `cortex://` link handler |

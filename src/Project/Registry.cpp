@@ -10,7 +10,13 @@ Project::SidebarEntry Project::SidebarEntry::Parse(std::string_view entry)
 Project::Registry Project::Registry::Read(const std::filesystem::path &root)
 {
 	Registry registry{root.filename().string(), {}};
-	auto file = root / ".cortex/registry.ctx";
+	auto file = root / ".cortex/registry.config";
+	// its old name: notes are now .ctx files, and the registry mustn't look like one to an editor
+	if (auto old = root / ".cortex/registry.ctx"; !std::filesystem::exists(file) && std::filesystem::exists(old))
+	{
+		std::error_code ignored; // another process may rename it first
+		std::filesystem::rename(old, file, ignored);
+	}
 	if (!std::filesystem::exists(file)) return registry;
 
 	bool inSidebar = false;

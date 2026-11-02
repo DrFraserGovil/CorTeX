@@ -1,4 +1,4 @@
-// The sidebar is curated, not a list of every note (that's the overview): the project's groups from registry.ctx, then the open
+// The sidebar is curated, not a list of every note (that's the overview): the project's groups from registry.config, then the open
 // note's own entries from its sidebar: header. Everything arrives already resolved by the engine
 let globalSidebar = [];
 function CortexSidebar(groups) {

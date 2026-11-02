@@ -151,3 +151,63 @@ TEST_CASE("Maths left open is reported", "[syntax]")
 	CHECK(Warned(Run("$x", true), "never closed"));
 	CHECK(Run("\\begin{align*} a \\end{align*} *b*", true).Text == "\\begin{align*} a \\end{align*} \\textit{b}");
 }
+
+TEST_CASE("Star lists end at a line no further indented than the list", "[syntax]")
+{
+	// an indented list (as under a formatted heading): a line at the list's own indent ends it, a deeper one continues the item
+	CHECK(Text("\t* a\n\t\tmore\n\tafter", true) == "\t\\begin{itemize}\\item{} a\n\t\tmore\n\\end{itemize}\tafter");
+	CHECK(Text("* a\n\tmore", true) == "\\begin{itemize}\\item{} a\n\tmore\\end{itemize}");
+}
+
+TEST_CASE("References record their column", "[syntax]")
+{
+	auto result = Run("ab [[x]] and [[!y]]\n\t* [[z]]", true);
+	REQUIRE(result.References.size() == 3);
+	CHECK(result.References[0].Column == 3);
+	CHECK(result.References[1].Column == 13);
+	CHECK(result.References[2].Line == 2);
+	CHECK(result.References[2].Column == 3);
+}
+
+TEST_CASE("The shared pieces of the syntax", "[syntax]")
+{
+	bool on = false;
+	CHECK(Syntax::IsSwitch("%% Cortex  ON ", on));
+	CHECK(on);
+	CHECK_FALSE(Syntax::IsSwitch("% cortex onwards", on));
+
+	auto heading = Syntax::HeadingOf("\t##* Title");
+	REQUIRE(heading);
+	CHECK(heading->Level == 2);
+	CHECK(heading->Starred);
+	CHECK(heading->TitleColumn == 5);
+	CHECK_FALSE(Syntax::HeadingOf("#tag"));
+
+	auto parts = Syntax::ParseInner("~!Euler#eq:1|the identity");
+	CHECK(parts.Valid);
+	CHECK(parts.Loose);
+	CHECK(parts.Transclusion);
+	CHECK(parts.Target == "Euler");
+	CHECK(parts.Label == "eq:1");
+	CHECK(parts.Text == "the identity");
+	CHECK_FALSE(Syntax::ParseInner("~+x").Valid);
+}
+
+TEST_CASE("Finding the link around a column", "[syntax]")
+{
+	std::string line = "see [[Euler#eq|it]] and [[Gam";
+	auto first = Syntax::LinkAt(line, 8);
+	REQUIRE(first);
+	CHECK(first->Open == 4);
+	CHECK(first->Close == 17);
+	CHECK(first->TargetColumn == 6);
+	CHECK(first->LabelColumn == 12);
+	CHECK(first->TextColumn == 15);
+	auto open = Syntax::LinkAt(line, line.size());
+	REQUIRE(open);
+	CHECK(open->Close == std::string::npos);
+	CHECK(open->Parts.Target == "Gam");
+	CHECK_FALSE(Syntax::LinkAt(line, 2));
+	CHECK_FALSE(Syntax::LinkAt("\\[[a]] % [[b]]", 3));
+	CHECK_FALSE(Syntax::LinkAt("\\[[a]] % [[b]]", 11));
+}

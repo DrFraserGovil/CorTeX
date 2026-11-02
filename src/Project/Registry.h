@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-//! .cortex/registry.ctx: the project's name ("name = ..."), then after a "sidebar:" line the global sidebar (DESIGN.md §8.6), as
+//! .cortex/registry.config (once registry.ctx, which is renamed when found): the project's name ("name = ..."), then after a "sidebar:" line the global sidebar (DESIGN.md §8.6), as
 //! [Heading] lines and entries written like link targets ("target" or "target|Label")
 namespace Project
 {

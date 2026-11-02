@@ -1,6 +1,7 @@
 #include "Link.h"
 #include "Build/Scan.h"
 #include "Notes/Header.h"
+#include "Notes/Reader.h"
 #include "Platform/Desktop.h"
 #include "Platform/Process.h"
 #include "Settings/Config.h"
@@ -67,7 +68,7 @@ namespace
 		{
 			throw std::runtime_error("the link's note must be a path inside the project");
 		}
-		if (relative.extension() != ".tex") throw std::runtime_error("'" + given + "' is not a .tex file");
+		if (!Notes::ReaderFor(relative)) throw std::runtime_error("'" + given + "' is not a note file (.ctx or .tex)");
 		auto file = root / relative;
 		if (!std::filesystem::is_regular_file(file)) throw std::runtime_error("no note at " + file.string());
 
@@ -133,7 +134,7 @@ namespace
 		if (!safe) throw std::runtime_error("'" + slug + "' is not a link slug");
 		if (!Build::Scan::Read(root).Net.IsWanted(slug)) throw std::runtime_error("no note links to '" + slug + "' without finding it, so there's nothing to create");
 
-		auto file = folder / (slug + ".tex");
+		auto file = folder / (slug + ".ctx");
 		if (std::filesystem::exists(file)) throw std::runtime_error(file.string() + " already exists (but isn't a note called '" + slug + "'); not overwriting it");
 		// the slug is the provisional title; it is also an alias, so the links which wanted the note still find it after it's retitled
 		JSL::IO::writeString(file, "title: " + slug + "\nalias: " + slug + "\n-----\n\n");

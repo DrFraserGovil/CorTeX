@@ -11,7 +11,7 @@ namespace Project
 		std::filesystem::path Root;
 		std::filesystem::path Cortex;	 //!< .cortex
 		std::filesystem::path Settings;	 //!< .cortex/settings.config
-		std::filesystem::path Registry;	 //!< .cortex/registry.ctx
+		std::filesystem::path Registry;	 //!< .cortex/registry.config
 		std::filesystem::path Preamble;	 //!< .cortex/preamble.tex
 		std::filesystem::path Output;	 //!< the viewer or the PDFs
 		std::filesystem::path Build;	 //!< .cortex/build: LaTeX's working files, one folder per note
@@ -24,5 +24,7 @@ namespace Project
 
 		//! True if root holds a project (both its settings and its registry exist)
 		static bool IsProject(const std::filesystem::path &root);
+		//! The project containing start (a file or folder): the nearest folder at or above it which is a project; empty if none
+		static std::filesystem::path Find(const std::filesystem::path &start);
 	};
 } // namespace Project

@@ -22,7 +22,9 @@ TEST_CASE("Defaults", "[config]")
 	auto config = Settings::Config::Load(root, report);
 	CHECK(report.Entries().empty());
 	CHECK(config.Output == root / "view");
-	CHECK(config.Allowed == std::vector<std::string>{"*.tex"});
+	CHECK(config.Allowed == std::vector<std::string>{"*.ctx", "*.tex"});
+	CHECK(config.Format.Indent == "\t");
+	CHECK(config.Format.Headings == 3);
 	CHECK(config.Compilation.ListType == "itemize");
 	CHECK(config.Viewer.GraphLayout == "centre");
 	CHECK(config.Viewer.GraphColours == "top");
@@ -82,4 +84,20 @@ TEST_CASE("The compile key changes with any compile setting", "[config]")
 	CHECK(a.Key() == b.Key());
 	b.ListType = "enumerate";
 	CHECK(a.Key() != b.Key());
+}
+
+TEST_CASE("Format settings", "[config]")
+{
+	Report::Log report;
+	auto config = Settings::Config::Load(Project("format", "format-indent 4\nformat-headings 1\nformat-braces false\n"), report);
+	CHECK(report.Entries().empty());
+	CHECK(config.Format.Indent == "    ");
+	CHECK(config.Format.Headings == 1);
+	CHECK_FALSE(config.Format.Braces);
+
+	Report::Log bad;
+	auto fallback = Settings::Config::Load(Project("format-bad", "format-indent wide\nformat-headings -2\n"), bad);
+	CHECK(bad.Count(Report::Kind::Setting) == 2);
+	CHECK(fallback.Format.Indent == "\t");
+	CHECK(fallback.Format.Headings == 3);
 }

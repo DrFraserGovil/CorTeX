@@ -47,6 +47,19 @@ namespace Settings
 		std::string Home;
 	};
 
+	//! How `cortex format` indents notes: never affects what they compile to
+	struct Formatting
+	{
+		//! One level of indentation
+		std::string Indent = "\t";
+		//! The deepest heading level whose contents are indented (0: none)
+		size_t Headings = 3;
+		bool Environments = true;
+		bool Braces = true;
+		//! Environments left exactly as written
+		std::vector<std::string> Verbatim = {"verbatim", "lstlisting", "minted", "comment"};
+	};
+
 	struct Config
 	{
 		//! The project root (absolute)
@@ -58,6 +71,7 @@ namespace Settings
 		std::vector<Editor> Editors;
 		Compile Compilation;
 		Display Viewer;
+		Formatting Format;
 
 		//! Reads and checks the settings of the project at root; problems are added to report
 		static Config Load(const std::filesystem::path &root, Report::Log &report);

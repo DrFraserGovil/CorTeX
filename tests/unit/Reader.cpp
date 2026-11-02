@@ -49,3 +49,14 @@ TEST_CASE("Syntax problems are reported at their line in the file", "[reader]")
 	CHECK(syntax[0].File == "places/spain.tex");
 	CHECK(syntax[0].Line > 2);
 }
+
+TEST_CASE("A .ctx note is read like a .tex one", "[reader]")
+{
+	Report::Log report;
+	auto note = Read("plain.ctx", report);
+	REQUIRE(note);
+	CHECK(note->Id == "plain");
+	CHECK(note->Format == "ctx");
+	CHECK(note->Fields.Title == "Plain Ctx");
+	CHECK(note->References.size() == 2);
+}

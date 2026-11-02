@@ -10,5 +10,6 @@ void FieldList([[maybe_unused]] Wrapper &&W)
 	W(Syntax);
 	W(Render);
 	W(Files);
+	W(Format);
 }
 // END AUTOGEN

@@ -28,29 +28,32 @@ A project is a folder (the *root*) containing a `.cortex` folder. Everything bel
 | File | Purpose |
 |---|---|
 | `.cortex/settings.config` | The project's settings ([§11](#11-settings)) |
-| `.cortex/registry.ctx` | The project's name, and the global sidebar ([§8.6](#86-the-sidebar)) |
+| `.cortex/registry.config` | The project's name, and the global sidebar ([§8.6](#86-the-sidebar)). Once called `registry.ctx`: a registry of that name is renamed when it is next read |
 | `.cortex/preamble.tex` | LaTeX preamble shared by every note |
 | the output folder | The viewer, or the PDFs: `view/` unless the `output` setting says otherwise. Owned entirely by CorTeX |
 
-A folder is a project only if both `settings.config` and `registry.ctx` exist. Anything else in `.cortex` belongs to CorTeX and
+A folder is a project only if both `settings.config` and `registry.config` (or the older `registry.ctx`) exist. Anything else in `.cortex` belongs to CorTeX and
 may be deleted or rewritten at any time.
 
 ### 2.2 Which files are notes
 
-- A file is a *candidate* if it matches one of the `allowed` patterns (default `*.tex`) and none of the `ignored` patterns
+- A file is a *candidate* if it matches one of the `allowed` patterns (default `*.ctx` and `*.tex`) and none of the `ignored` patterns
   (default: hidden files, `.*`). `.cortex` and the output folder are never candidates.
 - A candidate is a *note* only if it has a header containing a `title:` line ([§3](#3-the-note-file)). Candidates without one are
   skipped. These are usually `\input` fragments rather than mistakes, so they appear only in the build's summary count and are
   listed in the build log ([§13.4](#134-build-messages)).
 - Other files in the project (images, packages, `\input` fragments, bibliographies) are not notes, but notes may use them as
   ordinary LaTeX would ([§6.4](#64-other-files-a-note-uses)).
+- `.ctx` is the usual extension for notes: they are LaTeX notes exactly like `.tex` ones, named so that editors can tell a note from
+  plain LaTeX ([§13.7](#137-the-language-server)). New notes made from the viewer are `.ctx` files. A project made before `.ctx`
+  existed keeps the `allowed` patterns it saved, so add `*.ctx` to them to use it.
 
 ### 2.3 Note identity
 
 Every note has:
 
 - an **id**: its path relative to the root without the extension, lowercased, with every character other than letters, digits,
-  `/`, `-` and `_` replaced by `-` (`Physics/Euler's Identity.tex` → `physics/euler-s-identity`). Two files whose paths give the
+  `/`, `-` and `_` replaced by `-` (`Physics/Euler's Identity.tex` → `physics/euler-s-identity`). Two files (`euler.ctx` and `euler.tex` among them) whose paths give the
   same id (differing only in case or punctuation) stop the build with an error. The id is how the viewer addresses a note, and is
   stable as long as the file isn't moved or renamed.
 - **names**: its title and each of its aliases, compared loosely ([§4.1](#41-matching-names)). Names are how notes link to one
@@ -358,8 +361,9 @@ is processed like any other text.
 
 - A line starting `* ` is a list item; `** ` is a nested item; and so on.
 - The list environment is the `list-type` setting (`itemize` or `enumerate`). A list starting `*ENUM ` or `*ITEM ` forces its type.
-- A list ends at a blank line or any unindented line that isn't a list item. Indented lines continue the current item. Lines
-  starting `\item` are left alone.
+- A list ends at a blank line, or at a line that isn't a list item and is indented no further than the line that started the list.
+  Lines indented further continue the current item. So a list under an indented heading ends at the next line at the heading's
+  own indentation. Lines starting `\item` are left alone.
 
 ### 7.4 Switching it off
 
@@ -429,13 +433,13 @@ break.
 From top to bottom:
 
 1. Home, Overview (only when a home note is set) and Graph links;
-2. the project name (from `registry.ctx`);
+2. the project name (from `registry.config`);
 3. the logo (the `logo` setting), if any;
 4. on a note or wanted page, the *Editor* tools ([§10](#10-acting-on-the-project-from-the-viewer));
 5. search;
 6. the global sidebar, then the open note's own `sidebar:` entries.
 
-The global sidebar is written in `registry.ctx`, after a line `sidebar:`. Each following line is an entry, `target` or
+The global sidebar is written in `registry.config`, after a line `sidebar:`. Each following line is an entry, `target` or
 `target|Label`; a line `[Heading]` starts a new group; blank lines and `%` lines are ignored. Entries resolve like links (the
 global ones as if written at the root). An entry shows its label, else its target's title, else the text as written. An entry that
 matches nothing links to the wanted page, with a warning on each build.
@@ -561,7 +565,7 @@ editing the file. Invalid values are warned about and replaced by the default.
 | Setting | Default | Meaning | Recompiles? |
 |---|---|---|---|
 | `output` | view | The output folder: relative to the root, or absolute. CorTeX owns it entirely, and deletes anything in it which it didn't write | — |
-| `allowed` | `[*.tex]` | Patterns for candidate note files | — |
+| `allowed` | `[*.ctx, *.tex]` | Patterns for candidate note files | — |
 | `ignored` | `[.*]` | Patterns never considered, even if allowed | — |
 | `home` | empty | The note the viewer opens on (path relative to the root); empty or invalid opens the overview, with a warning if invalid | no |
 | `editors` | empty | Named editor commands ([§10](#10-acting-on-the-project-from-the-viewer)) | no |
@@ -578,6 +582,11 @@ editing the file. Invalid values are warned about and replaced by the default.
 | `folder-pull` | 0.5 | 0 to 1 ([§9.4](#94-the-project-graph)) | no |
 | `folder-repulsion` | 0 | 0 or more ([§9.4](#94-the-project-graph)) | no |
 | `graph-colours` | top | `top`, `shades` or `every` ([§9.1](#91-what-it-shows)) | no |
+| `format-indent` | tab | One level of indentation for `cortex format`: `tab`, or a number of spaces ([§13.6](#136-formatting)) | no |
+| `format-headings` | 3 | The deepest heading level whose contents are indented (1 = section … 5 = subparagraph; 0 = none) | no |
+| `format-environments` | true | Indent the contents of environments | no |
+| `format-braces` | true | Indent the lines inside a brace left open at the end of a line | no |
+| `format-verbatim` | `[verbatim, lstlisting, minted, comment]` | Environments whose contents are left exactly as written | no |
 
 When `cortex settings` changes a setting that recompiles every note, it says so and offers to rebuild. Declining discards the
 change.
@@ -611,6 +620,8 @@ With `pdf` on, each note compiles to a standalone PDF in the output folder, at t
 | `settings` | Edits the project settings interactively |
 | `export -to <folder>` | Copies the viewer as a self-contained copy to share ([§13.3](#133-exporting)) |
 | `install-handler` | Registers this `cortex` as the desktop's handler for `cortex://` links (Linux only) |
+| `format [-file <note>]` | Re-indents a note in place ([§13.6](#136-formatting)); without `-file`, formats standard input to standard output |
+| `lsp` | Runs the language server for editors, on standard input and output ([§13.7](#137-the-language-server)); started by the editor, not the author |
 | `link -url <url>` | Performs a `cortex://` action ([§10](#10-acting-on-the-project-from-the-viewer)); run by the desktop, not the author (Linux only) |
 
 | Option | Meaning |
@@ -652,7 +663,46 @@ by kind and count (e.g. "12 warnings, 3 shared names, 40 unresolved links"), poi
 
 CorTeX builds, watches and exports on Linux, macOS and Windows, and the viewer works in any modern browser. Acting on the project
 from the viewer ([§10](#10-acting-on-the-project-from-the-viewer)) is Linux only: elsewhere, the viewer has no Editor tools at all,
-and `install-handler` and `link` say they aren't supported.
+and `install-handler` and `link` say they aren't supported. The language server works on every platform.
+
+### 13.6 Formatting
+
+`cortex format` re-indents a note by its structure, using the project's `format-*` settings ([§11](#11-settings)). Outside a
+project it uses the defaults. Editors call it through the language server.
+
+- The header and the separators are left exactly as written. The local preamble and the body are re-indented: each line's
+  indentation and trailing whitespace are replaced.
+- Each line gets one level for every heading it is under (up to `format-headings`), every open environment, every brace left open
+  at the end of an earlier line, and open `\[` display maths. Headings count both as sectioning commands (`\section`,
+  `\subsection*`, …) and, with extended syntax, as `#` lines; a heading closes those at its own level or deeper. A line starting
+  with closers (`}`, `\end{…}`, `\]`) sits at the level they close to.
+- Star list items get one extra level per star beyond the first. Lines continuing an item go one level deeper than it. A line
+  counts as a continuation only if it is indented further than the list, as [§7.3](#73-star-lists) requires, so formatting never
+  changes what a note compiles to.
+- `format-verbatim` environments, and everything between `% cortex off` and `% cortex on`, are copied as written.
+- Blank lines stay blank, and line endings (`\n` or `\r\n`) are kept. Formatting a formatted note changes nothing.
+
+### 13.7 The language server
+
+`cortex lsp` speaks the Language Server Protocol, so an editor can use what CorTeX knows about the project. `editor/nvim` sets it up
+for Neovim. It offers:
+
+| Feature | What it does |
+|---|---|
+| Completion | Note names (titles and aliases) inside `[[`; labels after `#` (the target's, or every note's for `[[#`); names on `redirect:` and `sidebar:` header lines |
+| Definition | The note a link or transclusion reaches (through redirects), or the `\label` a label reference names |
+| Hover | A link's target: title, path, aliases, why it needs work, any redirect; or that it is a wanted note |
+| References | Every `[[…]]` in the project which reaches the note under the cursor or, away from a link, the current note |
+| Formatting | [§13.6](#136-formatting) |
+| Link colours | Semantic tokens: the target (and label) of every `[[…]]` in the body, marked `resolved` if it reaches a note (or label) and `unresolved` if not (a wanted note, a missing label, or malformed), with modifiers for `transclusion`, `label`, `loose` and `strong`. Re-sent after every build, since a new note can make a link resolve |
+| Diagnostics | Every problem from the build log which belongs to a file, at its line. A LaTeX failure goes in the file LaTeX stopped in, which may be a transcluded note |
+
+Answers use the text the editor has open, saved or not, and the rest of the project as last read.
+
+**One process per project ([§13.2](#132-one-process-per-project)).** If no other CorTeX process holds the project, the server
+holds it and acts as its watch. It builds, rebuilds on every change, serves other commands' requests, and the viewer refreshes as
+usual. If another process holds it (a watch in a terminal, or a second editor), the server only reads the project when it
+changes, never compiling. Its diagnostics then cover everything except LaTeX's own errors, and it says so in the editor's log.
 
 ---
 

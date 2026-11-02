@@ -51,7 +51,7 @@ TEST_CASE("A changed project preamble recompiles every note", "[incremental]")
 	for (auto &entry : std::filesystem::recursive_directory_iterator(probe.Root))
 	{
 		auto relative = entry.path().lexically_relative(probe.Root).generic_string();
-		if (entry.path().extension() == ".tex" && !relative.starts_with(".") && relative != "fragment.tex" && !relative.starts_with("stubs/")) all.insert(relative);
+		if ((entry.path().extension() == ".tex" || entry.path().extension() == ".ctx") && !relative.starts_with(".") && relative != "fragment.tex" && !relative.starts_with("stubs/")) all.insert(relative);
 	}
 	ExpectRecompiled("preamble", [](auto &p) { p.Append(".cortex/preamble.tex", "% changed\n"); }, all);
 }

@@ -93,11 +93,14 @@ namespace Network
 		size_t Unresolved() const;
 		//! True if some note refers to slug without finding it: a wanted note
 		bool IsWanted(const std::string &slug) const;
+		//! The note a [[#label]] written at fromPath (relative) refers to: the nearest of the notes with that label; empty if none has it
+		std::string LabelOwner(const std::string &label, const std::filesystem::path &fromPath) const;
 
 	  private:
 		friend Network Resolve(const std::vector<Notes::Note> &, const std::vector<Project::SidebarGroup> &, Report::Log &);
 		std::map<std::string, size_t> ById;
 		std::map<std::string, std::vector<const Node *>> Claims;
+		std::map<std::string, std::vector<const Node *>> LabelOwners;
 	};
 
 	//! Connects the notes; problems (shared names, broken redirects and sidebar entries, missing or ambiguous labels) go to report.

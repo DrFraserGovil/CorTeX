@@ -30,6 +30,8 @@ namespace Notes
 		std::string Label;
 		//! 1-based line within the body
 		size_t Line = 0;
+		//! 0-based column of its "[[" within that line
+		size_t Column = 0;
 	};
 
 	//! A \label{...} written in a note's body: the note owns it (DESIGN.md §4.4)

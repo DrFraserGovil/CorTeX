@@ -1,5 +1,6 @@
 #pragma once
 #include "Reference.h"
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -62,6 +63,81 @@ namespace Notes::Syntax
 
 	//! Rewrites the syntax in a note body
 	Result Process(std::string_view body, const Options &options = {});
+
+	/// THE PIECES OF THE SYNTAX, SHARED WITH THE FORMATTER AND THE EDITOR SUPPORT SO NONE OF THEM RE-IMPLEMENTS A RULE
+
+	//! A line which is nothing but a "cortex on" / "cortex off" comment (any number of %, any case and spacing)
+	bool IsSwitch(std::string_view line, bool &turnsOn);
+
+	//! A heading line ("# Title", "##* Title", indentation allowed)
+	struct HeadingLine
+	{
+		//! The number of #s, as written (deeper than the deepest level is only clamped when compiling)
+		size_t Level = 0;
+		bool Starred = false;
+		//! Where the title starts
+		size_t TitleColumn = 0;
+	};
+	//! The heading a line is, if it is one ("#hashtag" and a lone "##" are not)
+	std::optional<HeadingLine> HeadingOf(std::string_view line);
+
+	//! How a line starts, as far as star lists are concerned
+	struct ListLine
+	{
+		enum Kind
+		{
+			Item,		//!< "<ws>*** text": a list item at depth = number of stars
+			ManualItem, //!< "<ws>\item...": the author's own item; left alone, lists stay open
+			Neutral,	//!< a comment-only line, or an indented continuation of an item: lists stay open
+			Other,		//!< anything else (including a blank line): ends any open lists
+		} Type = Other;
+		size_t Depth = 0;
+		std::string ForcedType; //!< "itemize" or "enumerate" if the item used *ITEM / *ENUM
+		std::string Indent;		//!< the leading whitespace, preserved
+		std::string Remainder;	//!< the item's text
+		size_t RemainderColumn = 0;
+	};
+	//! Classifies a line for star lists. inList: a list is open, opened by a line indented by listIndent characters; only lines
+	//! indented further than that continue its current item
+	ListLine ClassifyList(const std::string &line, bool inList, size_t listIndent = 0);
+
+	//! The text between [[ and ]], split up (DESIGN.md §4.2)
+	struct LinkParts
+	{
+		//! False if the markers are repeated or contradictory
+		bool Valid = true;
+		bool Transclusion = false, Loose = false, Strong = false;
+		//! The number of marker characters at the start
+		size_t Markers = 0;
+		//! The target (before any # or |), trimmed; empty for [[#label]]
+		std::string Target;
+		std::string Label;
+		std::string Text;
+		//! Offsets within the inner text of the character after the '#' and the '|'; npos if there is none
+		size_t LabelColumn = std::string::npos;
+		size_t TextColumn = std::string::npos;
+	};
+	LinkParts ParseInner(std::string_view inner);
+
+	//! A [[...]] on a line, as found around a column (for an editor's cursor)
+	struct LinkSpan
+	{
+		//! The column of the "[["
+		size_t Open = 0;
+		//! The column of the "]]"; npos if the link isn't closed on the line (it is still being typed)
+		size_t Close = std::string::npos;
+		//! Split up; for an unclosed one, the text from the "[[" to the end of the line
+		LinkParts Parts;
+		//! Columns, in the line, of where the target starts (after the markers), and of the label and text (npos if none)
+		size_t TargetColumn = 0;
+		size_t LabelColumn = std::string::npos;
+		size_t TextColumn = std::string::npos;
+	};
+	//! The [[...]] containing column (between its first '[' and its last ']'), or an unclosed [[ before it; nullopt if none. Never in a %
+	//! comment, and never \[[
+	std::optional<LinkSpan> LinkAt(std::string_view line, size_t column);
+	//! Every [[...]] on a line, in order (the last may be unclosed); never in a % comment, and never \\[[
+	std::vector<LinkSpan> LinksIn(std::string_view line);
 
 	//! The canonical form of a link target, title or alias, so that they can be matched loosely:
 	//! lowercase, with every run of characters other than letters, digits, '-' and '_' collapsed to a single '-', and no leading or trailing '-'

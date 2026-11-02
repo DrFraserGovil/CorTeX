@@ -68,7 +68,7 @@ TEST_CASE("The link handler refuses anything outside its rules", "[link]")
 	refused(Url(project, "create", "dir=&slug=not-wanted"));
 	refused(Url(project, "create", "dir=../&slug=nowhere"));
 	CHECK(project.Read("alpha.tex") == "title: Alpha\n-----\nAlpha points at [[Gamma]].\n");
-	CHECK_FALSE(project.Exists("not-wanted.tex"));
+	CHECK_FALSE(project.Exists("not-wanted.ctx"));
 }
 
 TEST_CASE("The link handler flags notes and creates wanted ones", "[link]")
@@ -83,8 +83,8 @@ TEST_CASE("The link handler flags notes and creates wanted ones", "[link]")
 	CHECK(project.Read("alpha.tex") == "title: Alpha\n-----\nAlpha points at [[Gamma]].\n");
 
 	project.Cortex("link " + Url(project, "create", "dir=&slug=nowhere&editor=ed"), NoPath);
-	REQUIRE(project.Exists("nowhere.tex"));
-	CHECK(project.Read("nowhere.tex") == "title: nowhere\nalias: nowhere\n-----\n\n");
+	REQUIRE(project.Exists("nowhere.ctx")); // new notes are .ctx files
+	CHECK(project.Read("nowhere.ctx") == "title: nowhere\nalias: nowhere\n-----\n\n");
 }
 
 TEST_CASE("A graph link saves only valid graph settings", "[link]")
@@ -117,4 +117,15 @@ TEST_CASE("A graph link saves only valid graph settings", "[link]")
 	CHECK(config.Viewer.FolderPull == 0.25);
 	CHECK(config.Viewer.FolderRepulsion == 1.5);
 	CHECK(config.Viewer.Zoom == 1.4); // everything else as it was
+}
+
+TEST_CASE("Format re-indents a note in place, with the project's settings", "[format]")
+{
+	Harness::Project project("format");
+	project.Append(".cortex/settings.config", "format-indent 2\n");
+	project.Write("indent.ctx", "title: Indent\n-----\n# Heading\n      text\n");
+	CHECK(project.Cortex("format -file indent.ctx").Exit == 0);
+	CHECK(project.Read("indent.ctx") == "title: Indent\n-----\n# Heading\n  text\n");
+	CHECK(project.Cortex("format -file indent.ctx").Text.find("already formatted") != std::string::npos);
+	CHECK(project.Cortex("format -file missing.ctx").Exit != 0);
 }
