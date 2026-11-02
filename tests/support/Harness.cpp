@@ -137,7 +137,7 @@ namespace Harness
 
 	std::set<std::string> Compiled(const Output &output, const Project &project)
 	{
-		static const std::regex compiling(R"re(Compiling "?([^"\s]+\.tex))re");
+		static const std::regex compiling(R"re(Compiling "?([^"\s]+\.(?:tex|ctx)))re");
 		auto text = Messages(output, project);
 		std::set<std::string> paths;
 		for (std::sregex_iterator match(text.begin(), text.end(), compiling), end; match != end; ++match) paths.insert((*match)[1]);
