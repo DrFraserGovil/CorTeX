@@ -183,6 +183,7 @@ namespace
 			if (line.find_first_not_of(" \t") != at) return line;
 			Verbatim.clear();
 			size_t depth = Depth() - LeadingClosers(text);
+			if (InList) depth += ItemDepth; // the environment was opened inside an item: its \end stays with it
 			Track(text);
 			return Indented(depth, text);
 		}

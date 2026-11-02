@@ -30,6 +30,15 @@ TEST_CASE("Separators split the file", "[header]")
 	CHECK(three.BodyLine == 5);
 }
 
+TEST_CASE("Titles as plain text", "[header]")
+{
+	CHECK(PlainText("Salt \\& Pepper") == "Salt & Pepper");
+	CHECK(PlainText("100\\% \\$5 \\#1 a\\_b \\{x\\}") == "100% $5 #1 a_b {x}");
+	CHECK(PlainText("\\emph{Very} {Big}~Deal") == "Very Big Deal");
+	CHECK(PlainText("1914--1918 --- the war") == "1914\xE2\x80\x93" "1918 \xE2\x80\x94" " the war");
+	CHECK(PlainText("\\LaTeX and $x^2$") == "\\LaTeX and $x^2$"); // left as written
+}
+
 TEST_CASE("Header fields", "[header]")
 {
 	std::vector<HeaderProblem> problems;

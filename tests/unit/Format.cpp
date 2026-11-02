@@ -49,6 +49,8 @@ TEST_CASE("Star lists", "[format]")
 	// items by their stars; a continuation one deeper than its item, but only if the author indented it (else it ends the list)
 	CHECK(Format("-----\n* a\n  more\n** b\n* c\nafter\n") == "-----\n* a\n\tmore\n\t** b\n* c\nafter\n");
 	CHECK(Format("-----\n# H\n* a\n\tmore\nafter\n") == "-----\n# H\n\t* a\n\t\tmore\n\tafter\n");
+	// a verbatim environment inside an item: its \end goes back to the \begin's depth, so the item still holds it
+	CHECK(Format("-----\n* a\n  \\begin{lstlisting}\ncode\n\\end{lstlisting}\n* b\n") == "-----\n* a\n\t\\begin{lstlisting}\ncode\n\t\\end{lstlisting}\n* b\n");
 }
 
 TEST_CASE("Formatting is idempotent, and keeps line endings", "[format]")

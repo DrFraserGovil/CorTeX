@@ -84,7 +84,7 @@ TEST_CASE("The link handler flags notes and creates wanted ones", "[link]")
 
 	project.Cortex("link " + Url(project, "create", "dir=&slug=nowhere&editor=ed"), NoPath);
 	REQUIRE(project.Exists("nowhere.ctx")); // new notes are .ctx files
-	CHECK(project.Read("nowhere.ctx") == "title: nowhere\nalias: nowhere\n-----\n\n");
+	CHECK(project.Read("nowhere.ctx") == "title: nowhere\nalias: nowhere\n---------------\n\n");
 }
 
 TEST_CASE("A graph link saves only valid graph settings", "[link]")

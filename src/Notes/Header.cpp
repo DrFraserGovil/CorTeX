@@ -2,6 +2,7 @@
 #include "Util/Files.h"
 #include <JSL.h>
 #include <algorithm>
+#include <cctype>
 
 namespace
 {
@@ -38,6 +39,62 @@ namespace
 		return out;
 	}
 } // namespace
+
+std::string Notes::PlainText(std::string_view latex)
+{
+	std::string out;
+	for (size_t i = 0; i < latex.size(); ++i)
+	{
+		char c = latex[i];
+		if (c == '\\' && i + 1 < latex.size())
+		{
+			char next = latex[i + 1];
+			if (std::string_view("&%$#_{}").find(next) != std::string_view::npos)
+			{
+				out += next;
+				++i;
+				continue;
+			}
+			if (next == ',' || next == ' ')
+			{
+				out += ' ';
+				++i;
+				continue;
+			}
+			// a command name: dropped if a group follows it (whose text is kept), else left as written
+			size_t end = i + 1;
+			while (end < latex.size() && std::isalpha(static_cast<unsigned char>(latex[end]))) ++end;
+			if (end > i + 1 && end < latex.size() && latex[end] == '{')
+			{
+				i = end - 1; // the brace itself is dropped below
+				continue;
+			}
+			out += latex.substr(i, end - i);
+			i = end - 1;
+			continue;
+		}
+		if (c == '{' || c == '}') continue;
+		if (c == '~')
+		{
+			out += ' ';
+			continue;
+		}
+		if (latex.compare(i, 3, "---") == 0)
+		{
+			out += "\xE2\x80\x94"; // —
+			i += 2;
+			continue;
+		}
+		if (latex.compare(i, 2, "--") == 0)
+		{
+			out += "\xE2\x80\x93"; // –
+			i += 1;
+			continue;
+		}
+		out += c;
+	}
+	return out;
+}
 
 bool Notes::IsSeparator(std::string_view line)
 {

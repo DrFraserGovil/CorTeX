@@ -137,7 +137,7 @@ namespace
 		auto file = folder / (slug + ".ctx");
 		if (std::filesystem::exists(file)) throw std::runtime_error(file.string() + " already exists (but isn't a note called '" + slug + "'); not overwriting it");
 		// the slug is the provisional title; it is also an alias, so the links which wanted the note still find it after it's retitled
-		JSL::IO::writeString(file, "title: " + slug + "\nalias: " + slug + "\n-----\n\n");
+		JSL::IO::writeString(file, "title: " + slug + "\nalias: " + slug + "\n---------------\n\n");
 		LOG(INFO) << "Created " << file;
 		Edit(root, file, editorName);
 	}

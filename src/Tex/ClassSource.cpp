@@ -145,15 +145,19 @@ static constexpr std::string_view CortexClass = R"tex(\NeedsTeXFormat{LaTeX2e}
 % Every \label leaves an invisible mark where it is, so a reference can take the reader to it: in SVG an empty element carrying its
 % position, in PDF a named destination. The engine declares each label on the page with \CortexLabelName{<label>}{<hex name>}, so
 % nothing from the label itself reaches the output unescaped; labels it doesn't know about (from an \input file, say) get no mark.
-% The hook wraps \label before any package is loaded, so amsmath's display \label (which calls the \label it found at load) has it too
+% Since 2023-06-01 LaTeX's \label has a hook, which every \label (amsmath's display ones too) runs, and which packages keep: nameref,
+% for one, replaces a \label that isn't LaTeX's own with LaTeX's. Before that, \label is wrapped before any package is loaded
 \newcommand{\CortexLabelName}[2]{\expandafter\def\csname cortex@labelname@#1\endcsname{#2}}
 \ifcortex@svg
 	\def\cortex@mark#1{\special{dvisvgm:raw <g class="cortex-label" data-label="#1" data-x="{?x}" data-y="{?y}"/>}}
 \else
 	\def\cortex@mark#1{\special{pdf:dest <#1> [@thispage /XYZ @xpos @ypos null]}}
 \fi
-\let\cortex@label\label
-\def\label#1{\@bsphack\@ifundefined{cortex@labelname@#1}{}{\expandafter\cortex@mark\expandafter{\csname cortex@labelname@#1\endcsname}}\cortex@label{#1}\@esphack}
+\def\cortex@labelmark#1{\@ifundefined{cortex@labelname@#1}{}{\expandafter\cortex@mark\expandafter{\csname cortex@labelname@#1\endcsname}}}
+\@ifl@t@r\fmtversion{2023-06-01}
+	{\AddToHookWithArguments{label}{\cortex@labelmark{#1}}}
+	{\let\cortex@label\label
+	 \def\label#1{\@bsphack\cortex@labelmark{#1}\cortex@label{#1}\@esphack}}
 )tex";
 
 std::string_view Tex::ClassSource()

@@ -15,6 +15,11 @@ Editing support for CorTeX notes (Neovim 0.11 or later):
   - formatting;
   - **link colours**: each link's target is cyan if it reaches a note (or label) and red if it doesn't (a wanted note, a missing
     label, a malformed link). Links are re-coloured as you type, and after every build.
+- **`:CortexNote a/b/chocolate`** opens `a/b/chocolate.ctx` (relative to the working directory, like `:edit`; `.ctx` is added unless
+  the path ends in `.ctx` or `.tex`). A new note gets its header: `title: Chocolate` (from the file name, with `-` and `_` as spaces
+  and each word capitalised), an empty `alias:` line and the separator. Nothing is written until you save, and missing folders are
+  made then. An existing note is just opened. `:CortexNote!` takes the path from the current file's folder instead, so
+  `:CortexNote! ../chocolate` makes a note in the folder above the current note's.
 - **Format on save**, using `cortex format`'s rules and your project's `format-*` settings.
 - **Highlighting** of CorTeX's own syntax on top of treesitter: the header, separators, `[[markers target#label|text]]`,
   `#` headings and star lists (when the project uses extended syntax), and `% cortex off` regions.

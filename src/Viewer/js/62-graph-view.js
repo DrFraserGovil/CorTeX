@@ -3,10 +3,12 @@
 /* Draws a model into a container, and runs its layout (layoutGraph). Returns an object with stop().
    options:
    - settings: the layout settings (graphSettings())
-   - centre: the note a note's own graph is about: fixed in the middle, drawn larger, with things fainter the further they are from it
-     (options.distance, from neighbourhood) and links coloured by direction relative to it
+   - centre: the note a note's own graph is about: laid out freely, but the view stays centred on it (until the reader zooms or pans);
+     drawn larger, with things fainter the further they are from it (options.distance, from neighbourhood) and links coloured by
+     direction relative to it
    - pin: a note fixed in the middle, which changes nothing else about the drawing (the project graph's home note)
    - frame: the ids to fit in view (all of them if absent), until the reader zooms or pans
+   - layoutSize: {width, height} to lay the graph out in, if not the container's own (the layout depends on it)
    - springLength, repulsion: the scale of the layout */
 function drawGraph(container, model, options = {}) {
 	const width = container.clientWidth || 800, height = container.clientHeight || 500;
@@ -30,8 +32,9 @@ function drawGraph(container, model, options = {}) {
 	const edgeLayer = document.createElementNS(SVG_NS, "g"), nodeLayer = document.createElementNS(SVG_NS, "g");
 	world.append(edgeLayer, nodeLayer);
 
-	const layout = layoutGraph(model, width, height, {
-		settings: options.settings, pin: options.centre || options.pin, springLength: options.springLength, repulsion: options.repulsion,
+	const layoutSize = options.layoutSize || { width, height };
+	const layout = layoutGraph(model, layoutSize.width, layoutSize.height, {
+		settings: options.settings, pin: options.pin, start: options.centre, springLength: options.springLength, repulsion: options.repulsion,
 	});
 	const { nodes, edges } = layout;
 
@@ -107,6 +110,7 @@ function drawGraph(container, model, options = {}) {
 		if (stopped) return;
 		layout.tick();
 		render();
+		if (centreNode) fitView(false); // keep the note in the middle as the layout moves it, without changing the zoom every frame
 		if (layout.alpha > 0.004) frame = requestAnimationFrame(animate);
 		else { frame = null; fitView(); }
 	}
@@ -122,17 +126,26 @@ function drawGraph(container, model, options = {}) {
 	/// PAN AND ZOOM THE WHOLE PICTURE
 	let view = { x: 0, y: 0, k: 1 }, userMoved = false;
 	const applyView = () => world.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
-	// zoom to fit the framed nodes (labels included) in the box, never enlarging beyond 1.6x; done until the reader takes over
+	// zoom to fit the framed nodes (labels included) in the box, never enlarging beyond 1.6x; done until the reader takes over. With a
+	// centre, the box is centred on it, and the zoom fits whichever framed node reaches furthest from it; zoom false only re-centres
 	const framed = options.frame ? nodes.filter(n => options.frame.has(n.id)) : nodes;
-	function fitView() {
+	const centreNode = options.centre ? nodes.find(n => n.id === options.centre) : null;
+	function fitView(zoom = true) {
 		if (userMoved) return;
 		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 		for (const n of framed.length ? framed : nodes) {
 			minX = Math.min(minX, n.x - n.r - 40); maxX = Math.max(maxX, n.x + n.r + 40);
 			minY = Math.min(minY, n.y - n.r - 10); maxY = Math.max(maxY, n.y + n.r + 22);
 		}
-		const k = Math.min(1.6, width / (maxX - minX), height / (maxY - minY));
-		view = { k, x: (width - (minX + maxX) * k) / 2, y: (height - (minY + maxY) * k) / 2 };
+		if (centreNode) {
+			const c = centreNode;
+			const halfWidth = Math.max(c.x - minX, maxX - c.x), halfHeight = Math.max(c.y - minY, maxY - c.y);
+			const k = zoom ? Math.min(1.6, width / (2 * halfWidth), height / (2 * halfHeight)) : view.k;
+			view = { k, x: width / 2 - c.x * k, y: height / 2 - c.y * k };
+		} else {
+			const k = Math.min(1.6, width / (maxX - minX), height / (maxY - minY));
+			view = { k, x: (width - (minX + maxX) * k) / 2, y: (height - (minY + maxY) * k) / 2 };
+		}
 		applyView();
 	}
 	const toWorld = (event) => {
@@ -178,6 +191,7 @@ function drawGraph(container, model, options = {}) {
 		if (dragging) {
 			const p = toWorld(event);
 			dragging.x = p.x; dragging.y = p.y; dragging.pinned = true; moved = true;
+			if (dragging === centreNode) userMoved = true; // the view stops following it, or it would run from the pointer
 			reheat();
 		} else if (panning) {
 			userMoved = true;
@@ -316,14 +330,22 @@ function showGraph() {
 		stopGraphs();
 		controls.replaceChildren(graphControls(draw)); // the reset button's state, and sliders after a reset, follow the settings
 		const settings = graphSettings();
-		drawGraph(box, graphModel(), { settings, pin: homeId });
+		drawGraph(box, graphModel(), { settings, pin: homeId, layoutSize: projectGraphSize() });
 	}
 	draw();
 }
 
-// A note's own graph, under the note (DESIGN.md §9.3): the note fixed at the centre, everything within the chosen depth around it
+// The size the project graph is laid out in: its box's (.graph-box.large: the page's width, 75% of the window's height). A note's graph
+// at depth All is laid out at the same size, so its notes are where they are on the project graph
+function projectGraphSize() {
+	const note = document.getElementById("note");
+	return { width: (note && note.clientWidth) || 800, height: Math.round(window.innerHeight * 0.75) || 500 };
+}
+
+// A note's own graph, under the note (DESIGN.md §9.3): the view centred on the note, everything within the chosen depth around it
 // (1, 2, 3 links, or the whole project), fading with distance, opened framed on the note and its immediate neighbours. The depth is
-// remembered across notes. Always the centre layout: rings place folders, which says nothing about one note's neighbourhood
+// remembered across notes. At depths 1 to 3 only the neighbourhood is laid out, always with the centre layout (rings place folders,
+// which says nothing about one note's neighbourhood). At All it is the project graph itself, laid out exactly as there, centred on the note
 const GRAPH_DEPTHS = [["1", 1], ["2", 2], ["3", 3], ["All", null]];
 let graphDepth = null;
 try { const saved = localStorage.getItem("cortex-graph-depth"); if (saved) graphDepth = saved === "all" ? null : parseInt(saved); } catch (e) {}
@@ -358,9 +380,15 @@ function localGraph(id) {
 		choices.querySelectorAll("button").forEach(b => b.classList.toggle("selected", b.depth === graphDepth));
 		const model = neighbourhood(full, id, graphDepth);
 		const frame = new Set(model.nodes.filter(n => model.distance.get(n.id) <= 1).map(n => n.id));
-		handle = drawGraph(box, model, {
-			settings: Object.assign(graphSettings(), { layout: "centre" }), centre: id, distance: model.distance, frame, springLength: 100, repulsion: 3000,
-		});
+		const drawing = { centre: id, distance: model.distance, frame };
+		if (graphDepth === null) {
+			// the project graph's own model, settings and size (a hidden note isn't on the project graph, so its own keeps it, and differs by it)
+			const project = graphModel();
+			const all = project.nodes.some(n => n.id === id) ? project : full;
+			handle = drawGraph(box, all, { ...drawing, settings: graphSettings(), pin: homeId, layoutSize: projectGraphSize() });
+		} else {
+			handle = drawGraph(box, model, { ...drawing, settings: Object.assign(graphSettings(), { layout: "centre" }), springLength: 100, repulsion: 3000 });
+		}
 	}
 	for (const [label, depth] of GRAPH_DEPTHS) {
 		const button = element("button", label);

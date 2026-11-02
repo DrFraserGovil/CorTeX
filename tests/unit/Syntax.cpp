@@ -159,6 +159,19 @@ TEST_CASE("Star lists end at a line no further indented than the list", "[syntax
 	CHECK(Text("* a\n\tmore", true) == "\\begin{itemize}\\item{} a\n\tmore\\end{itemize}");
 }
 
+TEST_CASE("Verbatim environments are copied as written, and leave lists open", "[syntax]")
+{
+	// a listing inside an item: its unindented lines neither end the list nor get any syntax
+	auto text = "* a\n\t\\begin{lstlisting}\ncode *x* [[Y]] % \\label{z}\n\t\\end{lstlisting}\n* b";
+	auto result = Run(text, true);
+	CHECK(result.Text == "\\begin{itemize}\\item{} a\n\t\\begin{lstlisting}\ncode *x* [[Y]] % \\label{z}\n\t\\end{lstlisting}\n\\item{} b\\end{itemize}");
+	CHECK(result.References.empty());
+	CHECK(result.Labels.empty());
+	// begun and ended on one line, or begun in a comment: nothing is copied
+	CHECK(Text("\\begin{verbatim}v\\end{verbatim}\n*x*", true) == "\\begin{verbatim}v\\end{verbatim}\n\\textit{x}");
+	CHECK(Text("% \\begin{verbatim}\n*x*", true) == "% \\begin{verbatim}\n\\textit{x}");
+}
+
 TEST_CASE("References record their column", "[syntax]")
 {
 	auto result = Run("ab [[x]] and [[!y]]\n\t* [[z]]", true);

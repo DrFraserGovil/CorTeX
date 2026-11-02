@@ -23,6 +23,39 @@ std::string Notes::Syntax::Slug(std::string_view text)
 
 namespace
 {
+	//! The verbatim environment (one of names) a line leaves open: one begun outside a comment and not ended later on the line; empty if none
+	std::string VerbatimOpenedIn(std::string_view line, const std::vector<std::string> &names)
+	{
+		std::string open;
+		for (size_t i = 0; i < line.size(); ++i)
+		{
+			if (open.empty() && line[i] == '%') break; // a comment (inside the environment, % is just text)
+			if (line[i] != '\\') continue;
+			if (open.empty())
+			{
+				for (auto &name : names)
+				{
+					auto begin = "\\begin{" + name + "}";
+					if (line.compare(i, begin.size(), begin) == 0)
+					{
+						open = name;
+						i += begin.size() - 1;
+						break;
+					}
+				}
+				if (!open.empty()) continue;
+			}
+			else if (auto end = "\\end{" + open + "}"; line.compare(i, end.size(), end) == 0)
+			{
+				open.clear();
+				i += end.size() - 1;
+				continue;
+			}
+			++i; // a backslash and the character after it go together
+		}
+		return open;
+	}
+
 	//! Which kind of maths (if any) the scan is inside; tracked through delimiters and the standard maths environments (never a
 	//! general environment stack), and carried from line to line
 	enum class Maths
@@ -117,6 +150,8 @@ namespace
 		std::vector<std::string> OpenLists;
 		//! The indentation (in characters) of the line which opened the outermost open list: only lines indented further continue an item
 		size_t ListIndent = 0;
+		//! The verbatim environment being copied, if any
+		std::string Verbatim;
 		//! The line being processed as the author wrote it, and where in it to look for the next reference (for its column)
 		std::string CurrentLine;
 		size_t SearchFrom = 0;
@@ -450,7 +485,13 @@ namespace
 
 			/// MARKERS SWITCH THE SYNTAX OFF AND ON (an OFF ends any open lists first)
 			bool turnsOn;
-			if (Notes::Syntax::IsSwitch(line, turnsOn))
+			if (!Verbatim.empty())
+			{
+				// copied as written, lists left as they are, until the line with the environment's \end
+				Result.Text += line;
+				if (line.find("\\end{" + Verbatim + "}") != std::string::npos) Verbatim.clear();
+			}
+			else if (Notes::Syntax::IsSwitch(line, turnsOn))
 			{
 				Result.Text += (!turnsOn ? CloseLists(0) : "") + line;
 				enabled = turnsOn;
@@ -469,6 +510,7 @@ namespace
 			{
 				Result.Text += ProcessLine(line);
 			}
+			if (enabled && Verbatim.empty() && !Notes::Syntax::IsSwitch(line, turnsOn)) Verbatim = VerbatimOpenedIn(line, Options.Verbatim);
 
 			if (lastLine)
 			{

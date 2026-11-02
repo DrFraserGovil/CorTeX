@@ -27,6 +27,11 @@ namespace Notes
 
 	Sections Split(std::string_view text);
 
+	//! A title (which is LaTeX: it is typeset as the note's heading) as plain text, for showing outside LaTeX (the viewer's graph,
+	//! sidebar, search and tab): escaped characters (\& \% \$ \# \_ \{ \}) as themselves, ~ and \, as spaces, -- and --- as dashes, a
+	//! command applied to a group (\emph{x}) as the group's text, and other braces dropped. Anything else is left as written
+	std::string PlainText(std::string_view latex);
+
 	struct HeaderProblem
 	{
 		//! 1-based line within the header (and so within the file)

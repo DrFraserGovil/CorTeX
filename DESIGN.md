@@ -93,7 +93,7 @@ first occurrence wins (except where a field takes a list, below).
 
 | Key | Value | Meaning |
 |---|---|---|
-| `title` | text | **Required.** The note's display title, and one of its names |
+| `title` | text | **Required.** The note's display title, and one of its names. It is LaTeX, typeset as the note's heading, so `&` is written `\&`; the viewer (graph, sidebar, search, tab) shows it as plain text: `\&` as `&`, `--` as `–`, `\emph{x}` as `x` |
 | `alias`, `aliases` | comma-separated list | Further names the note can be linked by |
 | `redirect` | a name | Makes this note a *stub* which forwards to another note ([§5.3](#53-redirects)) |
 | `graph` | comma-separated: `hidden`, `loose` | How the note appears on graphs ([§9](#9-the-graph)) |
@@ -364,6 +364,9 @@ is processed like any other text.
 - A list ends at a blank line, or at a line that isn't a list item and is indented no further than the line that started the list.
   Lines indented further continue the current item. So a list under an indented heading ends at the next line at the heading's
   own indentation. Lines starting `\item` are left alone.
+- The inside of a verbatim environment (`verbatim`, `lstlisting`, `minted`, `comment`), up to its `\end` line, is copied exactly as
+  written. It has no CorTeX syntax and doesn't end a list, so a listing whose `\begin` is indented under an item stays in that item,
+  however its contents are indented.
 
 ### 7.4 Switching it off
 
@@ -484,11 +487,13 @@ relates to: every country mentions Earth, but that doesn't make it related to ev
 
 ### 9.3 A note's own graph
 
-Shown under each note: the note fixed at the centre, with everything within the chosen *depth* (1, 2 or 3 links, in either
+Shown under each note: the note and everything within the chosen *depth* (1, 2 or 3 links, in either
 direction, or All). Notes further away are drawn fainter. The depth choice is remembered in the reader's browser.
 
-Whatever the depth, the graph opens zoomed in on the note and its immediate neighbours (those one link away); the reader zooms or
-pans out to see the rest.
+At depths 1 to 3, only those notes (and the links between them) are laid out, so nothing beyond the depth is drawn or pushes on
+them. At All, the graph is the project graph itself, laid out exactly as on the graph page, so every note is where it is there. Either
+way the note is laid out like any other, but the view stays centred on it. Whatever the depth, the graph opens zoomed to fit the note's
+immediate neighbours (those one link away) around it; the reader zooms or pans out to see the rest.
 
 ### 9.4 The project graph
 

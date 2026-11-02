@@ -61,6 +61,7 @@ function folderPoints(nodes, spring, cx, cy) {
    - settings: {layout, folderPull, folderRepulsion}, as graphSettings() gives them; rings places each folder at its own point
      (folderPoints), instead of pulling every note towards the middle
    - pin: a note held fixed in the middle
+   - start: a note started in the middle, but free to move like any other
    - springLength, repulsion: the scale of the layout
    The same model and options always give the same layout */
 function layoutGraph(model, width, height, options) {
@@ -108,7 +109,7 @@ function layoutGraph(model, width, height, options) {
 		// where the layout pulls the note: the middle, or (with rings) its folder's point, moved towards the middle by folder-pull
 		node.homeX = point ? point.x + (width / 2 - point.x) * folderPull : width / 2;
 		node.homeY = point ? point.y + (height / 2 - point.y) * folderPull : height / 2;
-		if (n.id === options.pin) { node.x = width / 2; node.y = height / 2; node.pinned = true; }
+		if (n.id === options.pin || n.id === options.start) { node.x = width / 2; node.y = height / 2; node.pinned = n.id === options.pin; }
 		return node;
 	});
 	const byId = new Map(nodes.map(n => [n.id, n]));

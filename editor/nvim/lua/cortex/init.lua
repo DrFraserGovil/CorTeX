@@ -204,6 +204,57 @@ local function highlighting()
 	vim.api.nvim_create_autocmd("BufWipeout", { callback = function(args) cache[args.buf] = nil end })
 end
 
+--- NEW NOTES
+
+-- a title from a file name: dashes and underscores as spaces, each word capitalised (chocolate-cake: Chocolate Cake)
+local function title_of(file)
+	local words = vim.fn.fnamemodify(file, ":t:r"):gsub("[-_]+", " ")
+	return vim.trim((words:gsub("(%w)(%w*)", function(first, rest) return first:upper() .. rest end)))
+end
+
+-- Opens the note at path (relative to the working directory, as :edit takes it, or with from_file to the current file's folder; .ctx
+-- added unless it ends .ctx or .tex). A new one is
+-- given its header, a title made from its file name, an empty alias line and the separator, but isn't saved: a note abandoned unsaved
+-- never exists. Its folders are made when it's first saved. An existing file is just opened
+function M.new_note(path, from_file)
+	path = vim.trim(path or "")
+	if path == "" then return vim.notify("CortexNote: give the note's path", vim.log.levels.WARN) end
+	if not (path:match("%.ctx$") or path:match("%.tex$")) then path = path .. ".ctx" end
+	path = vim.fn.expand(path)
+	local current = vim.api.nvim_buf_get_name(0)
+	if from_file and current ~= "" and not vim.startswith(path, "/") then path = vim.fs.dirname(current) .. "/" .. path end
+	local file = vim.fs.normalize(vim.fn.fnamemodify(path, ":p"))
+	local exists = vim.uv.fs_stat(file) ~= nil
+
+	vim.cmd.edit(vim.fn.fnameescape(file))
+	if exists then return end
+	local buf = vim.api.nvim_get_current_buf()
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "title: " .. title_of(file), "alias: ", "---------------", "" })
+	vim.api.nvim_win_set_cursor(0, { 4, 0 })
+	vim.api.nvim_create_autocmd("BufWritePre", {
+		buffer = buf,
+		once = true,
+		callback = function() vim.fn.mkdir(vim.fs.dirname(file), "p") end,
+	})
+end
+
+-- Completes :CortexNote's path from where it will be taken: the current file's folder with !, else the working directory. Folders
+-- end in /, so completion carries on into them
+local function complete_note(lead, line)
+	local current = vim.api.nvim_buf_get_name(0)
+	local bang = line:match("^[%s:]*%a+!") ~= nil
+	local base = (vim.startswith(lead, "/") or vim.startswith(lead, "~")) and ""
+		or ((bang and current ~= "") and vim.fs.dirname(current) or vim.fn.getcwd()) .. "/"
+	local out = {}
+	for _, match in ipairs(vim.fn.glob(base .. lead .. "*", false, true)) do
+		local shown = base == "" and match or match:sub(#base + 1)
+		if lead:sub(1, 1) == "~" then shown = vim.fn.fnamemodify(shown, ":~") end
+		if vim.fn.isdirectory(match) == 1 then shown = shown .. "/" end
+		table.insert(out, shown)
+	end
+	return out
+end
+
 --- SETUP
 
 function M.setup(options)
@@ -213,6 +264,10 @@ function M.setup(options)
 	colours()
 	vim.api.nvim_create_autocmd("ColorScheme", { group = vim.api.nvim_create_augroup("cortex-colours", { clear = true }), callback = colours })
 	if M.options.highlight then highlighting() end
+	-- :CortexNote a/b/chocolate opens a/b/chocolate.ctx; a new one gets its header, with the title Chocolate. With !, the path is from
+	-- the current file's folder rather than the working directory
+	vim.api.nvim_create_user_command("CortexNote", function(args) M.new_note(args.args, args.bang) end,
+		{ nargs = 1, bang = true, complete = complete_note, desc = "Open a CorTeX note, with its header written if it's new" })
 
 	local group = vim.api.nvim_create_augroup("cortex", { clear = true })
 	vim.api.nvim_create_autocmd("FileType", {

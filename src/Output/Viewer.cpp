@@ -1,5 +1,6 @@
 #include "Viewer.h"
 #include "Layout.h"
+#include "Notes/Header.h"
 #include "Platform/Process.h"
 #include "Util/Files.h"
 #include "Util/Text.h"
@@ -45,7 +46,7 @@ namespace
 		{
 			auto &item = items[i];
 			auto target = item.Target.empty() ? nullptr : network.Find(item.Target);
-			auto label = !item.Label.empty() ? item.Label : target ? target->Source->Fields.Title : item.Text;
+			auto label = Notes::PlainText(!item.Label.empty() ? item.Label : target ? target->Source->Fields.Title : item.Text);
 			out += (i > 0 ? "," : "") + std::string("{\"label\":") + Json(label) + ",\"slug\":" + Json(item.Slug) + ",\"target\":" + IdOrNull(item.Target) + "}";
 		}
 		return out + "]";
@@ -76,7 +77,7 @@ std::string Output::IndexJs(const Network::Network &network, const Build::BuildS
 		}
 
 		js += (i > 0 ? ",\n" : "");
-		js += "{\"id\":" + Json(note.Id) + ",\"key\":" + Json(note.Key) + ",\"title\":" + Json(note.Fields.Title) + ",\"path\":" + Json(note.Path.generic_string());
+		js += "{\"id\":" + Json(note.Id) + ",\"key\":" + Json(note.Key) + ",\"title\":" + Json(Notes::PlainText(note.Fields.Title)) + ",\"path\":" + Json(note.Path.generic_string());
 		js += ",\"status\":" + Json(status) + ",\"diagnostic\":" + Json(diagnostic);
 		if (note.Fields.GraphHidden) js += ",\"graphHidden\":true";
 		if (note.Fields.Todo) js += ",\"todo\":" + Json(*note.Fields.Todo);
@@ -147,7 +148,7 @@ void Output::WriteNote(const std::filesystem::path &outputDir, const Notes::Note
 {
 	auto target = NoteFile(outputDir, note, false);
 	std::filesystem::create_directories(target.parent_path());
-	Util::WriteAtomic(target, "CortexNote({\"id\":" + Json(note.Id) + ",\"title\":" + Json(note.Fields.Title) + ",\"pages\":[" + Json(svg) + "]});\n");
+	Util::WriteAtomic(target, "CortexNote({\"id\":" + Json(note.Id) + ",\"title\":" + Json(Notes::PlainText(note.Fields.Title)) + ",\"pages\":[" + Json(svg) + "]});\n");
 }
 
 bool Output::WriteIndex(const std::filesystem::path &outputDir, const std::string &indexJs)

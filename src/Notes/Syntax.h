@@ -32,6 +32,8 @@
 //!  - a backslash and the character after it are always left alone, so \[[ is not a link (and \[[A,B]\] stays display maths), and \* \_ are never formatting
 //!  - maths is tracked through its delimiters ($...$, $$...$$, \(...\), \[...\]) and the standard maths environments (equation, align, gather,
 //!    multline, flalign, alignat, eqnarray, math, displaymath, and starred forms); other environments are never tracked. Problems produce warnings, never errors
+//!  - the inside of a verbatim environment (Options::Verbatim), up to and including its \end line, is copied as written: no syntax, no
+//!    labels, and it neither opens nor ends star lists, so a listing can sit inside an item
 namespace Notes::Syntax
 {
 	struct Options
@@ -42,6 +44,8 @@ namespace Notes::Syntax
 		std::string ListType = "itemize";
 		//! The key of the note being processed, written into every reference so they resolve from their origin
 		std::string Origin;
+		//! The environments whose contents are copied as written
+		std::vector<std::string> Verbatim = {"verbatim", "lstlisting", "minted", "comment"};
 	};
 
 	struct Warning
