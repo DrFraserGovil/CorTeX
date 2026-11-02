@@ -35,6 +35,30 @@ namespace Lsp
 		std::mutex Writing;
 	};
 
+	//! One build's progress, shown by the editor as LSP work-done progress (window/workDoneProgress/create, then $/progress): begun at
+	//! the first note compiled, so a build which compiles nothing shows nothing; reported at each note; ended with the build
+	class BuildProgress
+	{
+	  public:
+		//! token names this build's progress to the editor, so must differ from every other build's
+		BuildProgress(Channel &io, std::string token) : Io(io), Token(std::move(token))
+		{
+		}
+
+		//! The note about to compile, and its place (from 1) among the notes compiling this round
+		void Compiling(const std::filesystem::path &note, size_t number, size_t of);
+		//! The build is over: failed is how many notes failed (or, with stopped, why the build stopped). Nothing is sent if nothing began
+		void End(size_t failed, const std::string &stopped = "");
+
+	  private:
+		void Progress(Json value);
+
+		Channel &Io;
+		std::string Token;
+		bool Begun = false;
+		size_t Compiled = 0; //!< every note compiled, across rounds
+	};
+
 	//! The standard JSON-RPC and LSP error codes the server uses
 	namespace Error
 	{

@@ -1,6 +1,8 @@
 #include "Process.h"
 #include <JSL.h>
+#include <algorithm>
 #include <cstdlib>
+#include <mutex>
 #include <thread>
 
 #if defined(_WIN32)
@@ -16,7 +18,15 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
+extern char **environ;
 #endif
+
+namespace
+{
+	//! Held while a child is being started. Builds start programs from several threads at once, and anything inheritable made for one
+	//! child (a pipe, an output file) mustn't be inherited by another started in between, which would hold it open until it exits
+	std::mutex Starting;
+}
 
 std::optional<std::filesystem::path> Platform::Find(const std::string &program)
 {
@@ -127,6 +137,7 @@ namespace
 		for (auto &[name, value] : variables) environment += name + L"=" + value + L'\0';
 		environment += L'\0';
 
+		std::lock_guard starting(Starting);
 		SECURITY_ATTRIBUTES inherit{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
 		HANDLE output = INVALID_HANDLE_VALUE;
 		auto outputPath = command.OutputFile.empty() ? std::filesystem::path("NUL") : command.OutputFile;
@@ -208,7 +219,7 @@ namespace
 		_exit(127);
 	}
 
-	[[noreturn]] void Become(const Platform::Command &command, const std::vector<char *> &argv, int report, bool detached)
+	[[noreturn]] void Become(const Platform::Command &command, const std::vector<char *> &argv, char **environment, int report, bool detached)
 	{
 		auto fail = [&](int error) { Fail(report, error); };
 		if (detached) setsid(); // its own session: closing whatever started cortex doesn't take it with it
@@ -220,6 +231,7 @@ namespace
 		dup2(output, STDOUT_FILENO);
 		dup2(output, STDERR_FILENO);
 		if (!command.WorkingDirectory.empty() && chdir(command.WorkingDirectory.c_str()) != 0) fail(errno);
+		environ = environment; // execvp passes environ on (and setenv isn't safe here: it allocates, and another thread may hold the allocator)
 		execvp(argv[0], argv.data());
 		Fail(report, errno);
 	}
@@ -236,7 +248,20 @@ namespace
 		std::vector<char *> argv;
 		for (auto &argument : command.Arguments) argv.push_back(const_cast<char *>(argument.c_str()));
 		argv.push_back(nullptr);
+		// the environment: everything inherited, with the command's variables replaced or added
+		std::vector<std::string> variables;
+		for (char **entry = environ; *entry; ++entry)
+		{
+			std::string_view text = *entry;
+			auto name = text.substr(0, text.find('='));
+			if (std::none_of(command.Environment.begin(), command.Environment.end(), [&](auto &v) { return v.first == name; })) variables.emplace_back(text);
+		}
+		for (auto &[name, value] : command.Environment) variables.push_back(name + "=" + value);
+		std::vector<char *> environment;
+		for (auto &variable : variables) environment.push_back(variable.data());
+		environment.push_back(nullptr);
 
+		std::unique_lock starting(Starting);
 		int report[2];
 		if (pipe(report) != 0)
 		{
@@ -257,10 +282,10 @@ namespace
 		if (child == 0)
 		{
 			close(report[0]);
-			for (auto &[name, value] : command.Environment) setenv(name.c_str(), value.c_str(), 1);
-			Become(command, argv, report[1], detached);
+			Become(command, argv, environment.data(), report[1], detached);
 		}
 		close(report[1]);
+		starting.unlock(); // the child's end of the pipe is closed here, so no other child can inherit it
 		int childError = 0;
 		auto got = read(report[0], &childError, sizeof(childError));
 		close(report[0]);

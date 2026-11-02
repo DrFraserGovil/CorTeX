@@ -177,7 +177,7 @@ places without a label can't be reached; there is no matching by heading text.
   number is always current after a build.
 - **Unresolved.** A label that can't be found is shown as `??` (as LaTeX does), with a warning. The reference still opens the
   target note, if there is one. A missing label never makes a wanted note.
-- **Following** a reference opens the note at the label's position and briefly highlights it. In PDF mode, it opens the target
+- **Following** a reference opens the note at the label's position. In PDF mode, it opens the target
   file at that position.
 - On the graph, a reference is a link to the note that owns the label, with the usual strength rules.
 - **On the same page.** If the label appears on the page being shown (written in the note itself, or in text transcluded into it),
@@ -398,7 +398,7 @@ The default output (`index.html` in the output folder) is a single web page that
 | `#/overview` | The overview |
 | `#/graph` | The project graph |
 | `#/n/<id>` | A note |
-| `#/l/<id>/<label>` | A note, scrolled to a label (the label's name in hexadecimal), whose line is briefly highlighted |
+| `#/l/<id>/<label>` | A note, scrolled to a label (the label's name in hexadecimal) |
 | `#/a/<slug>`, `#/a/<origin>/<slug>` | Follows a link: the note it resolves to, or the wanted note page |
 
 The browser's Back and Forward work throughout; following a link or a stub doesn't leave an intermediate page in the history.
@@ -578,6 +578,7 @@ editing the file. Invalid values are warned about and replaced by the default.
 | `width` | 25 | Text width of every note, in cm | all |
 | `margin` | 8 | Blank margin around every note, in pt | all |
 | `insert-title` | true | Typeset each note's title at its top | all |
+| `jobs` | 0 | How many notes compile at once; 0 is one per processor core | no |
 | `extended` | false | Enable the extended syntax ([§7](#7-extended-syntax)) | all |
 | `list-type` | itemize | Default environment for star lists (`itemize` or `enumerate`) | all |
 | `zoom` | 1.4 | Viewer's default note size, relative to printed size | no |
@@ -701,6 +702,7 @@ for Neovim. It offers:
 | Formatting | [§13.6](#136-formatting) |
 | Link colours | Semantic tokens: the target (and label) of every `[[…]]` in the body, marked `resolved` if it reaches a note (or label) and `unresolved` if not (a wanted note, a missing label, or malformed), with modifiers for `transclusion`, `label`, `loose` and `strong`. Re-sent after every build, since a new note can make a link resolve |
 | Diagnostics | Every problem from the build log which belongs to a file, at its line. A LaTeX failure goes in the file LaTeX stopped in, which may be a transcluded note |
+| Progress | While a build it runs compiles notes: each note as it starts (`maths/euler.ctx (3/12)`), then how many compiled and failed. Shown only for builds which compile something, and only by a server holding the project (a passive one builds nothing) |
 
 Answers use the text the editor has open, saved or not, and the rest of the project as last read.
 

@@ -12,6 +12,8 @@ Editing support for CorTeX notes (Neovim 0.11 or later):
   - hover (`K`) for a link's target;
   - references (`grr`): every link to the note under the cursor, or to the current note;
   - diagnostics from each build;
+  - build progress while notes compile (`maths/euler.ctx (3/12)`), shown wherever your setup shows LSP progress (noice, fidget,
+    or `vim.lsp.status()` in a statusline);
   - formatting;
   - **link colours**: each link's target is cyan if it reaches a note (or label) and red if it doesn't (a wanted note, a missing
     label, a malformed link). Links are re-coloured as you type, and after every build.

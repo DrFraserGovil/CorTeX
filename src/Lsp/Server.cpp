@@ -46,6 +46,9 @@ namespace
 		std::atomic<bool> Holder{false};
 		//! Whether the editor can be asked to re-request semantic tokens (once it is ready for requests from the server)
 		bool CanRefresh = false;
+		//! Whether the editor shows work-done progress (each build's, as it compiles)
+		bool CanShowProgress = false;
+		std::atomic<int> Builds{0};
 		std::atomic<bool> Ready{false};
 		std::atomic<int> Requests{0};
 
@@ -115,12 +118,24 @@ namespace
 		try
 		{
 			auto build = [&](bool clean) {
+				Lsp::BuildProgress progress(Io, "cortex-build-" + std::to_string(++Builds));
+				Build::Progress told;
+				if (CanShowProgress) told = [&](const std::filesystem::path &note, size_t number, size_t of) { progress.Compiling(note, number, of); };
 				try
 				{
-					App::BuildOnce(Root, clean, [&](Build::Scan &&scan, const Report::Log &report) { Publish(std::move(scan), report); });
+					size_t failed = 0;
+					App::BuildOnce(
+						Root, clean,
+						[&](Build::Scan &&scan, const Report::Log &report) {
+							failed = report.Count(Report::Kind::Failure);
+							Publish(std::move(scan), report);
+						},
+						told);
+					progress.End(failed);
 				}
 				catch (std::exception &e)
 				{
+					progress.End(0, e.what());
 					Show(1, std::string("the build failed: ") + e.what());
 				}
 			};
@@ -197,6 +212,7 @@ namespace
 		}
 		const char *encodingName = Encoding == Lsp::Encoding::Utf8 ? "utf-8" : "utf-16";
 		CanRefresh = params.value("/capabilities/workspace/semanticTokens/refreshSupport"_json_pointer, false);
+		CanShowProgress = params.value("/capabilities/window/workDoneProgress"_json_pointer, false);
 
 		Rescan(); // so the first requests have something to answer from, before any build
 		Initialised = true;

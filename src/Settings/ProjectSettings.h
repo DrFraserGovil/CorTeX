@@ -73,6 +73,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @alias insert-title, title
 	//! @brief If true, each note's title is typeset at the top of the note (using the CortexTitle macro, which the preamble may redefine)
 	bool InsertTitle = true;
+
+	//! @alias jobs
+	//! @brief How many notes compile at once: 0 for one per processor core. Each is a separate XeLaTeX run, so lower it if a heavy preamble makes builds run short of memory. Changing it never recompiles notes
+	int CompileJobs = 0;
 #include "ProjectSettings.RenderSettings.autogen"
 };
 

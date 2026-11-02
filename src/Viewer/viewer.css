@@ -38,11 +38,9 @@ main { padding: 1em; flex: 1; min-width: 0; } /* without min-width, a wide note 
 a.cortex-link text, a.cortex-link tspan { fill: #1a5fb4; }
 a.cortex-link.unresolved text, a.cortex-link.unresolved tspan { fill: #c01c28; }
 a.cortex-link:hover text, a.cortex-link:hover tspan { fill: #0b3d75; }
-/* references to labels ([[#label]]): coloured like links; the line a reference leads to is flashed when the page scrolls to it */
+/* references to labels ([[#label]]): coloured like links */
 a.cortex-ref text, a.cortex-ref tspan { fill: #1a5fb4; }
 a.cortex-ref:hover text, a.cortex-ref:hover tspan { fill: #0b3d75; }
-.cortex-label-flash { fill: #f6d32d; opacity: 0; animation: cortex-flash 2.5s ease-out; pointer-events: none; }
-@keyframes cortex-flash { 0% { opacity: 0.55; } 60% { opacity: 0.4; } 100% { opacity: 0; } }
 .backlinks { border-top: 1px solid #ccc; padding-top: 0.5em; color: #555; }
 .backlinks h3 { margin: 0.2em 0; font-size: 1em; }
 .graph-page h1 { margin-top: 0; }

@@ -170,3 +170,32 @@ size_t Lsp::CharacterOf(std::string_view line, size_t byte, Encoding encoding)
 	}
 	return units;
 }
+
+void Lsp::BuildProgress::Progress(Json value)
+{
+	Io.Notify("$/progress", {{"token", Token}, {"value", std::move(value)}});
+}
+
+void Lsp::BuildProgress::Compiling(const std::filesystem::path &note, size_t number, size_t of)
+{
+	if (!Begun)
+	{
+		Begun = true;
+		// a request, whose answer the server doesn't wait for: the editor handles messages in order, so the token exists by the first $/progress
+		Io.Send({{"jsonrpc", "2.0"}, {"id", "cortex-progress-" + Token}, {"method", "window/workDoneProgress/create"}, {"params", {{"token", Token}}}});
+		Progress({{"kind", "begin"}, {"title", "Building"}, {"cancellable", false}, {"percentage", 0}});
+	}
+	++Compiled;
+	auto percentage = of ? static_cast<int>((number - 1) * 100 / of) : 0;
+	Progress({{"kind", "report"}, {"message", note.generic_string() + " (" + std::to_string(number) + "/" + std::to_string(of) + ")"}, {"percentage", percentage}});
+}
+
+void Lsp::BuildProgress::End(size_t failed, const std::string &stopped)
+{
+	if (!Begun) return;
+	Begun = false;
+	std::string message = std::to_string(Compiled) + (Compiled == 1 ? " note" : " notes") + " compiled";
+	if (failed) message += ", " + std::to_string(failed) + " failed";
+	if (!stopped.empty()) message = "stopped: " + stopped;
+	Progress({{"kind", "end"}, {"message", message}});
+}

@@ -54,22 +54,57 @@ namespace
 	class Compiling
 	{
 	  public:
-		Compiling(const Build::Scan &scan, const Build::Plan &plan, Build::BuildState &state, std::filesystem::path outputDir, Report::Log &report)
-			: Scan(scan), Plan(plan), State(state), OutputDir(std::move(outputDir)), Report(report),
+		Compiling(const Build::Scan &scan, const Build::Plan &plan, Build::BuildState &state, std::filesystem::path outputDir, Report::Log &report,
+				  const Build::Progress &progress)
+			: Scan(scan), Plan(plan), State(state), OutputDir(std::move(outputDir)), Report(report), Progress(progress),
 			  Compiler(scan.Paths.Build, scan.Paths.Class, scan.Paths.Fragments, ReadPreamble(scan), scan.Config.Compilation)
 		{
 		}
 
-		//! Compiles each note; then, if that changed any label's number, the notes showing it compile once more
+		//! Compiles each note, several at once (the jobs setting); then, if that changed any label's number, the notes showing it compile
+		//! once more. Within a round, every note sees the build state as it was before the round: outcomes are recorded once it ends, in
+		//! the notes' order, so the build log reads the same however the work was shared out
 		void Run(std::vector<const Notes::Note *> notes)
 		{
 			size_t round = 0;
 			while (!notes.empty() && round++ < 2)
 			{
-				for (size_t i = 0; i < notes.size(); ++i)
+				std::vector<Outcome> outcomes(notes.size());
+				std::mutex telling;
+				size_t started = 0;
+				auto compile = [&](size_t i) {
+					{
+						std::lock_guard lock(telling);
+						++started;
+						LOG(INFO) << "[" << started << "/" << notes.size() << "] " << notes[i]->Path.generic_string();
+						if (Progress) Progress(notes[i]->Path, started, notes.size());
+					}
+					try
+					{
+						outcomes[i] = Compile(*notes[i]);
+					}
+					catch (...)
+					{
+						outcomes[i].Thrown = std::current_exception();
+					}
+				};
+				size_t jobs = std::min(Scan.Config.Compilation.Jobs, notes.size());
+				if (jobs <= 1)
 				{
-					LOG(INFO) << "[" << i + 1 << "/" << notes.size() << "] " << notes[i]->Path.generic_string();
-					Compile(*notes[i]);
+					for (size_t i = 0; i < notes.size(); ++i) compile(i);
+				}
+				else
+				{
+					JSL::Async::Pool pool(jobs);
+					pool.LoopTask(notes.size(), compile, JSL::Async::DistributionPolicy::Balanced);
+					pool.Synchronise();
+				}
+				for (auto &outcome : outcomes)
+				{
+					if (outcome.Thrown) std::rethrow_exception(outcome.Thrown);
+					Report.Absorb(std::move(outcome.Log));
+					if (!outcome.Record.Succeeded) ++Failures;
+					State.Records[outcome.Record.Id] = std::move(outcome.Record);
 				}
 				// a note's page shows the numbers of the labels it refers to, as their owners last printed them: compiling may have
 				// changed some, which changes the pages that show them (and so their hashes)
@@ -91,11 +126,23 @@ namespace
 		Build::BuildState &State;
 		std::filesystem::path OutputDir;
 		Report::Log &Report;
+		const Build::Progress &Progress;
 		Tex::Compiler Compiler;
 
-		void Compile(const Notes::Note &note)
+		//! What compiling one note did: recorded in the build state and report once its round is over
+		struct Outcome
 		{
-			Report.Account("Compiling " + note.Path.generic_string());
+			Build::Record Record;
+			Report::Log Log;
+			std::exception_ptr Thrown;
+		};
+
+		//! Compiles one note, safely alongside others: it only reads the build state, and writes nothing but the note's own files
+		Outcome Compile(const Notes::Note &note) const
+		{
+			Outcome outcome;
+			auto &log = outcome.Log; // this note's own account, merged into the build's in order
+			log.Account("Compiling " + note.Path.generic_string());
 			auto job = Plan.JobFor(note, State);
 			auto previous = State.Records.find(note.Id);
 			Build::Record record{note.Id, Build::Plan::Hash(job), false, false, "", {}, {}};
@@ -111,7 +158,7 @@ namespace
 			else if (result.Output)
 			{
 				auto svg = Tex::ConvertToSvg(*result.Output, note.Source.parent_path(), result.Inputs);
-				for (auto &warning : svg.Warnings) Report.Add(Report::Kind::Note, warning, note.Path);
+				for (auto &warning : svg.Warnings) log.Add(Report::Kind::Note, warning, note.Path);
 				if (svg.Svg) Output::WriteNote(OutputDir, note, *svg.Svg);
 				else error = svg.Error;
 			}
@@ -124,22 +171,22 @@ namespace
 			if (record.Succeeded)
 			{
 				record.Dependencies = Dependencies(result.Inputs);
-				WarnAboutInputs(note, record.Dependencies);
+				WarnAboutInputs(note, record.Dependencies, log);
 				// only the labels the note owns: those of notes transcluded into it belong to them
 				for (auto &label : note.Labels)
 				{
 					if (auto text = result.Labels.find(label.Name); text != result.Labels.end()) record.Labels[label.Name] = text->second;
 				}
-				for (auto &warning : result.LabelWarnings) Report.Add(Report::Kind::Label, "LaTeX: " + warning, note.Path);
+				for (auto &warning : result.LabelWarnings) log.Add(Report::Kind::Label, "LaTeX: " + warning, note.Path);
 			}
 			else
 			{
 				if (previous != State.Records.end()) record.Labels = previous->second.Labels;
-				Report.Add(Report::Kind::Failure, error, note.Path);
-				Report.Account("  failed: " + error);
-				++Failures;
+				log.Add(Report::Kind::Failure, error, note.Path);
+				log.Account("  failed: " + error);
 			}
-			State.Records[note.Id] = record;
+			outcome.Record = std::move(record);
+			return outcome;
 		}
 
 		// The project's own files TeX read (\input files, local packages, images), with their hashes. Files outside the project are the
@@ -156,7 +203,7 @@ namespace
 		}
 
 		// \input of a note, or of a file with [[links]], is almost certainly a mistake: say so
-		void WarnAboutInputs(const Notes::Note &note, const std::vector<std::pair<std::string, std::string>> &dependencies)
+		void WarnAboutInputs(const Notes::Note &note, const std::vector<std::pair<std::string, std::string>> &dependencies, Report::Log &log) const
 		{
 			for (auto &[path, hash] : dependencies)
 			{
@@ -167,12 +214,12 @@ namespace
 				std::vector<Notes::HeaderProblem> ignored;
 				if (sections.HasHeader && !Notes::Header::Parse(sections.Header, ignored).Title.empty())
 				{
-					Report.Add(Report::Kind::Note, "uses \\input on " + path + ", which is a CorTeX note: its header will be typeset as text. To include a note, transclude it with [[!...]]",
+					log.Add(Report::Kind::Note, "uses \\input on " + path + ", which is a CorTeX note: its header will be typeset as text. To include a note, transclude it with [[!...]]",
 							   note.Path);
 				}
 				else if (!Notes::Syntax::Process(text).References.empty())
 				{
-					Report.Add(Report::Kind::Note, path + " (\\input by " + note.Path.generic_string() + ") contains [[links]], which only work in notes: in an \\input file they appear as written",
+					log.Add(Report::Kind::Note, path + " (\\input by " + note.Path.generic_string() + ") contains [[links]], which only work in notes: in an \\input file they appear as written",
 							   path);
 				}
 			}
@@ -219,7 +266,7 @@ std::string Build::IndexJs(const Scan &scan, const BuildState &state, bool forSh
 	return Output::IndexJs(scan.Net, state, scan.Config, {scan.Registry.Name, forSharing}, report);
 }
 
-void Build::Update(const Scan &scan, Report::Log &report)
+void Build::Update(const Scan &scan, Report::Log &report, const Progress &progress)
 {
 	bool pdf = scan.Config.Compilation.Pdf;
 	CheckPrerequisites(pdf);
@@ -250,7 +297,7 @@ void Build::Update(const Scan &scan, Report::Log &report)
 
 	/// COMPILE THEM, STRAIGHT INTO THE OUTPUT
 	state.GlobalHash = global;
-	Compiling compiling(scan, plan, state, paths.Output, report);
+	Compiling compiling(scan, plan, state, paths.Output, report, progress);
 	compiling.Run(dirty);
 
 	/// RECORD, INDEX AND TIDY UP
@@ -267,7 +314,7 @@ void Build::Update(const Scan &scan, Report::Log &report)
 	if (!pdf && (indexChanged || !dirty.empty())) Output::WriteVersion(paths.Output);
 }
 
-void Build::Rebuild(const Scan &scan, Report::Log &report)
+void Build::Rebuild(const Scan &scan, Report::Log &report, const Progress &progress)
 {
 	bool pdf = scan.Config.Compilation.Pdf;
 	CheckPrerequisites(pdf);
@@ -285,7 +332,7 @@ void Build::Rebuild(const Scan &scan, Report::Log &report)
 	state.GlobalHash = GlobalHash(scan, ReadPreamble(scan));
 	auto notes = Compilable(scan);
 	report.Account("Rebuilding all " + std::to_string(notes.size()) + " notes");
-	Compiling compiling(scan, plan, state, paths.Staging, report);
+	Compiling compiling(scan, plan, state, paths.Staging, report, progress);
 	compiling.Run(notes);
 	if (!notes.empty() && compiling.Failures == notes.size())
 	{

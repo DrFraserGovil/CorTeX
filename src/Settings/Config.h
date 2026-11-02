@@ -27,8 +27,10 @@ namespace Settings
 		bool InsertTitle = true;
 		bool Extended = false;
 		std::string ListType = "itemize";
+		//! How many notes compile at once (at least 1); not part of the key, as it never changes what a note compiles to
+		size_t Jobs = 1;
 
-		//! A string which differs whenever any of these does, for a note's hash
+		//! A string which differs whenever any of these does (except Jobs), for a note's hash
 		std::string Key() const;
 	};
 

@@ -67,6 +67,41 @@ TEST_CASE("Messages are framed by Content-Length", "[lsp]")
 	CHECK(Json::parse(body)["result"] == "ok");
 }
 
+TEST_CASE("A build's progress: begun at its first note, reported at each, ended once", "[lsp]")
+{
+	auto sent = [](const std::function<void(Lsp::BuildProgress &)> &build) {
+		std::istringstream in;
+		std::ostringstream out;
+		Lsp::Channel channel(in, out);
+		Lsp::BuildProgress progress(channel, "t");
+		build(progress);
+		std::istringstream back(out.str());
+		Lsp::Channel reader(back, out);
+		std::vector<Json> messages;
+		while (auto message = reader.Read()) messages.push_back(*message);
+		return messages;
+	};
+
+	// nothing compiled: nothing shown
+	CHECK(sent([](auto &p) { p.End(0); }).empty());
+
+	auto messages = sent([](auto &p) {
+		p.Compiling("a.ctx", 1, 2);
+		p.Compiling("b/c.ctx", 2, 2);
+		p.End(1);
+	});
+	REQUIRE(messages.size() == 5);
+	CHECK(messages[0]["method"] == "window/workDoneProgress/create");
+	CHECK(messages[0]["params"]["token"] == "t");
+	CHECK(messages[1]["params"]["value"]["kind"] == "begin");
+	CHECK(messages[2]["params"]["value"]["message"] == "a.ctx (1/2)");
+	CHECK(messages[3]["params"]["value"]["message"] == "b/c.ctx (2/2)");
+	CHECK(messages[3]["params"]["value"]["percentage"] == 50);
+	CHECK(messages[4]["params"]["value"]["kind"] == "end");
+	CHECK(messages[4]["params"]["value"]["message"] == "2 notes compiled, 1 failed");
+	for (size_t i = 1; i < messages.size(); ++i) CHECK(messages[i]["method"] == "$/progress");
+}
+
 TEST_CASE("URIs and positions", "[lsp]")
 {
 	CHECK(Lsp::PathOf("file:///home/a%20b/n.ctx") == "/home/a b/n.ctx");

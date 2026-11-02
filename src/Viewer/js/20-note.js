@@ -9,7 +9,7 @@ function highlight(id) {
 let pendingLabel = null;
 let shownNote = null;
 
-// Scrolls to a label on the open note's page, and briefly highlights its line. The build marks each label's position with an empty
+// Scrolls to a label on the open note's page, putting it a third of the way down the window. The build marks each label's position with an empty
 // element (class cortex-label) holding its coordinates within the page's SVG
 function scrollToLabel(hex) {
 	const mark = document.querySelector('#note .cortex-label[data-label="' + hex + '"]');
@@ -20,17 +20,6 @@ function scrollToLabel(hex) {
 	point.x = x; point.y = y;
 	const onScreen = point.matrixTransform(mark.getScreenCTM());
 	window.scrollBy({ top: onScreen.y - window.innerHeight / 3 });
-
-	// a band across the page at the label's line, which fades out
-	const box = svg.viewBox.baseVal;
-	const band = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-	band.setAttribute("class", "cortex-label-flash");
-	band.setAttribute("x", box.x);
-	band.setAttribute("width", box.width);
-	band.setAttribute("y", y - 12);
-	band.setAttribute("height", 16);
-	mark.parentNode.insertBefore(band, mark);
-	setTimeout(() => band.remove(), 2500);
 }
 
 // Called by notes/<id>.js once it has loaded

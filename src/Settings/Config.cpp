@@ -3,6 +3,7 @@
 #include "Util/Files.h"
 #include <JSL.h>
 #include <algorithm>
+#include <thread>
 
 std::string Settings::Compile::Key() const
 {
@@ -85,6 +86,8 @@ Settings::Config Settings::Config::From(const std::filesystem::path &root, const
 		compile.MarginPT = 8;
 	}
 	compile.InsertTitle = settings.Render.InsertTitle;
+	if (settings.Render.CompileJobs < 0) invalid("jobs must be 0 (one per core) or more; using one per core");
+	compile.Jobs = settings.Render.CompileJobs > 0 ? static_cast<size_t>(settings.Render.CompileJobs) : std::max(1u, std::thread::hardware_concurrency());
 	compile.Extended = settings.Syntax.ExtendedSyntax;
 	compile.ListType = settings.Syntax.DefaultListType;
 	if (compile.ListType != "itemize" && compile.ListType != "enumerate")
