@@ -55,9 +55,10 @@ namespace
 	{
 	  public:
 		Compiling(const Build::Scan &scan, const Build::Plan &plan, Build::BuildState &state, std::filesystem::path outputDir, Report::Log &report,
-				  const Build::Progress &progress)
-			: Scan(scan), Plan(plan), State(state), OutputDir(std::move(outputDir)), Report(report), Progress(progress),
-			  Compiler(scan.Paths.Build, scan.Paths.Class, scan.Paths.Fragments, ReadPreamble(scan), scan.Config.Compilation)
+				  const Build::Options &options)
+			: Scan(scan), Plan(plan), State(state), OutputDir(std::move(outputDir)), Report(report), Progress(options.Told),
+			  Compiler(scan.Paths.Build, scan.Paths.Class, scan.Paths.Fragments, ReadPreamble(scan), scan.Config.Compilation, options.Warm, scan.Paths.Warm,
+					   scan.Paths.Root)
 		{
 		}
 
@@ -89,6 +90,9 @@ namespace
 					}
 				};
 				size_t jobs = std::min(Scan.Config.Compilation.Jobs, notes.size());
+				// warm workers for a round which compiles all at once (a save, and what it touches); a bigger one is a bulk build, which
+				// parallel compiles already speed up, and where workers would be started in one folder after another for nothing
+				Warmed = notes.size() <= Scan.Config.Compilation.Jobs;
 				if (jobs <= 1)
 				{
 					for (size_t i = 0; i < notes.size(); ++i) compile(i);
@@ -119,6 +123,7 @@ namespace
 		}
 
 		size_t Failures = 0;
+		bool Warmed = true; //!< whether this round's notes may use warm workers
 
 	  private:
 		const Build::Scan &Scan;
@@ -149,7 +154,8 @@ namespace
 			bool pdf = Scan.Config.Compilation.Pdf;
 
 			/// COMPILE, AND CONVERT IF NEEDED
-			auto result = Compiler.Compile(job);
+			auto result = Compiler.Compile(job, Warmed);
+			if (!result.WarmFailure.empty()) log.Account("  a warm XeLaTeX couldn't compile it (see " + result.WarmFailure + "), so it was compiled afresh");
 			std::string error = result.Error;
 			if (result.Output && pdf)
 			{
@@ -266,7 +272,7 @@ std::string Build::IndexJs(const Scan &scan, const BuildState &state, bool forSh
 	return Output::IndexJs(scan.Net, state, scan.Config, {scan.Registry.Name, forSharing}, report);
 }
 
-void Build::Update(const Scan &scan, Report::Log &report, const Progress &progress)
+void Build::Update(const Scan &scan, Report::Log &report, const Options &options)
 {
 	bool pdf = scan.Config.Compilation.Pdf;
 	CheckPrerequisites(pdf);
@@ -297,7 +303,7 @@ void Build::Update(const Scan &scan, Report::Log &report, const Progress &progre
 
 	/// COMPILE THEM, STRAIGHT INTO THE OUTPUT
 	state.GlobalHash = global;
-	Compiling compiling(scan, plan, state, paths.Output, report, progress);
+	Compiling compiling(scan, plan, state, paths.Output, report, options);
 	compiling.Run(dirty);
 
 	/// RECORD, INDEX AND TIDY UP
@@ -314,7 +320,7 @@ void Build::Update(const Scan &scan, Report::Log &report, const Progress &progre
 	if (!pdf && (indexChanged || !dirty.empty())) Output::WriteVersion(paths.Output);
 }
 
-void Build::Rebuild(const Scan &scan, Report::Log &report, const Progress &progress)
+void Build::Rebuild(const Scan &scan, Report::Log &report, const Options &options)
 {
 	bool pdf = scan.Config.Compilation.Pdf;
 	CheckPrerequisites(pdf);
@@ -332,7 +338,7 @@ void Build::Rebuild(const Scan &scan, Report::Log &report, const Progress &progr
 	state.GlobalHash = GlobalHash(scan, ReadPreamble(scan));
 	auto notes = Compilable(scan);
 	report.Account("Rebuilding all " + std::to_string(notes.size()) + " notes");
-	Compiling compiling(scan, plan, state, paths.Staging, report, progress);
+	Compiling compiling(scan, plan, state, paths.Staging, report, options);
 	compiling.Run(notes);
 	if (!notes.empty() && compiling.Failures == notes.size())
 	{

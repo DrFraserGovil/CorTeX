@@ -140,6 +140,13 @@ TEST_CASE("Completion offers names in links and header fields, and labels after 
 	auto sidebarItems = Lsp::Complete(Scan(), sidebar.Document, sidebar.Position, Utf8);
 	REQUIRE_FALSE(sidebarItems.empty());
 	CHECK(sidebarItems[0]["textEdit"]["range"]["start"]["character"] == 15);
+	auto heading = At("home.tex", "title: X\nsidebar: Beta, [Al|\n-----\n");
+	CHECK(Lsp::Complete(Scan(), heading.Document, heading.Position, Utf8).empty()); // a [Heading] is free text
+	auto copy = At("home.tex", "title: X\ncopy-sidebar: Beta, Al|\n-----\n");
+	auto copyItems = Lsp::Complete(Scan(), copy.Document, copy.Position, Utf8);
+	CHECK(Has(Labels(copyItems), "Alpha"));
+	REQUIRE_FALSE(copyItems.empty());
+	CHECK(copyItems[0]["textEdit"]["range"]["start"]["character"] == 20);
 }
 
 TEST_CASE("Definition follows links, redirects and labels", "[lsp]")

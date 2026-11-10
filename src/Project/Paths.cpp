@@ -2,7 +2,7 @@
 
 Project::Paths::Paths(const std::filesystem::path &root, const std::filesystem::path &output)
 	: Root(root), Cortex(root / ".cortex"), Settings(Cortex / "settings.config"), Registry(Cortex / "registry.config"), Preamble(Cortex / "preamble.tex"),
-	  Output(output), Build(Cortex / "build"), Fragments(Cortex / "fragments"), Class(Cortex / "class"), Staging(Cortex / "staging"), Previous(Cortex / "previous"),
+	  Output(output), Build(Cortex / "build"), Fragments(Cortex / "fragments"), Class(Cortex / "class"), Warm(Cortex / "warm"), Staging(Cortex / "staging"), Previous(Cortex / "previous"),
 	  State(Cortex / "buildstate.tsv"), Log(Cortex / "build.log")
 {
 }

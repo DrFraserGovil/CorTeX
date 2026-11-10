@@ -77,6 +77,10 @@ class RenderSettings : public JSL::Interface::Aggregator<RenderSettings>
 	//! @alias jobs
 	//! @brief How many notes compile at once: 0 for one per processor core. Each is a separate XeLaTeX run, so lower it if a heavy preamble makes builds run short of memory. Changing it never recompiles notes
 	int CompileJobs = 0;
+
+	//! @alias warm
+	//! @brief How many XeLaTeX runs a watch (or an editor's language server) keeps waiting with the project preamble already loaded, so that a note compiles without loading it again: a heavy preamble can be most of a note's compile time. Each holds the loaded preamble in memory (often 100 to 300 MB); 0 turns them off. Changing it never recompiles notes
+	int WarmWorkers = 2;
 #include "ProjectSettings.RenderSettings.autogen"
 };
 

@@ -151,7 +151,7 @@ Notes::Header Notes::Header::Parse(const std::vector<std::string> &lines, std::v
 		if (key.empty()) continue;
 		if (key == "aliases") key = "alias";
 		// the first occurrence wins, except for the fields which take lists: every line of those adds to the list
-		bool list = key == "alias" || key == "sidebar" || key == "graph";
+		bool list = key == "alias" || key == "sidebar" || key == "copy-sidebar" || key == "graph";
 		if (!list && std::find(seen.begin(), seen.end(), key) != seen.end()) continue;
 		seen.push_back(key);
 		auto value = JSL::String::trim(std::string_view(line).substr(line.find(':') + 1));
@@ -171,6 +171,10 @@ Notes::Header Notes::Header::Parse(const std::vector<std::string> &lines, std::v
 		else if (key == "sidebar")
 		{
 			for (auto &item : List(value)) header.Sidebar.push_back(item);
+		}
+		else if (key == "copy-sidebar")
+		{
+			for (auto &name : List(value)) header.CopySidebar.push_back(name);
 		}
 		else if (key == "graph")
 		{

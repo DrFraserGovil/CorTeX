@@ -7,7 +7,7 @@ Editing support for CorTeX notes (Neovim 0.11 or later):
   usual. Because the filetype isn't `tex`, texlab no longer attaches to notes, so it doesn't compile fragments, run chktex or run
   latexindent on them.
 - **The language server** (`cortex lsp`), started for any note:
-  - completion of note names after `[[`, labels after `#`, and names on `redirect:` and `sidebar:` header lines;
+  - completion of note names after `[[`, labels after `#`, and names on `redirect:`, `sidebar:` and `copy-sidebar:` header lines;
   - go to definition (`gd`, or `<C-]>`) on links, transclusions and label references;
   - hover (`K`) for a link's target;
   - references (`grr`): every link to the note under the cursor, or to the current note;
@@ -22,6 +22,8 @@ Editing support for CorTeX notes (Neovim 0.11 or later):
   and each word capitalised), an empty `alias:` line and the separator. Nothing is written until you save, and missing folders are
   made then. An existing note is just opened. `:CortexNote!` takes the path from the current file's folder instead, so
   `:CortexNote! ../chocolate` makes a note in the folder above the current note's.
+- **`:CortexPreamble`** and **`:CortexRegistry`** open the current project's `.cortex/preamble.tex` and `.cortex/registry.config`
+  (the project of the current file, else of the working directory).
 - **Format on save**, using `cortex format`'s rules and your project's `format-*` settings.
 - **Highlighting** of CorTeX's own syntax on top of treesitter: the header, separators, `[[markers target#label|text]]`,
   `#` headings and star lists (when the project uses extended syntax), and `% cortex off` regions.

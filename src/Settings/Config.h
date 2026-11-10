@@ -29,6 +29,8 @@ namespace Settings
 		std::string ListType = "itemize";
 		//! How many notes compile at once (at least 1); not part of the key, as it never changes what a note compiles to
 		size_t Jobs = 1;
+		//! How many warm workers a watch or language server keeps waiting (0: none); not part of the key either
+		size_t Warm = 2;
 
 		//! A string which differs whenever any of these does (except Jobs), for a note's hash
 		std::string Key() const;

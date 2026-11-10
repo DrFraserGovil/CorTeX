@@ -255,6 +255,21 @@ local function complete_note(lead, line)
 	return out
 end
 
+--- THE PROJECT'S OWN FILES
+
+-- Opens one of the current project's files in .cortex (the project of the current file, else of the working directory). For the
+-- registry, its old name (registry.ctx) if that's all there is
+function M.open_project_file(name, command)
+	local current = vim.api.nvim_buf_get_name(0)
+	local root = vim.fs.root(current ~= "" and current or vim.fn.getcwd(), ".cortex")
+	if not root then return vim.notify(command .. ": not in a CorTeX project", vim.log.levels.WARN) end
+	local file = root .. "/.cortex/" .. name
+	if name == "registry.config" and not vim.uv.fs_stat(file) and vim.uv.fs_stat(root .. "/.cortex/registry.ctx") then
+		file = root .. "/.cortex/registry.ctx"
+	end
+	vim.cmd.edit(vim.fn.fnameescape(file))
+end
+
 --- SETUP
 
 function M.setup(options)
@@ -268,6 +283,10 @@ function M.setup(options)
 	-- the current file's folder rather than the working directory
 	vim.api.nvim_create_user_command("CortexNote", function(args) M.new_note(args.args, args.bang) end,
 		{ nargs = 1, bang = true, complete = complete_note, desc = "Open a CorTeX note, with its header written if it's new" })
+	vim.api.nvim_create_user_command("CortexPreamble", function() M.open_project_file("preamble.tex", "CortexPreamble") end,
+		{ nargs = 0, desc = "Open the current CorTeX project's preamble" })
+	vim.api.nvim_create_user_command("CortexRegistry", function() M.open_project_file("registry.config", "CortexRegistry") end,
+		{ nargs = 0, desc = "Open the current CorTeX project's registry (its name and global sidebar)" })
 
 	local group = vim.api.nvim_create_augroup("cortex", { clear = true })
 	vim.api.nvim_create_autocmd("FileType", {

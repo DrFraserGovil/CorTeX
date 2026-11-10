@@ -53,10 +53,13 @@ namespace Notes
 		std::optional<bool> ShowTitle;
 		//! Set if the note is flagged as needing work, holding the reason (empty if none was given)
 		std::optional<std::string> Todo;
-		//! Extra sidebar entries, each "target" or "target|Label", as written
+		//! Extra sidebar entries, each "target", "target|Label" or "[Heading]" (starting a group), as written
 		std::vector<std::string> Sidebar;
+		//! Notes whose sidebars this one's begins with, as if written here (copy-sidebar: names, as written)
+		std::vector<std::string> CopySidebar;
 
-		//! Reads the header's lines: the first occurrence of a key wins, except that every line of a list field (alias, sidebar, graph)
+		//! Reads the header's lines: the first occurrence of a key wins, except that every line of a list field (alias, sidebar,
+		//! copy-sidebar, graph)
 		//! adds to it; unknown keys are ignored; unknown values are problems
 		static Header Parse(const std::vector<std::string> &lines, std::vector<HeaderProblem> &problems);
 	};

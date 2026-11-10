@@ -141,5 +141,60 @@ TEST_CASE("Sidebars", "[network]")
 	CHECK(f.Net.Sidebar[0].Items[1].Label == "Euler (label)");
 	CHECK(f.Net.Sidebar[1].Items[0].Target.empty());
 	CHECK(f.Reported(Report::Kind::Sidebar, "No Such Note"));
-	CHECK(f["home"].Sidebar[0].Target == "beta");
+	REQUIRE(f["home"].Sidebar.size() == 1);
+	CHECK(f["home"].Sidebar[0].Heading.empty());
+	CHECK(f["home"].Sidebar[0].Items[0].Target == "beta");
+}
+
+namespace
+{
+	Notes::Note Sidebarred(const std::string &id, const std::string &title, std::vector<std::string> copy, std::vector<std::string> own, const std::string &redirect = "")
+	{
+		Notes::Note note;
+		note.Path = id + ".tex";
+		note.Id = id;
+		note.Fields.Title = title;
+		note.Fields.CopySidebar = std::move(copy);
+		note.Fields.Sidebar = std::move(own);
+		note.Fields.Redirect = redirect;
+		return note;
+	}
+
+	// each group as "Heading: target, target", the unnamed group's heading as "-"
+	std::vector<std::string> Shape(const Network::Node &node)
+	{
+		std::vector<std::string> out;
+		for (auto &group : node.Sidebar)
+		{
+			std::string line = (group.Heading.empty() ? "-" : group.Heading) + ":";
+			for (size_t i = 0; i < group.Items.size(); ++i) line += (i ? ", " : " ") + (group.Items[i].Target.empty() ? "?" + group.Items[i].Text : group.Items[i].Target);
+			out.push_back(line);
+		}
+		return out;
+	}
+} // namespace
+
+TEST_CASE("A note's sidebar groups under [Heading]s, after the sidebars it copies", "[network]")
+{
+	Fixture f({Sidebarred("fam/parent", "Parent", {}, {"Alpha", "[Maths]", "Euler|E"}),
+			   Sidebarred("fam/child", "Child", {"Parent"}, {"Beta", "[Maths]", "Alpha", "[Other]", "Gamma"}),
+			   Sidebarred("fam/grand", "Grand", {"Child"}, {"[Other]", "Nowhere"})});
+	// the copied entries come first; each note's own list starts outside any heading; a target already shown is left out
+	CHECK(Shape(f["fam/child"]) == std::vector<std::string>{"-: alpha, beta", "Maths: maths/euler", "Other: gamma"});
+	CHECK(f["fam/child"].Sidebar[1].Items[0].Label == "E");
+	// transitive: a copy of a note copies what it copies
+	CHECK(Shape(f["fam/grand"]) == std::vector<std::string>{"-: alpha, beta", "Maths: maths/euler", "Other: gamma, ?Nowhere"});
+	CHECK(f.Reported(Report::Kind::Sidebar, "'Nowhere' matches no note"));
+}
+
+TEST_CASE("copy-sidebar follows redirects, and reports loops and names matching nothing", "[network]")
+{
+	Fixture f({Sidebarred("fam/parent", "Parent", {}, {"Alpha"}), Sidebarred("fam/old", "Old Parent", {}, {}, "Parent"),
+			   Sidebarred("fam/via", "Via", {"Old Parent", "No Such Parent"}, {"Beta"}),
+			   Sidebarred("loop/a", "Loop A", {"Loop B"}, {"Alpha"}), Sidebarred("loop/b", "Loop B", {"Loop A"}, {"Beta"})});
+	CHECK(Shape(f["fam/via"]) == std::vector<std::string>{"-: alpha, beta"});
+	CHECK(f.Reported(Report::Kind::Sidebar, "copy-sidebar 'No Such Parent' matches no note"));
+	CHECK(Shape(f["loop/a"]) == std::vector<std::string>{"-: beta, alpha"});
+	CHECK(Shape(f["loop/b"]) == std::vector<std::string>{"-: alpha, beta"});
+	CHECK(f.Reported(Report::Kind::Sidebar, "copy-sidebar loops (loop/a -> loop/b -> loop/a)"));
 }

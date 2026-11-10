@@ -99,7 +99,8 @@ first occurrence wins (except where a field takes a list, below).
 | `graph` | comma-separated: `hidden`, `loose` | How the note appears on graphs ([§9](#9-the-graph)) |
 | `show-title` | `yes`/`no` (`true`/`false`, `on`/`off`) | Overrides the project's `insert-title` setting for this note |
 | `todo` | optional text | Flags the note as needing work, with an optional reason. `yes`/`true`/`on` or empty flag it without a reason; `no`/`false`/`off` don't flag it |
-| `sidebar` | comma-separated list of `target` or `target\|Label` | Extra sidebar links shown while this note is open |
+| `sidebar` | comma-separated list of `target`, `target\|Label` or `[Heading]` | Extra sidebar links shown while this note is open, grouped under each `[Heading]` ([§8.6](#86-the-sidebar)) |
+| `copy-sidebar` | comma-separated list of names | Notes whose sidebars this note's begins with, as if written in its header ([§8.6](#86-the-sidebar)) |
 
 Unknown values for `graph` and `show-title` are warned about and ignored. Unknown keys are ignored.
 
@@ -218,8 +219,10 @@ Every note records its **backlinks**: the notes that link to or transclude it (e
 - The included body behaves as if written in place, except that it keeps its own frame of reference: its links resolve from its own
   note ([§4.3](#43-resolution)), and its relative file paths (`\includegraphics`, `\input`) resolve from its own folder. A note
   looks the same wherever it is included.
-- The target's local preamble is added to the including note's preamble. Lines already present in the project preamble or the
-  including note's local preamble are not repeated; any other conflict is an ordinary LaTeX error.
+- The target's local preamble is added to the including note's preamble. Statements already present in the project preamble or
+  the including note's local preamble are not repeated; any other conflict is an ordinary LaTeX error. A statement is compared
+  whole: it runs until its braces close, and on while the next line opens another argument (`{` or `[`), so a definition whose
+  body starts on its own line is one statement.
 - Transclusion nests: a transcluded note's own transclusions are included too.
 - A transclusion that would include a note inside itself, directly or through a chain, is not performed. Instead the text
   "circular transclusion" is shown in its place, and a warning names the line where it was written.
@@ -329,6 +332,31 @@ title setting, or the CorTeX version changes.
 
 Header changes (aliases, todo, sidebar, graph, redirects) and display settings recompile nothing, except notes whose transclusions
 (or, in PDF mode, links) now point somewhere else. Otherwise they only update the index.
+
+### 6.7 Compiling quickly
+
+Notes compile in parallel, `jobs` at once (one per processor core by default). Each round's outcomes are recorded in the notes'
+order once it ends, so the build log reads the same however the work was shared out.
+
+A process which builds the project repeatedly (a watch, or an editor's language server holding the project) also keeps **warm
+workers**: `warm` XeLaTeX runs (2 by default) started ahead of time, each paused just after the project preamble, waiting to be
+sent the rest of a page. A heavy preamble can be nearly all of a note's compile time, so a warm worker compiles a note in a fraction
+of it.
+
+- **Where they run.** A worker runs in the folder of the note it will compile, exactly as a fresh XeLaTeX would, so relative
+  `\input`s and images resolve the same way. The pool keeps its workers waiting in the folder of the last note compiled (the project
+  root at first), where the next is most likely to be; a note elsewhere starts XeLaTeX afresh, as without them.
+- **When they're used.** Only for rounds which compile all their notes at once (a save, and the notes it affects); a bigger round
+  is a bulk build, which parallel compiling already speeds up. One-shot `cortex build` and `cortex rebuild` never use them.
+- **Never worse than a fresh compile.** If any pass on a warm worker fails, the note is compiled afresh, and that result is kept, so
+  its errors are reported exactly as they would be. The build log notes each such fallback. If a waiting worker exits on its own
+  (the preamble can't load this way), the pool stops warming until the preamble or settings change.
+- **How they end.** A worker's input is a pipe from CorTeX, so if CorTeX exits, even by crashing, the worker reads the end of its
+  input and stops. CorTeX stops workers itself when the preamble, the class or the settings change, when the watch or server
+  stops, and after 10 minutes unused (each holds the loaded preamble in memory, often 100 to 300 MB); the next build starts them
+  again.
+- **What can differ.** A worker's job name isn't the note's, so a package keyed to `\jobname` (TikZ externalisation, `minted`) may
+  behave differently; `warm 0` turns workers off. They are not available on Windows.
 
 ---
 
@@ -440,12 +468,29 @@ From top to bottom:
 3. the logo (the `logo` setting), if any;
 4. on a note or wanted page, the *Editor* tools ([§10](#10-acting-on-the-project-from-the-viewer));
 5. search;
-6. the global sidebar, then the open note's own `sidebar:` entries.
+6. the global sidebar, then the open note's own sidebar (below).
 
 The global sidebar is written in `registry.config`, after a line `sidebar:`. Each following line is an entry, `target` or
 `target|Label`; a line `[Heading]` starts a new group; blank lines and `%` lines are ignored. Entries resolve like links (the
 global ones as if written at the root). An entry shows its label, else its target's title, else the text as written. An entry that
 matches nothing links to the wanted page, with a warning on each build.
+
+A note's own sidebar is written the same way, as items of its `sidebar:` header: a `[Heading]` item starts a group, and items
+before any heading go under *This note*. Entries resolve like links written in the note.
+
+`copy-sidebar: a, b` begins the note's sidebar with those notes' sidebars, in turn, exactly as if they were written in its own
+header: so the sidebar reads global, then copied, then the note's own. In particular:
+
+- copying is transitive (a note's copy of `a` includes whatever `a` copies), so sidebars can form a hierarchy;
+- copied entries resolve from the copying note, as if written there;
+- each note's own list starts outside any heading, so `a`'s last group doesn't swallow the copying note's ungrouped entries;
+- groups appear in the order their headings first appear, and a heading met again adds to its group;
+- a target already shown (in the global sidebar, or earlier in the note's) is left out;
+- names resolve like links (following redirects). A name matching nothing, or a loop of copies, is warned about on each build
+  and left out.
+
+Like any header field, a change recompiles nothing ([§6.6](#66-when-notes-are-recompiled)): a note's copied sidebar follows
+the notes it copies on the next build.
 
 ### 8.7 Live refresh
 
@@ -578,7 +623,8 @@ editing the file. Invalid values are warned about and replaced by the default.
 | `width` | 25 | Text width of every note, in cm | all |
 | `margin` | 8 | Blank margin around every note, in pt | all |
 | `insert-title` | true | Typeset each note's title at its top | all |
-| `jobs` | 0 | How many notes compile at once; 0 is one per processor core | no |
+| `jobs` | 0 | How many notes compile at once; 0 is one per processor core ([§6.7](#67-compiling-quickly)) | no |
+| `warm` | 2 | How many warm workers a watch or language server keeps waiting; 0 turns them off ([§6.7](#67-compiling-quickly)) | no |
 | `extended` | false | Enable the extended syntax ([§7](#7-extended-syntax)) | all |
 | `list-type` | itemize | Default environment for star lists (`itemize` or `enumerate`) | all |
 | `zoom` | 1.4 | Viewer's default note size, relative to printed size | no |
@@ -695,7 +741,7 @@ for Neovim. It offers:
 
 | Feature | What it does |
 |---|---|
-| Completion | Note names (titles and aliases) inside `[[`; labels after `#` (the target's, or every note's for `[[#`); names on `redirect:` and `sidebar:` header lines |
+| Completion | Note names (titles and aliases) inside `[[`; labels after `#` (the target's, or every note's for `[[#`); names on `redirect:`, `sidebar:` and `copy-sidebar:` header lines |
 | Definition | The note a link or transclusion reaches (through redirects), or the `\label` a label reference names |
 | Hover | A link's target: title, path, aliases, why it needs work, any redirect; or that it is a wanted note |
 | References | Every `[[…]]` in the project which reaches the note under the cursor or, away from a link, the current note |

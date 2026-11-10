@@ -23,7 +23,7 @@ namespace Lsp
 		size_t Character = 0;
 	};
 
-	//! Inside [[: note names (titles and aliases); after a #, labels; on redirect: and sidebar: header lines, note names
+	//! Inside [[: note names (titles and aliases); after a #, labels; on redirect:, sidebar: and copy-sidebar: header lines, note names
 	Json Complete(const Build::Scan &scan, const Document &document, Position position, Encoding encoding);
 	//! The file (and line, for a label) a [[...]] at position points to; null if none
 	Json Definition(const Build::Scan &scan, const Document &document, Position position, Encoding encoding);

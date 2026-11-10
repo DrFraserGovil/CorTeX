@@ -85,3 +85,67 @@ TEST_CASE("Find looks along PATH", "[process]")
 	CHECK(Platform::Find("/bin/sh"));
 	CHECK(std::filesystem::exists(Platform::Executable()));
 }
+
+#if !defined(_WIN32)
+TEST_CASE("A child reads what it is sent, then end-of-file", "[process]")
+{
+	auto folder = Scratch("child");
+	auto log = folder / "out.txt";
+	std::string error;
+	// reads one line, then counts what's left: nothing, as the input is closed after it
+	auto child = Platform::Child::Start({.Arguments = {"sh", "-c", "read line; echo \"got $line\"; cat | wc -c"}, .OutputFile = log}, error);
+	REQUIRE(child);
+	CHECK(child->Running());
+	CHECK(child->Finish("hello\n"));
+	CHECK(child->Wait(std::chrono::seconds(10)).Succeeded());
+	CHECK_FALSE(child->Running());
+	CHECK(JSL::String::trim(JSL::IO::getFile(log)) == "got hello\n0");
+}
+
+TEST_CASE("A child waiting for input ends when the input closes, or is stopped when let go", "[process]")
+{
+	auto folder = Scratch("child-ends");
+	std::string error;
+	// nothing sent: waiting for it ends at once, with the end of its input
+	auto waiting = Platform::Child::Start({.Arguments = {"sh", "-c", "read line || exit 7"}}, error);
+	REQUIRE(waiting);
+	auto outcome = waiting->Wait(std::chrono::seconds(10));
+	CHECK(outcome.State == Platform::Outcome::Status::Exited);
+	CHECK(outcome.ExitCode == 7);
+
+	// destroyed while still waiting: stopped, with what it started
+	auto marker = folder / "marker";
+	{
+		auto held = Platform::Child::Start({.Arguments = {"sh", "-c", "(sleep 2; touch " + marker.string() + ") & read line"}}, error);
+		REQUIRE(held);
+		CHECK(held->Running());
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+	CHECK_FALSE(std::filesystem::exists(marker));
+
+	// writing to one which has already exited fails, rather than killing CorTeX
+	auto gone = Platform::Child::Start({.Arguments = {"true"}}, error);
+	REQUIRE(gone);
+	REQUIRE(gone->Wait(std::chrono::seconds(10)).Succeeded());
+	CHECK_FALSE(gone->Finish("too late\n"));
+}
+
+TEST_CASE("Children started from many threads at once each get their own input", "[process]")
+{
+	auto folder = Scratch("child-threads");
+	std::vector<std::thread> threads;
+	std::vector<int> ok(16, 0);
+	for (int i = 0; i < 16; ++i)
+	{
+		threads.emplace_back([&, i] {
+			std::string error;
+			auto out = folder / (std::to_string(i) + ".txt");
+			auto child = Platform::Child::Start({.Arguments = {"sh", "-c", "read line; echo $line"}, .OutputFile = out}, error);
+			if (!child || !child->Finish(std::to_string(i) + "\n") || !child->Wait(std::chrono::seconds(20)).Succeeded()) return;
+			ok[i] = JSL::String::trim(JSL::IO::getFile(out)) == std::to_string(i);
+		});
+	}
+	for (auto &thread : threads) thread.join();
+	for (int i = 0; i < 16; ++i) CHECK(ok[i] == 1);
+}
+#endif

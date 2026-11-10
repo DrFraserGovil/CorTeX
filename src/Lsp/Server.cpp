@@ -49,6 +49,8 @@ namespace
 		//! Whether the editor shows work-done progress (each build's, as it compiles)
 		bool CanShowProgress = false;
 		std::atomic<int> Builds{0};
+		//! Kept between builds (while holding the project), so each starts with XeLaTeX already waiting with the preamble loaded
+		Tex::WarmPool Warm;
 		std::atomic<bool> Ready{false};
 		std::atomic<int> Requests{0};
 
@@ -119,8 +121,8 @@ namespace
 		{
 			auto build = [&](bool clean) {
 				Lsp::BuildProgress progress(Io, "cortex-build-" + std::to_string(++Builds));
-				Build::Progress told;
-				if (CanShowProgress) told = [&](const std::filesystem::path &note, size_t number, size_t of) { progress.Compiling(note, number, of); };
+				Build::Options options{.Warm = &Warm};
+				if (CanShowProgress) options.Told = [&](const std::filesystem::path &note, size_t number, size_t of) { progress.Compiling(note, number, of); };
 				try
 				{
 					size_t failed = 0;
@@ -130,7 +132,7 @@ namespace
 							failed = report.Count(Report::Kind::Failure);
 							Publish(std::move(scan), report);
 						},
-						told);
+						options);
 					progress.End(failed);
 				}
 				catch (std::exception &e)

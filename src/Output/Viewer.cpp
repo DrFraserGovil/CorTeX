@@ -51,6 +51,17 @@ namespace
 		}
 		return out + "]";
 	}
+
+	// Sidebar groups as [{"heading":...,"items":[...]}]
+	std::string Groups(const std::vector<Network::SidebarGroup> &groups, const Network::Network &network)
+	{
+		std::string out = "[";
+		for (size_t g = 0; g < groups.size(); ++g)
+		{
+			out += (g > 0 ? "," : "") + std::string("{\"heading\":") + Json(groups[g].Heading) + ",\"items\":" + Sidebar(groups[g].Items, network) + "}";
+		}
+		return out + "]";
+	}
 } // namespace
 
 std::string Output::IndexJs(const Network::Network &network, const Build::BuildState &state, const Settings::Config &config, const ViewerOptions &options,
@@ -96,18 +107,12 @@ std::string Output::IndexJs(const Network::Network &network, const Build::BuildS
 		js += "}";
 		if (!loose.empty()) js += ",\"loose\":" + Array(loose);
 		js += ",\"backlinks\":" + Array(node.Backlinks) + ",\"transcludes\":" + Array(node.Transcludes);
-		js += ",\"sidebar\":" + Sidebar(node.Sidebar, network) + "}";
+		js += ",\"sidebar\":" + Groups(node.Sidebar, network) + "}";
 	}
 	js += "\n]);\n";
 
 	/// THE GLOBAL SIDEBAR
-	js += "CortexSidebar([";
-	for (size_t g = 0; g < network.Sidebar.size(); ++g)
-	{
-		auto &group = network.Sidebar[g];
-		js += (g > 0 ? "," : "") + std::string("{\"heading\":") + Json(group.Heading) + ",\"items\":" + Sidebar(group.Items, network) + "}";
-	}
-	js += "]);\n";
+	js += "CortexSidebar(" + Groups(network.Sidebar, network) + ");\n";
 
 	/// THE VIEWER'S SETTINGS: THEY RIDE ALONG HERE, SO CHANGING THEM NEVER RECOMPILES A NOTE
 	// the home note is given as a path, matched against the notes actually built (so ignored or untitled files can't be home)

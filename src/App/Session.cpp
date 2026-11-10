@@ -6,7 +6,7 @@
 
 //! One build (or rebuild), told in full to the build log and briefly to the terminal
 //! @throws runtime_error If the build couldn't happen at all (missing programs, clashing ids, every note failing); the log is written first
-void App::BuildOnce(const std::filesystem::path &root, bool clean, const Built &built, const Build::Progress &progress)
+void App::BuildOnce(const std::filesystem::path &root, bool clean, const Built &built, const Build::Options &options)
 {
 	LOG(INFO) << JSL::Display::Purple(true) << (clean ? "Rebuilding the whole project" : "Building") << JSL::Display::ResetAll();
 	Report::Log report;
@@ -15,8 +15,8 @@ void App::BuildOnce(const std::filesystem::path &root, bool clean, const Built &
 	{
 		auto scan = Build::Scan::Read(root);
 		report.Absorb(std::move(scan.Problems));
-		if (clean) Build::Rebuild(scan, report, progress);
-		else Build::Update(scan, report, progress);
+		if (clean) Build::Rebuild(scan, report, options);
+		else Build::Update(scan, report, options);
 		Report::WriteLog(logFile, report, clean ? "rebuild" : "build");
 		if (auto brief = Report::Brief(report, ".cortex/build.log"); !brief.empty())
 		{

@@ -2,6 +2,7 @@
 #include "Notes/Syntax.h"
 #include <JSL.h>
 #include <algorithm>
+#include <functional>
 #include <set>
 
 namespace
@@ -221,15 +222,56 @@ Network::Network Network::Resolve(const std::vector<Notes::Note> &notes, const s
 		auto slug = Notes::Syntax::Slug(entry.Text);
 		return SidebarItem{entry.Text, entry.Label, slug, network.Resolve(slug, from)};
 	};
+	// a note's sidebar as written in full: each note it copies (as if that note's sidebar, copies and all, were written in its header),
+	// then its own entries. Copied names resolve from the copying note too, being as if written there; chain guards against loops
+	std::function<void(const Node &, const Node &, std::vector<std::string> &, std::vector<std::string> &)> written;
+	written = [&](const Node &from, const Node &copied, std::vector<std::string> &chain, std::vector<std::string> &out) {
+		for (auto &name : copied.Source->Fields.CopySidebar)
+		{
+			auto id = network.Follow(network.Resolve(Notes::Syntax::Slug(name), from.Source->Path)).value_or("");
+			auto target = network.Find(id);
+			if (!target)
+			{
+				report.Add(Report::Kind::Sidebar, "copy-sidebar '" + name + "' matches no note", from.Source->Path);
+				continue;
+			}
+			if (std::find(chain.begin(), chain.end(), id) != chain.end())
+			{
+				report.Add(Report::Kind::Sidebar, "copy-sidebar loops (" + JSL::String::stitch(chain, 0, chain.size(), " -> ") + " -> " + id + "); the repeat is left out", from.Source->Path);
+				continue;
+			}
+			chain.push_back(id);
+			written(from, *target, chain, out);
+			chain.pop_back();
+		}
+		out.push_back("[]"); // each note's own entries begin outside any heading, as they would in its own header
+		out.insert(out.end(), copied.Source->Fields.Sidebar.begin(), copied.Source->Fields.Sidebar.end());
+	};
 	for (auto &node : network.Nodes)
 	{
-		for (auto &written : node.Source->Fields.Sidebar)
+		std::vector<std::string> chain{node.Id}, entries;
+		written(node, node, chain, entries);
+		// grouped by heading, the groups in the order they first appear: an entry joins the group of the last [Heading] before it in
+		// the same note's list (a heading met again rejoins its group), else the unnamed group; a target already shown is left out
+		std::set<std::string> shown;
+		std::string heading;
+		for (auto &text : entries)
 		{
-			node.Sidebar.push_back(item(Project::SidebarEntry::Parse(written), node.Source->Path));
-			if (node.Sidebar.back().Target.empty())
+			auto trimmed = JSL::String::trim(std::string_view(text));
+			if (trimmed.size() >= 2 && trimmed.front() == '[' && trimmed.back() == ']')
 			{
-				report.Add(Report::Kind::Sidebar, "sidebar entry '" + node.Sidebar.back().Text + "' matches no note", node.Source->Path);
+				heading = JSL::String::trim(std::string_view(trimmed).substr(1, trimmed.size() - 2));
+				continue;
 			}
+			auto entry = item(Project::SidebarEntry::Parse(text), node.Source->Path);
+			if (entry.Target.empty())
+			{
+				report.Add(Report::Kind::Sidebar, "sidebar entry '" + entry.Text + "' matches no note", node.Source->Path);
+			}
+			if (!shown.insert(entry.Target.empty() ? "?" + entry.Slug : entry.Target).second) continue;
+			auto group = std::find_if(node.Sidebar.begin(), node.Sidebar.end(), [&](auto &g) { return g.Heading == heading; });
+			if (group == node.Sidebar.end()) group = node.Sidebar.insert(node.Sidebar.end(), {heading, {}});
+			group->Items.push_back(std::move(entry));
 		}
 	}
 	for (auto &group : sidebar)

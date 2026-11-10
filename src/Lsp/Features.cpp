@@ -157,18 +157,20 @@ namespace
 		return items;
 	}
 
-	//! Completion on a header line naming notes: "redirect: <name>", "sidebar: <name>|Label, <name>"
+	//! Completion on a header line naming notes: "redirect: <name>", "sidebar: <name>|Label, [Heading], <name>", "copy-sidebar: <name>, <name>"
 	Json HeaderCompletion(const Build::Scan &scan, const std::string &line, size_t lineNumber, size_t column, Lsp::Encoding encoding)
 	{
 		auto colon = line.find(':');
 		if (colon == std::string::npos || column <= colon) return Json::array();
 		auto key = JSL::String::getLower(JSL::String::trim(std::string_view(line).substr(0, colon)));
 		size_t start = colon + 1, end = line.size();
-		if (key == "sidebar")
+		if (key == "sidebar" || key == "copy-sidebar")
 		{
 			auto comma = line.rfind(',', column - 1);
 			if (comma != std::string::npos && comma > colon) start = comma + 1;
-			auto bar = line.find('|', start);
+			auto first = line.find_first_not_of(" \t", start);
+			if (first != std::string::npos && first < column && line[first] == '[') return Json::array(); // a [Heading], which is free text
+			auto bar = key == "sidebar" ? line.find('|', start) : std::string::npos;
 			if (bar != std::string::npos && bar < column) return Json::array(); // in a label, which is free text
 			end = std::min(line.find(',', column), bar);
 			if (end == std::string::npos) end = line.size();

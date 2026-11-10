@@ -63,8 +63,10 @@ namespace Network
 		std::vector<std::string> Backlinks;
 		//! For a stub: the id its redirect resolves to (empty if nothing)
 		std::string Redirect;
-		//! Its own sidebar entries, resolved from it
-		std::vector<SidebarItem> Sidebar;
+		//! Its own sidebar: the sidebars it copies (copy-sidebar:, each in turn, as if written in its header), then its sidebar:
+		//! entries, grouped by their [Heading]s (entries before any heading in an unnamed first group), all resolved from it; a
+		//! target listed twice shows once
+		std::vector<SidebarGroup> Sidebar;
 	};
 
 	class Network

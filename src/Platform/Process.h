@@ -1,6 +1,7 @@
 #pragma once
 #include <chrono>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -57,6 +58,33 @@ namespace Platform
 
 	//! Runs a program and waits for it
 	Outcome Run(const Command &command);
+
+	//! A program started with a pipe to its input, for CorTeX to write to later (see Tex::WarmPool); command.Timeout is ignored, as the
+	//! time limit starts when it is waited for. It is stopped, with everything it started, if still running when this is destroyed
+	class Child
+	{
+	  public:
+		//! Starts the program; nullptr (and error says why) if it couldn't be. Not available on Windows, where this always fails
+		static std::unique_ptr<Child> Start(const Command &command, std::string &error);
+		~Child();
+		Child(const Child &) = delete;
+		Child &operator=(const Child &) = delete;
+
+		//! Writes text to the program's input, then closes it, so that reading any more gives end-of-file. False if the program has
+		//! already exited
+		bool Finish(std::string_view text);
+		//! Waits for the program to exit, stopping it (and everything it started) if it is still running after timeout (zero: no limit)
+		Outcome Wait(std::chrono::seconds timeout);
+		//! False once the program has exited
+		bool Running();
+
+	  private:
+		Child() = default;
+		long Id = -1;	   //!< the process id
+		int Input = -1;	   //!< the writing end of the pipe to its input; -1 once closed
+		bool Done = false; //!< it has exited, and been waited for
+		int Status = 0;
+	};
 
 	//! Starts a program and leaves it running on its own, detached from CorTeX, so it outlives it (an editor)
 	//! @returns An empty string if it started, else why it didn't

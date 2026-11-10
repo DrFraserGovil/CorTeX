@@ -1,5 +1,5 @@
 // The sidebar is curated, not a list of every note (that's the overview): the project's groups from registry.config, then the open
-// note's own entries from its sidebar: header. Everything arrives already resolved by the engine
+// note's own groups from its copy-sidebar: and sidebar: headers. Everything arrives already resolved by the engine
 let globalSidebar = [];
 function CortexSidebar(groups) {
 	globalSidebar = groups;
@@ -42,9 +42,11 @@ function renderSidebar() {
 		sidebar.appendChild(sidebarGroup(group.heading, group.items));
 		group.items.forEach(item => shown.add(item.target || item.slug));
 	}
-	// the open note's own entries, beneath, without repeating any already in the global list
+	// the open note's own groups (what it copies, then its own entries), beneath, without repeating any already in the global list
 	const entry = currentId ? cortexNotes[currentId] : null;
-	const local = entry ? entry.sidebar.filter(item => !shown.has(item.target || item.slug)) : [];
-	if (local.length) sidebar.appendChild(sidebarGroup("This note", local));
+	for (const group of entry ? entry.sidebar : []) {
+		const local = group.items.filter(item => !shown.has(item.target || item.slug));
+		if (local.length) sidebar.appendChild(sidebarGroup(group.heading || "This note", local));
+	}
 	if (document.getElementById("search").value.trim()) runSearch(); // e.g. after a live refresh brought in new notes
 }

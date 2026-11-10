@@ -87,6 +87,8 @@ Settings::Config Settings::Config::From(const std::filesystem::path &root, const
 	}
 	compile.InsertTitle = settings.Render.InsertTitle;
 	if (settings.Render.CompileJobs < 0) invalid("jobs must be 0 (one per core) or more; using one per core");
+	if (settings.Render.WarmWorkers < 0) invalid("warm must be 0 (off) or more; using 2");
+	compile.Warm = settings.Render.WarmWorkers >= 0 ? static_cast<size_t>(settings.Render.WarmWorkers) : 2;
 	compile.Jobs = settings.Render.CompileJobs > 0 ? static_cast<size_t>(settings.Render.CompileJobs) : std::max(1u, std::thread::hardware_concurrency());
 	compile.Extended = settings.Syntax.ExtendedSyntax;
 	compile.ListType = settings.Syntax.DefaultListType;

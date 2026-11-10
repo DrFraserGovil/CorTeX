@@ -102,13 +102,14 @@ void App::Watch(const std::filesystem::path &root)
 	LOG(INFO) << "Watching the project, and rebuilding whenever it changes. Type q and Enter (or run 'cortex shutdown') to stop, or settings "
 				 "and Enter to change the project's settings";
 	JSL::Async::Watcher::Panopticon eye;
+	Tex::WarmPool warm; // kept between builds, so each starts with XeLaTeX already waiting with the preamble loaded
 
 	// one build, which never takes the watch down with it: problems are reported, and the next change tries again. Settings are read
 	// afresh by every build: another command may have just saved new ones, and its message can arrive before the file event
 	auto build = [&](bool clean) {
 		try
 		{
-			BuildOnce(root, clean);
+			BuildOnce(root, clean, {}, {.Warm = &warm});
 		}
 		catch (std::exception &e)
 		{
@@ -204,7 +205,8 @@ void App::New(const std::filesystem::path &root)
 	// written last: a folder is only a project once both files exist, so an interrupted setup leaves no half-made project
 	JSL::IO::writeString(paths.Registry, "name = " + name + "\n\n"
 										 "% The sidebar shown on every page of the viewer: one entry per line after \"sidebar:\", each a note's title or alias\n"
-										 "% (optionally \"target|Label\"). A line \"[Heading]\" starts a new group. Notes can add their own with a sidebar: header line.\n"
+										 "% (optionally \"target|Label\"). A line \"[Heading]\" starts a new group. Notes can add their own with a sidebar:\n"
+										 "% header line (where an item \"[Heading]\" starts a group), and begin with another note's with copy-sidebar:.\n"
 										 "sidebar:\n");
 	LOG(INFO) << "Created the project " << name;
 }

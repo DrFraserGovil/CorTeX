@@ -58,11 +58,14 @@ TEST_CASE("Header fields", "[header]")
 TEST_CASE("List fields gather every line", "[header]")
 {
 	std::vector<HeaderProblem> problems;
-	auto header = Header::Parse({"alias: a", "title: T", "aliases: b, c", "graph: hidden", "graph: loose", "sidebar: X", "sidebar: Y"}, problems);
+	auto header = Header::Parse({"alias: a", "title: T", "aliases: b, c", "graph: hidden", "graph: loose", "sidebar: X", "sidebar: [Group], Y",
+								 "copy-sidebar: P, Q", "copy-sidebar: R"},
+								problems);
 	CHECK(header.Aliases == std::vector<std::string>{"a", "b", "c"});
 	CHECK(header.GraphHidden);
 	CHECK(header.GraphLoose);
-	CHECK(header.Sidebar == std::vector<std::string>{"X", "Y"});
+	CHECK(header.Sidebar == std::vector<std::string>{"X", "[Group]", "Y"});
+	CHECK(header.CopySidebar == std::vector<std::string>{"P", "Q", "R"});
 }
 
 TEST_CASE("Todo values", "[header]")

@@ -21,7 +21,8 @@
 		                                "#label" for a [[#label]] reference); null if unresolved (a wanted note)
 		loose                           [key, ...]: those left off the graph (only present if there are any)
 		backlinks, transcludes          [id, ...]
-		sidebar                         [{label, slug, target: id or null}, ...]: its own sidebar entries
+		sidebar                         [{heading, items: [{label, slug, target: id or null}, ...]}, ...]: its own sidebar (copied
+		                                sidebars, then its own entries), by heading; "" for entries under none
 		graphHidden: true, todo: text, redirect: id or null, redirectText: text   only present when they apply
 	- CortexSidebar([{heading, items: [{label, slug, target}, ...]}, ...]): the global sidebar
 	- CortexConfig({...}): format (this layout's version, 1), name, home (an id, or empty for the overview), zoom, background, logo (a

@@ -1,6 +1,7 @@
 #pragma once
 #include "Notes/Note.h"
 #include "Settings/Config.h"
+#include "Warm.h"
 #include <chrono>
 #include <filesystem>
 #include <map>
@@ -37,6 +38,8 @@ namespace Tex
 		std::map<std::string, std::string> Labels;
 		//! LaTeX's warnings about labels (multiply defined, or referenced but never defined)
 		std::vector<std::string> LabelWarnings;
+		//! If a warm worker failed to compile the page, so it was compiled afresh: where to see why (the warm run's log)
+		std::string WarmFailure;
 	};
 
 	class Compiler
@@ -45,12 +48,16 @@ namespace Tex
 		//! Writes cortex.cls into classDir (unless it's already there)
 		//! @param buildDir Where each note's .tex, .aux, .log and output go, at its id
 		//! @param fragmentDir Where the notes' fragments are (see FragmentName)
+		//! @param warm Warm workers to compile with (see WarmPool), kept by whoever builds the project repeatedly; prepared here, with
+		//! warmDir as their folder (and root, where they wait until a note is compiled). Without, every pass starts XeLaTeX afresh
 		Compiler(std::filesystem::path buildDir, std::filesystem::path classDir, std::filesystem::path fragmentDir, std::string preamble,
-				 Settings::Compile settings);
+				 Settings::Compile settings, WarmPool *warm = nullptr, const std::filesystem::path &warmDir = {}, const std::filesystem::path &root = {});
 
 		//! Compiles a note's page, running XeLaTeX until its references settle (at most MaxPasses times). TeX runs in the note's own
-		//! folder, so its relative inputs and images resolve as they would for the author
-		Result Compile(const Job &job) const;
+		//! folder, so its relative inputs and images resolve as they would for the author. With warm workers (and warm), each pass is
+		//! given to one, waiting in that folder; if any warm pass fails, the note is compiled again without them, so warm workers can
+		//! never make a note fail which would otherwise compile, and its errors are always reported as they would be
+		Result Compile(const Job &job, bool warm = true) const;
 
 		//! The name (as given to \input, without .tex) of a note's fragment: from its key, so it can never match a path in the project
 		static std::string FragmentName(const Notes::Note &note);
@@ -67,6 +74,17 @@ namespace Tex
 		std::filesystem::path FragmentDir;
 		std::string Preamble;
 		Settings::Compile Settings;
+		WarmPool *Warm = nullptr;
+
+		//! The XeLaTeX command line every pass shares (interaction mode, job name and file aside), and the environment it runs in
+		std::vector<std::string> Arguments() const;
+		std::vector<std::pair<std::string, std::string>> Environment() const;
+		//! The first line of every page: the class, with the settings as its options
+		std::string ClassLine() const;
+
+		struct Page;
+		//! The page compiled by warm workers; nothing if a pass failed (or no worker could be had), and it should be compiled afresh
+		std::optional<Result> CompileWarm(const Job &job, const Page &page) const;
 
 		//! Where one line of a generated .tex file came from, so TeX's line numbers can be mapped back to the files the author wrote
 		struct LineSource

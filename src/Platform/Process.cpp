@@ -189,6 +189,17 @@ Platform::Outcome Platform::Run(const Command &command)
 	return outcome;
 }
 
+// Warm workers aren't available on Windows: starting one always fails, so the pool never warms and every note compiles as before
+std::unique_ptr<Platform::Child> Platform::Child::Start(const Command &, std::string &error)
+{
+	error = "not available on Windows";
+	return nullptr;
+}
+Platform::Child::~Child() {}
+bool Platform::Child::Finish(std::string_view) { return false; }
+Platform::Outcome Platform::Child::Wait(std::chrono::seconds) { return {Outcome::Status::CouldNotStart, -1, "not available on Windows"}; }
+bool Platform::Child::Running() { return false; }
+
 std::string Platform::Launch(const Command &command)
 {
 	std::string error;
@@ -219,12 +230,12 @@ namespace
 		_exit(127);
 	}
 
-	[[noreturn]] void Become(const Platform::Command &command, const std::vector<char *> &argv, char **environment, int report, bool detached)
+	[[noreturn]] void Become(const Platform::Command &command, const std::vector<char *> &argv, char **environment, int report, int piped, bool detached)
 	{
 		auto fail = [&](int error) { Fail(report, error); };
 		if (detached) setsid(); // its own session: closing whatever started cortex doesn't take it with it
 		else setpgid(0, 0);		// its own process group, so a timeout can stop everything it started
-		int input = open("/dev/null", O_RDONLY);
+		int input = piped >= 0 ? piped : open("/dev/null", O_RDONLY);
 		int output = command.OutputFile.empty() ? open("/dev/null", O_WRONLY) : open(command.OutputFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (input < 0 || output < 0) fail(errno);
 		dup2(input, STDIN_FILENO);
@@ -236,8 +247,9 @@ namespace
 		Fail(report, errno);
 	}
 
-	// Forks and execs the command; on success returns the child's pid, else sets error
-	pid_t Start(const Platform::Command &command, bool detached, std::string &error)
+	// Forks and execs the command; on success returns the child's pid, else sets error. With input, the child's input is a pipe, whose
+	// writing end is returned there (else its input is empty)
+	pid_t Start(const Platform::Command &command, bool detached, std::string &error, int *input = nullptr)
 	{
 		if (command.Arguments.empty())
 		{
@@ -269,6 +281,20 @@ namespace
 			return -1;
 		}
 		fcntl(report[1], F_SETFD, FD_CLOEXEC);
+		// the input pipe: both ends close on exec (the child's copy, made by dup2, doesn't), so no other child can inherit either
+		int piped[2] = {-1, -1};
+		if (input)
+		{
+			if (pipe(piped) != 0)
+			{
+				error = std::strerror(errno);
+				close(report[0]);
+				close(report[1]);
+				return -1;
+			}
+			fcntl(piped[0], F_SETFD, FD_CLOEXEC);
+			fcntl(piped[1], F_SETFD, FD_CLOEXEC);
+		}
 
 		// the environment is applied in a child of our own before the exec, so the parent's is never touched
 		pid_t child = fork();
@@ -277,20 +303,31 @@ namespace
 			error = std::strerror(errno);
 			close(report[0]);
 			close(report[1]);
+			if (input)
+			{
+				close(piped[0]);
+				close(piped[1]);
+			}
 			return -1;
 		}
 		if (child == 0)
 		{
 			close(report[0]);
-			Become(command, argv, environment.data(), report[1], detached);
+			Become(command, argv, environment.data(), report[1], piped[0], detached);
 		}
 		close(report[1]);
+		if (input)
+		{
+			close(piped[0]);
+			*input = piped[1];
+		}
 		starting.unlock(); // the child's end of the pipe is closed here, so no other child can inherit it
 		int childError = 0;
 		auto got = read(report[0], &childError, sizeof(childError));
 		close(report[0]);
 		if (got == sizeof(childError))
 		{
+			if (input) close(*input);
 			waitpid(child, nullptr, 0);
 			error = childError == ENOENT ? "'" + command.Arguments[0] + "' could not be found" : std::strerror(childError);
 			return -1;
@@ -299,29 +336,103 @@ namespace
 	}
 } // namespace
 
+namespace
+{
+	// Waits for a started child to exit, stopping it (and its process group) after timeout (zero: no limit); status is its wait status
+	Platform::Outcome WaitFor(pid_t child, std::chrono::seconds timeout, int &status)
+	{
+		using Platform::Outcome;
+		auto deadline = std::chrono::steady_clock::now() + timeout;
+		while (true)
+		{
+			pid_t done = waitpid(child, &status, timeout.count() > 0 ? WNOHANG : 0);
+			if (done == child) break;
+			if (done < 0 && errno != EINTR) return {Outcome::Status::CouldNotStart, -1, std::strerror(errno)};
+			if (timeout.count() > 0 && std::chrono::steady_clock::now() >= deadline)
+			{
+				kill(-child, SIGKILL); // the whole group: anything the program itself started stops too
+				waitpid(child, &status, 0);
+				return {Outcome::Status::TimedOut, -1, ""};
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+		if (WIFEXITED(status)) return {Outcome::Status::Exited, WEXITSTATUS(status), ""};
+		return {Outcome::Status::Exited, 128 + (WIFSIGNALED(status) ? WTERMSIG(status) : 0), ""};
+	}
+} // namespace
+
 Platform::Outcome Platform::Run(const Command &command)
 {
 	std::string error;
 	pid_t child = Start(command, false, error);
 	if (child < 0) return {Outcome::Status::CouldNotStart, -1, error};
-
-	auto deadline = std::chrono::steady_clock::now() + command.Timeout;
 	int status = 0;
-	while (true)
+	return WaitFor(child, command.Timeout, status);
+}
+
+std::unique_ptr<Platform::Child> Platform::Child::Start(const Command &command, std::string &error)
+{
+	// writing to a child which has exited must fail, not kill CorTeX with SIGPIPE
+	static std::once_flag ignoring;
+	std::call_once(ignoring, [] { signal(SIGPIPE, SIG_IGN); });
+	int input = -1;
+	pid_t id = ::Start(command, false, error, &input);
+	if (id < 0) return nullptr;
+	std::unique_ptr<Child> child(new Child());
+	child->Id = id;
+	child->Input = input;
+	return child;
+}
+
+Platform::Child::~Child()
+{
+	if (Input >= 0) close(Input);
+	if (!Done)
 	{
-		pid_t done = waitpid(child, &status, command.Timeout.count() > 0 ? WNOHANG : 0);
-		if (done == child) break;
-		if (done < 0 && errno != EINTR) return {Outcome::Status::CouldNotStart, -1, std::strerror(errno)};
-		if (command.Timeout.count() > 0 && std::chrono::steady_clock::now() >= deadline)
-		{
-			kill(-child, SIGKILL); // the whole group: anything the program itself started stops too
-			waitpid(child, &status, 0);
-			return {Outcome::Status::TimedOut, -1, ""};
-		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		kill(-static_cast<pid_t>(Id), SIGKILL);
+		waitpid(static_cast<pid_t>(Id), &Status, 0);
 	}
-	if (WIFEXITED(status)) return {Outcome::Status::Exited, WEXITSTATUS(status), ""};
-	return {Outcome::Status::Exited, 128 + (WIFSIGNALED(status) ? WTERMSIG(status) : 0), ""};
+}
+
+bool Platform::Child::Finish(std::string_view text)
+{
+	if (Input < 0) return false;
+	bool written = true;
+	while (!text.empty())
+	{
+		auto sent = write(Input, text.data(), text.size());
+		if (sent < 0 && errno == EINTR) continue;
+		if (sent <= 0)
+		{
+			written = false;
+			break;
+		}
+		text.remove_prefix(static_cast<size_t>(sent));
+	}
+	close(Input);
+	Input = -1;
+	return written;
+}
+
+Platform::Outcome Platform::Child::Wait(std::chrono::seconds timeout)
+{
+	if (Input >= 0)
+	{
+		close(Input); // nothing more is coming: a program waiting for input gets end-of-file, rather than waiting forever
+		Input = -1;
+	}
+	if (Done) return {Outcome::Status::Exited, WIFEXITED(Status) ? WEXITSTATUS(Status) : 128, ""};
+	auto outcome = WaitFor(static_cast<pid_t>(Id), timeout, Status);
+	Done = true;
+	return outcome;
+}
+
+bool Platform::Child::Running()
+{
+	if (Done) return false;
+	pid_t done = waitpid(static_cast<pid_t>(Id), &Status, WNOHANG);
+	if (done == static_cast<pid_t>(Id)) Done = true;
+	return !Done;
 }
 
 std::string Platform::Launch(const Command &command)
